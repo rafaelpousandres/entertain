@@ -1,0 +1,14 @@
+# Supabase CLI configuration. Tracked in source control so the migration
+# workflow is reproducible from this repository (per CLAUDE.md).
+#
+# The remote project is linked separately with `supabase link --project-ref
+# <ref>` — the project ref is treated as a credential and is not stored here.
+# A local stack started with `supabase start` is for development convenience
+# only; production runs against the linked EU project.
+
+project_id = "entertain"
+
+[db]
+# Postgres major version on the remote Supabase project (EU). Keep aligned
+# with whatever the dashboard reports for the linked project.
+major_version = 15

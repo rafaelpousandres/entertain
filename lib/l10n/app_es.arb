@@ -2,5 +2,9 @@
   "@@locale": "es",
   "appTitle": "Entertain",
   "placeholderTitle": "Entertain",
-  "placeholderBody": "Los cimientos están listos. Pronto llegarán las pantallas reales."
+  "placeholderBody": "Los cimientos están listos. Pronto llegarán las pantallas reales.",
+  "backendNotConfigured": "Backend no configurado",
+  "backendConnecting": "Conectando con el backend…",
+  "backendConnected": "Conectado al backend",
+  "backendConnectionFailed": "Ha fallado la conexión con el backend"
 }

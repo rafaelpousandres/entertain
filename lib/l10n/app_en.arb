@@ -11,5 +11,21 @@
   "placeholderBody": "Foundations in place. Real screens coming soon.",
   "@placeholderBody": {
     "description": "Body copy on the placeholder screen confirming the project skeleton is working."
+  },
+  "backendNotConfigured": "Backend not configured",
+  "@backendNotConfigured": {
+    "description": "Shown on the placeholder screen when no Supabase URL / anon key was provided at build time."
+  },
+  "backendConnecting": "Connecting to backend…",
+  "@backendConnecting": {
+    "description": "Status while the app is initialising the Supabase connection and signing in anonymously."
+  },
+  "backendConnected": "Connected to backend",
+  "@backendConnected": {
+    "description": "Status once the Supabase anonymous session has been established."
+  },
+  "backendConnectionFailed": "Backend connection failed",
+  "@backendConnectionFailed": {
+    "description": "Status shown when the Supabase connection or anonymous sign-in failed."
   }
 }
