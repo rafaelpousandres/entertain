@@ -11,4 +11,4 @@ project_id = "entertain"
 [db]
 # Postgres major version on the remote Supabase project (EU). Keep aligned
 # with whatever the dashboard reports for the linked project.
-major_version = 15
+major_version = 17
