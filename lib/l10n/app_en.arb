@@ -1,0 +1,15 @@
+{
+  "@@locale": "en",
+  "appTitle": "Entertain",
+  "@appTitle": {
+    "description": "Application name shown in the device task switcher."
+  },
+  "placeholderTitle": "Entertain",
+  "@placeholderTitle": {
+    "description": "Title shown on the placeholder screen. Brand name."
+  },
+  "placeholderBody": "Foundations in place. Real screens coming soon.",
+  "@placeholderBody": {
+    "description": "Body copy on the placeholder screen confirming the project skeleton is working."
+  }
+}

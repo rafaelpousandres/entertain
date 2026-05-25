@@ -1,11 +1,36 @@
 # Miscellaneous
 *.class
-*.lock
 *.log
 *.pyc
 *.swp
 .buildlog/
 .history
+
+# Environment files / secrets — never commit anything that could carry an
+# API key, password, or credential. Real values live outside source control;
+# the only committed env file is the example template below.
+.env
+.env.*
+*.env
+env/*.json
+!env/*.example.json
+secrets/
+*.pem
+*.p12
+*.keystore
+google-services.json
+GoogleService-Info.plist
+service-account*.json
+
+# IDE / editor scratch
+.idea/
+.vscode/
+*.iml
+
+# Generated localizations — produced by `flutter gen-l10n` (run via
+# `flutter pub get`). ARB sources in lib/l10n/*.arb are the source of truth.
+/lib/l10n/app_localizations.dart
+/lib/l10n/app_localizations_*.dart
 
 
 
