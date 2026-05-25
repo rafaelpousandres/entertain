@@ -2,5 +2,9 @@
   "@@locale": "ca",
   "appTitle": "Entertain",
   "placeholderTitle": "Entertain",
-  "placeholderBody": "Els fonaments estan a punt. Aviat arribaran les pantalles reals."
+  "placeholderBody": "Els fonaments estan a punt. Aviat arribaran les pantalles reals.",
+  "backendNotConfigured": "Backend no configurat",
+  "backendConnecting": "Connectant amb el backend…",
+  "backendConnected": "Connectat al backend",
+  "backendConnectionFailed": "Ha fallat la connexió amb el backend"
 }

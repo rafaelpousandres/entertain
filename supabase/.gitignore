@@ -1,0 +1,7 @@
+# Supabase CLI local state. Anything written by `supabase start` /
+# `supabase link` that could carry a project ref or local secret stays out
+# of the repository.
+.branches
+.temp
+.env
+.env.*
