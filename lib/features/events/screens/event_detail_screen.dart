@@ -7,6 +7,7 @@ import '../../../theme/app_colors.dart';
 import '../../../theme/app_typography.dart';
 import '../../../ui/icon_circle.dart';
 import '../../../ui/section_header.dart';
+import '../../catalog/data/dish_category.dart';
 import '../data/event.dart';
 import '../data/event_dish.dart';
 import '../data/events_providers.dart';
@@ -197,8 +198,8 @@ class _MenuByCategoryState extends State<_MenuByCategory> {
         for (final category in dishCategoryOrder)
           if (byCategory[category] != null) ...[
             SectionHeader(
-              icon: _iconFor(category),
-              label: _labelFor(l10n, category),
+              icon: dishCategoryIcon(category),
+              label: dishCategoryLabel(l10n, category),
               count: byCategory[category]!.length,
               expanded: _expanded[category]!,
               onToggle: () =>
@@ -219,25 +220,6 @@ class _MenuByCategoryState extends State<_MenuByCategory> {
       ],
     );
   }
-
-  IconData _iconFor(DishCategory category) => switch (category) {
-    DishCategory.aperitif => Icons.cookie_outlined,
-    DishCategory.starter => Icons.eco_outlined,
-    DishCategory.main => Icons.restaurant_outlined,
-    DishCategory.dessert => Icons.cake_outlined,
-    DishCategory.drink => Icons.local_bar_outlined,
-    DishCategory.other => Icons.restaurant_menu_outlined,
-  };
-
-  String _labelFor(AppLocalizations l10n, DishCategory category) =>
-      switch (category) {
-        DishCategory.aperitif => l10n.dishCategoryAperitif,
-        DishCategory.starter => l10n.dishCategoryStarter,
-        DishCategory.main => l10n.dishCategoryMain,
-        DishCategory.dessert => l10n.dishCategoryDessert,
-        DishCategory.drink => l10n.dishCategoryDrink,
-        DishCategory.other => l10n.dishCategoryOther,
-      };
 }
 
 class _DishRow extends StatelessWidget {

@@ -4,31 +4,10 @@
 /// the next group populates it.
 library;
 
-enum DishCategory { aperitif, starter, main, dessert, drink, other }
+import '../../catalog/data/dish_category.dart';
 
-extension DishCategoryWire on DishCategory {
-  static DishCategory parse(String value) => switch (value) {
-    'aperitif' => DishCategory.aperitif,
-    'starter' => DishCategory.starter,
-    'main' => DishCategory.main,
-    'dessert' => DishCategory.dessert,
-    'drink' => DishCategory.drink,
-    _ => DishCategory.other,
-  };
-}
-
-/// Canonical order used to render section headers. Mirrors a typical
-/// menu flow rather than the enum's declaration order — both happen to
-/// agree today, but the explicit list keeps the UI from drifting if the
-/// enum is reordered for storage reasons later.
-const List<DishCategory> dishCategoryOrder = [
-  DishCategory.aperitif,
-  DishCategory.starter,
-  DishCategory.main,
-  DishCategory.dessert,
-  DishCategory.drink,
-  DishCategory.other,
-];
+export '../../catalog/data/dish_category.dart'
+    show DishCategory, DishCategoryWire, dishCategoryOrder;
 
 class EventDish {
   const EventDish({

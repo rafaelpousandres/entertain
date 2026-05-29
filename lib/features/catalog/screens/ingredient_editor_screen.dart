@@ -1,0 +1,474 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../../l10n/app_localizations.dart';
+import '../../../theme/app_colors.dart';
+import '../../../theme/app_typography.dart';
+import '../../../ui/app_form_field.dart';
+import '../../../ui/primary_button.dart';
+import '../../../ui/single_choice_sheet.dart';
+import '../../events/data/events_providers.dart' show currentGroupIdProvider;
+import '../data/catalog_providers.dart';
+import '../data/ingredient.dart';
+import '../data/reference_data.dart';
+import '../widgets/unit_ordering.dart';
+
+/// Create / edit form for a catalog ingredient (Specification 004 screen 4).
+///
+/// One widget for both modes. The reference catalogs (units, supplier
+/// categories) and — in edit mode — the ingredient itself are resolved
+/// before the form renders, so the pickers and the prefilled values are
+/// available synchronously inside the form state.
+class IngredientEditorScreen extends ConsumerWidget {
+  const IngredientEditorScreen({super.key, this.ingredientId});
+
+  final String? ingredientId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
+    final localeCode = Localizations.localeOf(context).languageCode;
+    final unitsAsync = ref.watch(unitsProvider(localeCode));
+    final categoriesAsync = ref.watch(supplierCategoriesProvider(localeCode));
+
+    final ingredientAsync = ingredientId == null
+        ? const AsyncValue<Ingredient?>.data(null)
+        : ref.watch(ingredientByIdProvider(ingredientId!)).whenData((i) => i);
+
+    final combined = [unitsAsync, categoriesAsync, ingredientAsync];
+    if (combined.any((a) => a.isLoading)) {
+      return const _Scaffold(child: _Loading());
+    }
+    if (combined.any((a) => a.hasError)) {
+      return _Scaffold(
+        child: _Error(
+          message: l10n.ingredientsLoadError,
+          onRetry: () {
+            ref.invalidate(unitsProvider(localeCode));
+            ref.invalidate(supplierCategoriesProvider(localeCode));
+            if (ingredientId != null) {
+              ref.invalidate(ingredientByIdProvider(ingredientId!));
+            }
+          },
+        ),
+      );
+    }
+
+    return _IngredientForm(
+      ingredientId: ingredientId,
+      initial: ingredientAsync.value,
+      units: unitsAsync.value!,
+      categories: categoriesAsync.value!,
+    );
+  }
+}
+
+class _IngredientForm extends ConsumerStatefulWidget {
+  const _IngredientForm({
+    this.ingredientId,
+    this.initial,
+    required this.units,
+    required this.categories,
+  });
+
+  final String? ingredientId;
+  final Ingredient? initial;
+  final List<Unit> units;
+  final List<SupplierCategory> categories;
+
+  bool get isEditing => ingredientId != null;
+
+  @override
+  ConsumerState<_IngredientForm> createState() => _IngredientFormState();
+}
+
+class _IngredientFormState extends ConsumerState<_IngredientForm> {
+  late final TextEditingController _nameController;
+  late final TextEditingController _prepController;
+  late IngredientDraft _draft;
+
+  bool _saving = false;
+  bool _deleting = false;
+  bool _submitted = false;
+  String? _nameError;
+  String? _unitError;
+
+  bool get _busy => _saving || _deleting;
+
+  @override
+  void initState() {
+    super.initState();
+    _draft = widget.initial != null
+        ? IngredientDraft.fromIngredient(widget.initial!)
+        : IngredientDraft.empty();
+    _nameController = TextEditingController(text: _draft.name);
+    _prepController = TextEditingController(text: _draft.prepDescription ?? '');
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _prepController.dispose();
+    super.dispose();
+  }
+
+  Unit? get _selectedUnit {
+    final id = _draft.defaultUnitId;
+    if (id == null) return null;
+    for (final u in widget.units) {
+      if (u.id == id) return u;
+    }
+    return null;
+  }
+
+  SupplierCategory? get _selectedCategory {
+    final id = _draft.defaultSupplierCategoryId;
+    if (id == null) return null;
+    for (final c in widget.categories) {
+      if (c.id == id) return c;
+    }
+    return null;
+  }
+
+  void _pickUnit() {
+    final l10n = AppLocalizations.of(context);
+    showSingleChoiceSheet<String>(
+      context: context,
+      title: l10n.unitPickerTitle,
+      selectedValue: _draft.defaultUnitId,
+      options: [
+        for (final u in orderUnitsForDisplay(widget.units))
+          SingleChoiceOption(value: u.id, label: u.name),
+      ],
+      onSelected: (id) => setState(() {
+        _draft.defaultUnitId = id;
+        _unitError = null;
+      }),
+    );
+  }
+
+  void _pickCategory() {
+    final l10n = AppLocalizations.of(context);
+    showSingleChoiceSheet<String>(
+      context: context,
+      title: l10n.supplierPickerTitle,
+      selectedValue: _draft.defaultSupplierCategoryId,
+      clearLabel: l10n.supplierNoneLabel,
+      onCleared: () =>
+          setState(() => _draft.defaultSupplierCategoryId = null),
+      options: [
+        for (final c in widget.categories)
+          SingleChoiceOption(value: c.id, label: c.name),
+      ],
+      onSelected: (id) =>
+          setState(() => _draft.defaultSupplierCategoryId = id),
+    );
+  }
+
+  Future<void> _save() async {
+    final l10n = AppLocalizations.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+
+    setState(() => _submitted = true);
+    _draft.name = _nameController.text;
+    _draft.prepDescription = _prepController.text;
+
+    final nameError = _draft.name.trim().isEmpty
+        ? l10n.ingredientNameRequired
+        : null;
+    final unitError = _draft.defaultUnitId == null
+        ? l10n.ingredientUnitRequired
+        : null;
+    if (nameError != null || unitError != null) {
+      setState(() {
+        _nameError = nameError;
+        _unitError = unitError;
+      });
+      return;
+    }
+    setState(() {
+      _nameError = null;
+      _unitError = null;
+      _saving = true;
+    });
+
+    final repo = ref.read(catalogRepositoryProvider);
+    try {
+      if (widget.isEditing) {
+        await repo.updateIngredient(widget.ingredientId!, _draft);
+        ref.invalidate(ingredientByIdProvider(widget.ingredientId!));
+      } else {
+        final groupId = await ref.read(currentGroupIdProvider.future);
+        await repo.createIngredient(_draft, groupId: groupId);
+      }
+      ref.invalidate(ingredientsListProvider);
+      if (!mounted) return;
+      context.pop();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      messenger.showSnackBar(SnackBar(content: Text(l10n.ingredientSaveError)));
+    }
+  }
+
+  Future<void> _confirmDelete() async {
+    final l10n = AppLocalizations.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        title: Text(
+          l10n.deleteIngredientConfirmTitle,
+          style: AppTypography.sectionTitle,
+        ),
+        content: Text(
+          l10n.deleteIngredientConfirmBody,
+          style: AppTypography.body.copyWith(color: AppColors.textSecondary),
+        ),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(
+              l10n.cancelAction,
+              style: AppTypography.button.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(
+              l10n.deleteIngredientConfirmButton,
+              style: AppTypography.button.copyWith(color: AppColors.danger),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await _delete();
+  }
+
+  Future<void> _delete() async {
+    final l10n = AppLocalizations.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _deleting = true);
+    try {
+      await ref
+          .read(catalogRepositoryProvider)
+          .deleteIngredient(widget.ingredientId!);
+      ref.invalidate(ingredientsListProvider);
+      ref.invalidate(ingredientByIdProvider(widget.ingredientId!));
+      if (!mounted) return;
+      context.pop();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _deleting = false);
+      messenger.showSnackBar(SnackBar(content: Text(l10n.ingredientSaveError)));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
+    return Scaffold(
+      backgroundColor: AppColors.bg,
+      appBar: AppBar(
+        title: Text(
+          widget.isEditing
+              ? l10n.ingredientEditScreenTitle
+              : l10n.ingredientNewScreenTitle,
+          style: AppTypography.sectionTitle,
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          tooltip: l10n.backAction,
+          onPressed: _busy ? null : () => context.pop(),
+        ),
+        actions: [
+          if (widget.isEditing)
+            PopupMenuButton<_OverflowAction>(
+              icon: const Icon(Icons.more_vert),
+              tooltip: l10n.moreActionsLabel,
+              color: AppColors.surface,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              onSelected: (action) {
+                switch (action) {
+                  case _OverflowAction.delete:
+                    _confirmDelete();
+                }
+              },
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                  value: _OverflowAction.delete,
+                  child: Text(
+                    l10n.deleteAction,
+                    style: AppTypography.body.copyWith(color: AppColors.danger),
+                  ),
+                ),
+              ],
+            ),
+        ],
+      ),
+      body: SafeArea(
+        top: false,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+          children: [
+            FieldLabel(
+              label: l10n.ingredientNameLabel,
+              child: AppTextField(
+                controller: _nameController,
+                hintText: l10n.ingredientNameHint,
+                onChanged: (value) {
+                  if (!_submitted) return;
+                  setState(() {
+                    _nameError = value.trim().isEmpty
+                        ? l10n.ingredientNameRequired
+                        : null;
+                  });
+                },
+              ),
+            ),
+            if (_nameError != null) _FieldError(message: _nameError!),
+            const SizedBox(height: 16),
+            FieldLabel(
+              label: l10n.ingredientUnitLabel,
+              child: FormFieldTile(
+                onTap: _pickUnit,
+                placeholder: l10n.ingredientUnitHint,
+                value: _selectedUnit?.name,
+              ),
+            ),
+            if (_unitError != null) _FieldError(message: _unitError!),
+            const SizedBox(height: 16),
+            FieldLabel(
+              label: l10n.ingredientSupplierLabel,
+              child: FormFieldTile(
+                onTap: _pickCategory,
+                placeholder: l10n.ingredientSupplierHint,
+                value: _selectedCategory?.name,
+                onClear: _draft.defaultSupplierCategoryId == null
+                    ? null
+                    : () => setState(
+                        () => _draft.defaultSupplierCategoryId = null,
+                      ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            FieldLabel(
+              label: l10n.ingredientPrepLabel,
+              child: AppTextField(
+                controller: _prepController,
+                hintText: l10n.ingredientPrepHint,
+                maxLines: 4,
+                textInputAction: TextInputAction.newline,
+              ),
+            ),
+          ],
+        ),
+      ),
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+          decoration: const BoxDecoration(
+            color: AppColors.bg,
+            border: Border(top: BorderSide(color: AppColors.border, width: 1)),
+          ),
+          child: PrimaryButton(
+            label: l10n.saveAction,
+            icon: Icons.check,
+            onPressed: _busy ? null : _save,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FieldError extends StatelessWidget {
+  const _FieldError({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Text(
+        message,
+        style: AppTypography.caption.copyWith(color: AppColors.danger),
+      ),
+    );
+  }
+}
+
+class _Scaffold extends StatelessWidget {
+  const _Scaffold({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.bg,
+      appBar: AppBar(),
+      body: SafeArea(top: false, child: child),
+    );
+  }
+}
+
+class _Loading extends StatelessWidget {
+  const _Loading();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: CircularProgressIndicator(color: AppColors.accent),
+    );
+  }
+}
+
+class _Error extends StatelessWidget {
+  const _Error({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              message,
+              style: AppTypography.body.copyWith(color: AppColors.textSecondary),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            TextButton(
+              onPressed: onRetry,
+              child: Text(
+                l10n.retryAction,
+                style: AppTypography.button.copyWith(color: AppColors.accent),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+enum _OverflowAction { delete }
