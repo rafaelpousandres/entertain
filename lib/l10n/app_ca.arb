@@ -1,10 +1,71 @@
 {
   "@@locale": "ca",
   "appTitle": "Entertain",
-  "placeholderTitle": "Entertain",
-  "placeholderBody": "Els fonaments estan a punt. Aviat arribaran les pantalles reals.",
-  "backendNotConfigured": "Backend no configurat",
-  "backendConnecting": "Connectant amb el backend…",
-  "backendConnected": "Connectat al backend",
-  "backendConnectionFailed": "Ha fallat la connexió amb el backend"
+
+  "startupErrorTitle": "No s'ha pogut connectar",
+  "startupErrorBody": "No hem pogut establir la connexió amb el servidor. Comprova la connexió i torna-ho a provar.",
+  "retryAction": "Reintenta",
+
+  "eventsScreenTitle": "Esdeveniments",
+  "eventsEmptyTitle": "Encara no tens cap esdeveniment",
+  "eventsEmptyBody": "Crea el primer per començar a organitzar el menú.",
+  "newEventAction": "Nou esdeveniment",
+  "eventsLoadError": "No s'han pogut carregar els esdeveniments.",
+
+  "eventNewScreenTitle": "Nou esdeveniment",
+  "eventEditScreenTitle": "Editar esdeveniment",
+  "saveAction": "Desa",
+  "deleteAction": "Esborra",
+
+  "fieldTitleLabel": "Títol",
+  "fieldTitleHint": "Anomena l'esdeveniment",
+  "fieldTitleRequired": "Cal un títol per desar.",
+  "fieldTypeLabel": "Tipus",
+  "fieldFormatLabel": "Format",
+  "fieldDateLabel": "Data",
+  "fieldDateHint": "Tria una data",
+  "fieldTimeLabel": "Hora",
+  "fieldTimeHint": "Tria una hora",
+  "fieldGuestCountLabel": "Convidats",
+  "fieldLocationLabel": "Lloc",
+  "fieldLocationHint": "On serà",
+  "fieldNotesLabel": "Notes",
+  "fieldNotesHint": "Detalls, comentaris…",
+
+  "eventTypeLunch": "Dinar",
+  "eventTypeDinner": "Sopar",
+  "eventTypeOther": "Altre",
+  "eventFormatSeated": "Asseguts",
+  "eventFormatBuffet": "Bufet",
+  "eventFormatOther": "Altre",
+  "eventStatusPlanning": "En planificació",
+  "eventStatusConfirmed": "Confirmat",
+  "eventStatusDone": "Fet",
+
+  "guestsCount": "{count, plural, =1{1 convidat} other{{count} convidats}}",
+  "@guestsCount": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "metadataSeparator": " · ",
+
+  "deleteEventConfirmTitle": "Esborrar l'esdeveniment?",
+  "deleteEventConfirmBody": "Aquest esdeveniment desapareixerà de la teva llista.",
+  "deleteEventConfirmButton": "Esborra l'esdeveniment",
+  "cancelAction": "Cancel·la",
+
+  "menuSectionTitle": "Menú",
+  "menuEmptyBody": "Aquest esdeveniment encara no té cap plat.",
+  "editAction": "Editar",
+  "backAction": "Enrere",
+  "moreActionsLabel": "Més accions",
+  "noDateLabel": "Sense data",
+
+  "dishCategoryAperitif": "Aperitius",
+  "dishCategoryStarter": "Entrants",
+  "dishCategoryMain": "Plats principals",
+  "dishCategoryDessert": "Postres",
+  "dishCategoryDrink": "Begudes",
+  "dishCategoryOther": "Altres",
+
+  "saveError": "No s'ha pogut desar l'esdeveniment."
 }

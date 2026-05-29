@@ -1,10 +1,71 @@
 {
   "@@locale": "es",
   "appTitle": "Entertain",
-  "placeholderTitle": "Entertain",
-  "placeholderBody": "Los cimientos están listos. Pronto llegarán las pantallas reales.",
-  "backendNotConfigured": "Backend no configurado",
-  "backendConnecting": "Conectando con el backend…",
-  "backendConnected": "Conectado al backend",
-  "backendConnectionFailed": "Ha fallado la conexión con el backend"
+
+  "startupErrorTitle": "No se ha podido conectar",
+  "startupErrorBody": "No hemos podido establecer la conexión con el servidor. Comprueba la conexión e inténtalo de nuevo.",
+  "retryAction": "Reintentar",
+
+  "eventsScreenTitle": "Eventos",
+  "eventsEmptyTitle": "Aún no tienes ningún evento",
+  "eventsEmptyBody": "Crea el primero para empezar a organizar el menú.",
+  "newEventAction": "Nuevo evento",
+  "eventsLoadError": "No se han podido cargar los eventos.",
+
+  "eventNewScreenTitle": "Nuevo evento",
+  "eventEditScreenTitle": "Editar evento",
+  "saveAction": "Guardar",
+  "deleteAction": "Eliminar",
+
+  "fieldTitleLabel": "Título",
+  "fieldTitleHint": "Nombra el evento",
+  "fieldTitleRequired": "Hace falta un título para guardar.",
+  "fieldTypeLabel": "Tipo",
+  "fieldFormatLabel": "Formato",
+  "fieldDateLabel": "Fecha",
+  "fieldDateHint": "Elige una fecha",
+  "fieldTimeLabel": "Hora",
+  "fieldTimeHint": "Elige una hora",
+  "fieldGuestCountLabel": "Invitados",
+  "fieldLocationLabel": "Lugar",
+  "fieldLocationHint": "Dónde será",
+  "fieldNotesLabel": "Notas",
+  "fieldNotesHint": "Detalles, comentarios…",
+
+  "eventTypeLunch": "Comida",
+  "eventTypeDinner": "Cena",
+  "eventTypeOther": "Otro",
+  "eventFormatSeated": "Sentados",
+  "eventFormatBuffet": "Bufé",
+  "eventFormatOther": "Otro",
+  "eventStatusPlanning": "En planificación",
+  "eventStatusConfirmed": "Confirmado",
+  "eventStatusDone": "Hecho",
+
+  "guestsCount": "{count, plural, =1{1 invitado} other{{count} invitados}}",
+  "@guestsCount": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "metadataSeparator": " · ",
+
+  "deleteEventConfirmTitle": "¿Eliminar el evento?",
+  "deleteEventConfirmBody": "Este evento desaparecerá de tu lista.",
+  "deleteEventConfirmButton": "Eliminar el evento",
+  "cancelAction": "Cancelar",
+
+  "menuSectionTitle": "Menú",
+  "menuEmptyBody": "Este evento aún no tiene ningún plato.",
+  "editAction": "Editar",
+  "backAction": "Atrás",
+  "moreActionsLabel": "Más acciones",
+  "noDateLabel": "Sin fecha",
+
+  "dishCategoryAperitif": "Aperitivos",
+  "dishCategoryStarter": "Entrantes",
+  "dishCategoryMain": "Platos principales",
+  "dishCategoryDessert": "Postres",
+  "dishCategoryDrink": "Bebidas",
+  "dishCategoryOther": "Otros",
+
+  "saveError": "No se ha podido guardar el evento."
 }

@@ -1,31 +1,71 @@
 {
   "@@locale": "en",
   "appTitle": "Entertain",
-  "@appTitle": {
-    "description": "Application name shown in the device task switcher."
+
+  "startupErrorTitle": "Couldn't connect",
+  "startupErrorBody": "We couldn't reach the server. Check your connection and try again.",
+  "retryAction": "Retry",
+
+  "eventsScreenTitle": "Events",
+  "eventsEmptyTitle": "No events yet",
+  "eventsEmptyBody": "Create your first one to start planning the menu.",
+  "newEventAction": "New event",
+  "eventsLoadError": "Couldn't load events.",
+
+  "eventNewScreenTitle": "New event",
+  "eventEditScreenTitle": "Edit event",
+  "saveAction": "Save",
+  "deleteAction": "Delete",
+
+  "fieldTitleLabel": "Title",
+  "fieldTitleHint": "Name the event",
+  "fieldTitleRequired": "A title is required to save.",
+  "fieldTypeLabel": "Type",
+  "fieldFormatLabel": "Format",
+  "fieldDateLabel": "Date",
+  "fieldDateHint": "Pick a date",
+  "fieldTimeLabel": "Time",
+  "fieldTimeHint": "Pick a time",
+  "fieldGuestCountLabel": "Guests",
+  "fieldLocationLabel": "Location",
+  "fieldLocationHint": "Where it'll happen",
+  "fieldNotesLabel": "Notes",
+  "fieldNotesHint": "Details, comments…",
+
+  "eventTypeLunch": "Lunch",
+  "eventTypeDinner": "Dinner",
+  "eventTypeOther": "Other",
+  "eventFormatSeated": "Seated",
+  "eventFormatBuffet": "Buffet",
+  "eventFormatOther": "Other",
+  "eventStatusPlanning": "Planning",
+  "eventStatusConfirmed": "Confirmed",
+  "eventStatusDone": "Done",
+
+  "guestsCount": "{count, plural, =1{1 guest} other{{count} guests}}",
+  "@guestsCount": {
+    "placeholders": { "count": { "type": "int" } }
   },
-  "placeholderTitle": "Entertain",
-  "@placeholderTitle": {
-    "description": "Title shown on the placeholder screen. Brand name."
-  },
-  "placeholderBody": "Foundations in place. Real screens coming soon.",
-  "@placeholderBody": {
-    "description": "Body copy on the placeholder screen confirming the project skeleton is working."
-  },
-  "backendNotConfigured": "Backend not configured",
-  "@backendNotConfigured": {
-    "description": "Shown on the placeholder screen when no Supabase URL / anon key was provided at build time."
-  },
-  "backendConnecting": "Connecting to backend…",
-  "@backendConnecting": {
-    "description": "Status while the app is initialising the Supabase connection and signing in anonymously."
-  },
-  "backendConnected": "Connected to backend",
-  "@backendConnected": {
-    "description": "Status once the Supabase anonymous session has been established."
-  },
-  "backendConnectionFailed": "Backend connection failed",
-  "@backendConnectionFailed": {
-    "description": "Status shown when the Supabase connection or anonymous sign-in failed."
-  }
+  "metadataSeparator": " · ",
+
+  "deleteEventConfirmTitle": "Delete this event?",
+  "deleteEventConfirmBody": "This event will disappear from your list.",
+  "deleteEventConfirmButton": "Delete event",
+  "cancelAction": "Cancel",
+
+  "menuSectionTitle": "Menu",
+  "menuEmptyBody": "This event has no dishes yet.",
+  "editAction": "Edit",
+  "backAction": "Back",
+  "moreActionsLabel": "More actions",
+  "noDateLabel": "No date",
+
+  "dishCategoryAperitif": "Aperitifs",
+  "dishCategoryStarter": "Starters",
+  "dishCategoryMain": "Mains",
+  "dishCategoryDessert": "Desserts",
+  "dishCategoryDrink": "Drinks",
+  "dishCategoryOther": "Other",
+
+  "saveError": "Couldn't save the event."
 }

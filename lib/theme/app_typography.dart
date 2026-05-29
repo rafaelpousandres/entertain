@@ -57,20 +57,20 @@ class AppTypography {
   /// Maps the design system scale onto a Material 3 [TextTheme] so default
   /// widgets pick up the right family and size without per-widget overrides.
   static TextTheme get textTheme => const TextTheme(
-        displayLarge: display,
-        displayMedium: display,
-        displaySmall: display,
-        headlineLarge: sectionTitle,
-        headlineMedium: sectionTitle,
-        headlineSmall: sectionTitle,
-        titleLarge: sectionTitle,
-        titleMedium: label,
-        titleSmall: label,
-        bodyLarge: body,
-        bodyMedium: body,
-        bodySmall: caption,
-        labelLarge: button,
-        labelMedium: label,
-        labelSmall: caption,
-      );
+    displayLarge: display,
+    displayMedium: display,
+    displaySmall: display,
+    headlineLarge: sectionTitle,
+    headlineMedium: sectionTitle,
+    headlineSmall: sectionTitle,
+    titleLarge: sectionTitle,
+    titleMedium: label,
+    titleSmall: label,
+    bodyLarge: body,
+    bodyMedium: body,
+    bodySmall: caption,
+    labelLarge: button,
+    labelMedium: label,
+    labelSmall: caption,
+  );
 }
