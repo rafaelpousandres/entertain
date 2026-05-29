@@ -3,32 +3,25 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../config/env.dart';
 
-/// Bootstrap state of the backend connection. Phase 0 doesn't render real
-/// data, so this is the surface the placeholder screen uses to prove the
-/// Supabase wiring actually works.
-enum BackendStatus { notConfigured, connecting, connected, failed }
+/// Reasons the startup bootstrap can fail before the home screen renders.
+/// The UI maps any of them to the same generic "couldn't connect" message,
+/// but keeping them typed makes diagnostics easier in logs.
+enum StartupErrorKind { notConfigured, network }
 
-class BackendBootstrap {
-  const BackendBootstrap(this.status, {this.userId, this.errorMessage});
+class StartupError implements Exception {
+  const StartupError(this.kind, [this.cause]);
 
-  final BackendStatus status;
+  final StartupErrorKind kind;
+  final Object? cause;
 
-  /// Anonymous-user id once the session is established. Useful for the
-  /// connectivity check the user runs against the dashboard.
-  final String? userId;
-
-  /// Human-readable error from Supabase / network — surfaced only for
-  /// developer-facing diagnostics, never logged with PII.
-  final String? errorMessage;
+  @override
+  String toString() => 'StartupError($kind, cause: $cause)';
 }
 
-/// Initialises the Supabase client at app startup. The client itself does
-/// no network I/O on init; it only sets up storage for sessions. Real
-/// connectivity is proved by [ensureSession].
-///
-/// Returns true when initialisation ran (credentials were provided).
-Future<bool> initSupabase() async {
-  if (!Env.hasSupabase) return false;
+/// Initialises the Supabase client at app startup. Safe to call more than
+/// once across hot restarts.
+Future<void> initSupabase() async {
+  if (!Env.hasSupabase) return;
 
   try {
     await Supabase.initialize(
@@ -38,35 +31,28 @@ Future<bool> initSupabase() async {
   } on AssertionError {
     // Already initialised in a previous hot-restart cycle — fine.
   }
-  return true;
 }
 
-/// Ensures the caller has an anonymous Supabase session. Doubles as the
-/// temporary connectivity check from spec 002 §2.4.
-Future<BackendBootstrap> ensureSession() async {
+/// Ensures the caller has an anonymous Supabase session. The session
+/// triggers the auto-provisioning trigger from spec 002, so by the time
+/// this returns the user has a `group` and a `membership` to work with.
+Future<void> _ensureSession() async {
   if (!Env.hasSupabase) {
-    return const BackendBootstrap(BackendStatus.notConfigured);
+    throw const StartupError(StartupErrorKind.notConfigured);
   }
-
   try {
     final client = Supabase.instance.client;
     if (client.auth.currentSession == null) {
       await client.auth.signInAnonymously();
     }
-    return BackendBootstrap(
-      BackendStatus.connected,
-      userId: client.auth.currentUser?.id,
-    );
   } catch (e) {
-    return BackendBootstrap(
-      BackendStatus.failed,
-      errorMessage: e.toString(),
-    );
+    throw StartupError(StartupErrorKind.network, e);
   }
 }
 
-/// Single-shot provider that runs the session check once per app session
-/// and caches the result. Watched by the placeholder screen.
-final backendBootstrapProvider = FutureProvider<BackendBootstrap>((ref) {
-  return ensureSession();
+/// Single source of truth for "is the backend ready to serve the home
+/// screen?". Watched by [BootstrapGate]; invalidate it to retry.
+final appBootstrapProvider = FutureProvider<void>((ref) async {
+  await initSupabase();
+  await _ensureSession();
 });

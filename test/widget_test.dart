@@ -5,14 +5,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('placeholder screen renders the localized title and body',
-      (tester) async {
-    await tester.pumpWidget(const ProviderScope(child: EntertainApp()));
-    await tester.pumpAndSettle();
+  testWidgets(
+    'app shows the startup error state when no backend credentials are configured',
+    (tester) async {
+      await tester.pumpWidget(const ProviderScope(child: EntertainApp()));
+      await tester.pumpAndSettle();
 
-    // English is the fallback locale; both strings should be on screen.
-    final en = await AppLocalizations.delegate.load(const Locale('en'));
-    expect(find.text(en.placeholderTitle), findsOneWidget);
-    expect(find.text(en.placeholderBody), findsOneWidget);
-  });
+      // The widget tests run without compile-time Supabase credentials, so
+      // the bootstrap provider throws `StartupErrorKind.notConfigured` and
+      // the gate falls through to the error screen.
+      final en = await AppLocalizations.delegate.load(const Locale('en'));
+      expect(find.text(en.startupErrorTitle), findsOneWidget);
+      expect(find.text(en.retryAction), findsOneWidget);
+    },
+  );
 }

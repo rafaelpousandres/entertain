@@ -10,12 +10,16 @@ class Env {
   Env._();
 
   /// Supabase project URL (e.g. `https://xxxx.supabase.co`).
-  static const String supabaseUrl =
-      String.fromEnvironment('SUPABASE_URL', defaultValue: '');
+  static const String supabaseUrl = String.fromEnvironment(
+    'SUPABASE_URL',
+    defaultValue: '',
+  );
 
   /// Supabase anonymous public key.
-  static const String supabaseAnonKey =
-      String.fromEnvironment('SUPABASE_ANON_KEY', defaultValue: '');
+  static const String supabaseAnonKey = String.fromEnvironment(
+    'SUPABASE_ANON_KEY',
+    defaultValue: '',
+  );
 
   /// True when Supabase credentials have been provided at compile time.
   /// Spec 001 leaves Supabase wired but not connected; later phases use this
