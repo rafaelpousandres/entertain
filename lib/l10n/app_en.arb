@@ -145,5 +145,53 @@
     "placeholders": { "name": { "type": "String" } }
   },
   "quickCreateTitle": "New ingredient",
-  "createAction": "Create"
+  "createAction": "Create",
+  "addDishToMenuAction": "Add dish",
+  "@addDishToMenuAction": {},
+  "addDishPickerTitle": "Add dish to menu",
+  "@addDishPickerTitle": {},
+  "dishAlreadyInMenuBadge": "In menu",
+  "@dishAlreadyInMenuBadge": {},
+  "addDuplicateDishConfirmTitle": "Add another copy?",
+  "@addDuplicateDishConfirmTitle": {},
+  "addDuplicateDishConfirmBody": "\"{name}\" is already in this menu. Add another independent copy?",
+  "@addDuplicateDishConfirmBody": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "addDuplicateDishConfirmButton": "Add copy",
+  "@addDuplicateDishConfirmButton": {},
+  "addDishError": "Couldn't add the dish. Check your connection.",
+  "@addDishError": {},
+  "eventDishServings": "{count, plural, =1{1 serving} other{{count} servings}}",
+  "@eventDishServings": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "eventDishLinesEmptyBody": "This dish has no ingredient lines.",
+  "@eventDishLinesEmptyBody": {},
+  "eventDishSaveError": "Couldn't save the change. Check your connection.",
+  "@eventDishSaveError": {},
+  "removeDishFromMenuAction": "Remove from menu",
+  "@removeDishFromMenuAction": {},
+  "removeDishConfirmTitle": "Remove dish?",
+  "@removeDishConfirmTitle": {},
+  "removeDishConfirmBody": "This removes the dish and its ingredient lines from this event. The catalog isn't affected.",
+  "@removeDishConfirmBody": {},
+  "removeDishConfirmButton": "Remove",
+  "@removeDishConfirmButton": {},
+  "lineSupplierCategoryLabel": "Supplier category",
+  "@lineSupplierCategoryLabel": {},
+  "lineSupplierCategoryHint": "Optional",
+  "@lineSupplierCategoryHint": {},
+  "supplierCategoryPickerTitle": "Select supplier category",
+  "@supplierCategoryPickerTitle": {},
+  "supplierCategoryNoneLabel": "None",
+  "@supplierCategoryNoneLabel": {}
 }

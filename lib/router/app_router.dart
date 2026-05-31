@@ -8,7 +8,10 @@ import '../features/catalog/screens/ingredient_catalog_screen.dart';
 import '../features/catalog/screens/ingredient_editor_screen.dart';
 import '../features/catalog/screens/ingredient_line_editor_screen.dart';
 import '../features/events/data/event.dart';
+import '../features/events/screens/add_dish_to_menu_screen.dart';
 import '../features/events/screens/event_detail_screen.dart';
+import '../features/events/screens/event_dish_detail_screen.dart';
+import '../features/events/screens/event_dish_line_editor_screen.dart';
 import '../features/events/screens/event_form_screen.dart';
 import '../features/events/screens/events_list_screen.dart';
 import '../features/shell/home_shell.dart';
@@ -86,6 +89,20 @@ final GoRouter appRouter = GoRouter(
         );
       },
     ),
+    GoRoute(
+      path: '/events/:id/add-dish',
+      builder: (context, state) =>
+          _gated(AddDishToMenuScreen(eventId: state.pathParameters['id']!)),
+    ),
+    GoRoute(
+      path: '/events/:id/dishes/:eventDishId',
+      builder: (context, state) => _gated(
+        EventDishDetailScreen(
+          eventId: state.pathParameters['id']!,
+          eventDishId: state.pathParameters['eventDishId']!,
+        ),
+      ),
+    ),
 
     // Dishes — create / edit.
     GoRoute(
@@ -122,6 +139,14 @@ final GoRouter appRouter = GoRouter(
               : null,
         ),
       ),
+    ),
+
+    // Per-event ingredient line editor — transient sub-editor of the
+    // per-event dish detail; `extra` carries the line and its event_dish id.
+    GoRoute(
+      path: '/event-dish-line-editor',
+      builder: (context, state) =>
+          _gated(EventDishLineEditorScreen(args: state.extra as EventDishLineEditorArgs)),
     ),
   ],
 );

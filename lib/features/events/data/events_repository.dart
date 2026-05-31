@@ -2,6 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'event.dart';
 import 'event_dish.dart';
+import 'event_dish_line.dart';
 import 'event_draft.dart';
 
 /// Thin data-access wrapper around the `events` table. Keeps the Supabase
@@ -120,8 +121,7 @@ class EventsRepository {
         .eq('id', id);
   }
 
-  /// Dishes attached to an event. Spec 003 only reads them — adding /
-  /// editing belongs to screen group 2.
+  /// Dishes attached to an event, ordered by `sort_order`.
   Future<List<EventDish>> listEventDishes(String eventId) async {
     final rows = await _client
         .from('event_dishes')
@@ -131,5 +131,141 @@ class EventsRepository {
     return (rows as List)
         .map((r) => EventDish.fromRow(r as Map<String, dynamic>))
         .toList();
+  }
+
+  Future<EventDish> fetchEventDish(String eventDishId) async {
+    final row = await _client
+        .from('event_dishes')
+        .select(EventDish.selectColumns)
+        .eq('id', eventDishId)
+        .maybeSingle();
+    if (row == null) {
+      throw StateError('Event dish not found.');
+    }
+    return EventDish.fromRow(row);
+  }
+
+  Future<List<EventDishLine>> listEventDishLines(String eventDishId) async {
+    final rows = await _client
+        .from('event_dish_ingredients')
+        .select(EventDishLine.selectColumns)
+        .eq('event_dish_id', eventDishId)
+        .order('sort_order', ascending: true);
+    return (rows as List)
+        .map((r) => EventDishLine.fromRow(r as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// Copy on add (Specification 004 §3.7 / data model §3.3). Materialises an
+  /// independent per-event copy of a catalog dish:
+  ///
+  /// - one `event_dishes` row snapshotting the dish `name` and `category`,
+  ///   with `servings` initialised from the event's `guest_count` and
+  ///   `source_dish_id` kept as provenance only;
+  /// - one `event_dish_ingredients` row per `dish_ingredients` line of the
+  ///   source dish, snapshotting the current ingredient name and the
+  ///   ingredient's `default_supplier_category_id`, and copying quantity,
+  ///   unit, prep note and sort order.
+  ///
+  /// Every value is read fresh here so the snapshot reflects the catalog at
+  /// the moment of adding; nothing is read back afterwards, so later catalog
+  /// edits never propagate to the event. The inserts mirror the catalog
+  /// dish editor's non-transactional client-side pattern.
+  Future<void> addDishToEvent({
+    required String eventId,
+    required String dishId,
+  }) async {
+    final event = await _client
+        .from('events')
+        .select('guest_count')
+        .eq('id', eventId)
+        .single();
+    final dish = await _client
+        .from('dishes')
+        .select('name, category')
+        .eq('id', dishId)
+        .single();
+    final sourceLines = await _client
+        .from('dish_ingredients')
+        .select(
+          'ingredient_id, quantity, unit_id, prep_note, sort_order, '
+          'ingredients(name, default_supplier_category_id)',
+        )
+        .eq('dish_id', dishId)
+        .order('sort_order', ascending: true);
+    final existing = await _client
+        .from('event_dishes')
+        .select('id')
+        .eq('event_id', eventId);
+
+    final eventDish = await _client
+        .from('event_dishes')
+        .insert({
+          'event_id': eventId,
+          'source_dish_id': dishId,
+          'dish_name': dish['name'],
+          'category': dish['category'],
+          'servings': (event['guest_count'] as num).toInt(),
+          'sort_order': (existing as List).length,
+        })
+        .select('id')
+        .single();
+    final eventDishId = eventDish['id'] as String;
+
+    final lines = sourceLines as List;
+    if (lines.isEmpty) return;
+    final payload = [
+      for (final raw in lines)
+        () {
+          final line = raw as Map<String, dynamic>;
+          final ingredient = line['ingredients'] as Map<String, dynamic>?;
+          return {
+            'event_dish_id': eventDishId,
+            'ingredient_id': line['ingredient_id'],
+            'ingredient_name': (ingredient?['name'] as String?) ?? '',
+            'quantity': line['quantity'],
+            'unit_id': line['unit_id'],
+            'prep_note': line['prep_note'],
+            'supplier_category_id':
+                ingredient?['default_supplier_category_id'],
+            'sort_order': line['sort_order'],
+          };
+        }(),
+    ];
+    await _client.from('event_dish_ingredients').insert(payload);
+  }
+
+  Future<void> updateEventDishLine(
+    String lineId, {
+    required String ingredientId,
+    required String ingredientName,
+    required double quantity,
+    required String unitId,
+    String? prepNote,
+    String? supplierCategoryId,
+  }) async {
+    await _client
+        .from('event_dish_ingredients')
+        .update({
+          'ingredient_id': ingredientId,
+          'ingredient_name': ingredientName,
+          'quantity': quantity,
+          'unit_id': unitId,
+          'prep_note': prepNote,
+          'supplier_category_id': supplierCategoryId,
+        })
+        .eq('id', lineId);
+  }
+
+  /// Physical delete — `event_dish_ingredients` is a per-event copy with no
+  /// `deleted_at` (data model §3.3).
+  Future<void> deleteEventDishLine(String lineId) async {
+    await _client.from('event_dish_ingredients').delete().eq('id', lineId);
+  }
+
+  /// Removes a dish from an event's menu. Physical delete of the
+  /// `event_dishes` row; its `event_dish_ingredients` cascade via the FK.
+  Future<void> removeEventDish(String eventDishId) async {
+    await _client.from('event_dishes').delete().eq('id', eventDishId);
   }
 }

@@ -142,5 +142,53 @@
   "ingredientPickerCreateNew": "Crea un ingredient nou",
   "ingredientPickerCreateNamed": "Crea «{name}»",
   "quickCreateTitle": "Nou ingredient",
-  "createAction": "Crea"
+  "createAction": "Crea",
+  "addDishToMenuAction": "Afegeix plat",
+  "@addDishToMenuAction": {},
+  "addDishPickerTitle": "Afegeix plat al menú",
+  "@addDishPickerTitle": {},
+  "dishAlreadyInMenuBadge": "Al menú",
+  "@dishAlreadyInMenuBadge": {},
+  "addDuplicateDishConfirmTitle": "Afegir una altra còpia?",
+  "@addDuplicateDishConfirmTitle": {},
+  "addDuplicateDishConfirmBody": "«{name}» ja és en aquest menú. Vols afegir-hi una altra còpia independent?",
+  "@addDuplicateDishConfirmBody": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "addDuplicateDishConfirmButton": "Afegeix còpia",
+  "@addDuplicateDishConfirmButton": {},
+  "addDishError": "No s'ha pogut afegir el plat. Comprova la connexió.",
+  "@addDishError": {},
+  "eventDishServings": "{count, plural, =1{1 ració} other{{count} racions}}",
+  "@eventDishServings": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "eventDishLinesEmptyBody": "Aquest plat no té cap línia d'ingredient.",
+  "@eventDishLinesEmptyBody": {},
+  "eventDishSaveError": "No s'ha pogut desar el canvi. Comprova la connexió.",
+  "@eventDishSaveError": {},
+  "removeDishFromMenuAction": "Treu del menú",
+  "@removeDishFromMenuAction": {},
+  "removeDishConfirmTitle": "Treure el plat?",
+  "@removeDishConfirmTitle": {},
+  "removeDishConfirmBody": "Això treu el plat i les seves línies d'ingredient d'aquest esdeveniment. El catàleg no es veu afectat.",
+  "@removeDishConfirmBody": {},
+  "removeDishConfirmButton": "Treu",
+  "@removeDishConfirmButton": {},
+  "lineSupplierCategoryLabel": "Categoria de proveïdor",
+  "@lineSupplierCategoryLabel": {},
+  "lineSupplierCategoryHint": "Opcional",
+  "@lineSupplierCategoryHint": {},
+  "supplierCategoryPickerTitle": "Tria la categoria de proveïdor",
+  "@supplierCategoryPickerTitle": {},
+  "supplierCategoryNoneLabel": "Cap",
+  "@supplierCategoryNoneLabel": {}
 }

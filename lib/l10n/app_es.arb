@@ -142,5 +142,53 @@
   "ingredientPickerCreateNew": "Crear un ingrediente nuevo",
   "ingredientPickerCreateNamed": "Crear «{name}»",
   "quickCreateTitle": "Nuevo ingrediente",
-  "createAction": "Crear"
+  "createAction": "Crear",
+  "addDishToMenuAction": "Añadir plato",
+  "@addDishToMenuAction": {},
+  "addDishPickerTitle": "Añadir plato al menú",
+  "@addDishPickerTitle": {},
+  "dishAlreadyInMenuBadge": "En el menú",
+  "@dishAlreadyInMenuBadge": {},
+  "addDuplicateDishConfirmTitle": "¿Añadir otra copia?",
+  "@addDuplicateDishConfirmTitle": {},
+  "addDuplicateDishConfirmBody": "«{name}» ya está en este menú. ¿Añadir otra copia independiente?",
+  "@addDuplicateDishConfirmBody": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "addDuplicateDishConfirmButton": "Añadir copia",
+  "@addDuplicateDishConfirmButton": {},
+  "addDishError": "No se ha podido añadir el plato. Comprueba la conexión.",
+  "@addDishError": {},
+  "eventDishServings": "{count, plural, =1{1 ración} other{{count} raciones}}",
+  "@eventDishServings": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "eventDishLinesEmptyBody": "Este plato no tiene líneas de ingrediente.",
+  "@eventDishLinesEmptyBody": {},
+  "eventDishSaveError": "No se ha podido guardar el cambio. Comprueba la conexión.",
+  "@eventDishSaveError": {},
+  "removeDishFromMenuAction": "Quitar del menú",
+  "@removeDishFromMenuAction": {},
+  "removeDishConfirmTitle": "¿Quitar el plato?",
+  "@removeDishConfirmTitle": {},
+  "removeDishConfirmBody": "Esto quita el plato y sus líneas de ingrediente de este evento. El catálogo no se ve afectado.",
+  "@removeDishConfirmBody": {},
+  "removeDishConfirmButton": "Quitar",
+  "@removeDishConfirmButton": {},
+  "lineSupplierCategoryLabel": "Categoría de proveedor",
+  "@lineSupplierCategoryLabel": {},
+  "lineSupplierCategoryHint": "Opcional",
+  "@lineSupplierCategoryHint": {},
+  "supplierCategoryPickerTitle": "Elige la categoría de proveedor",
+  "@supplierCategoryPickerTitle": {},
+  "supplierCategoryNoneLabel": "Ninguna",
+  "@supplierCategoryNoneLabel": {}
 }
