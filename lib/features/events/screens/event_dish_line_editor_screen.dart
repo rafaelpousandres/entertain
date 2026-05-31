@@ -181,6 +181,46 @@ class _EventDishLineEditorScreenState
     }
   }
 
+  Future<void> _confirmRemove() async {
+    final l10n = AppLocalizations.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        title: Text(
+          l10n.removeLineConfirmTitle,
+          style: AppTypography.sectionTitle,
+        ),
+        content: Text(
+          l10n.removeLineConfirmBody,
+          style: AppTypography.body.copyWith(color: AppColors.textSecondary),
+        ),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(
+              l10n.cancelAction,
+              style: AppTypography.button.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(
+              l10n.removeLineConfirmButton,
+              style: AppTypography.button.copyWith(color: AppColors.danger),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await _remove();
+  }
+
   Future<void> _remove() async {
     final l10n = AppLocalizations.of(context);
     final messenger = ScaffoldMessenger.of(context);
@@ -240,7 +280,7 @@ class _EventDishLineEditorScreenState
             onSelected: (action) {
               switch (action) {
                 case _OverflowAction.remove:
-                  _remove();
+                  _confirmRemove();
               }
             },
             itemBuilder: (context) => [
