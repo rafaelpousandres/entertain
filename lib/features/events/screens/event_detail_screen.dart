@@ -6,7 +6,9 @@ import '../../../l10n/app_localizations.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_typography.dart';
 import '../../../ui/icon_circle.dart';
+import '../../../ui/primary_button.dart';
 import '../../../ui/section_header.dart';
+import '../../catalog/data/dish_category.dart';
 import '../data/event.dart';
 import '../data/event_dish.dart';
 import '../data/events_providers.dart';
@@ -62,6 +64,24 @@ class EventDetailScreen extends ConsumerWidget {
           ),
           data: (event) => _DetailBody(event: event),
         ),
+      ),
+      bottomNavigationBar: eventAsync.maybeWhen(
+        data: (event) => SafeArea(
+          top: false,
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+            decoration: const BoxDecoration(
+              color: AppColors.bg,
+              border: Border(top: BorderSide(color: AppColors.border, width: 1)),
+            ),
+            child: PrimaryButton(
+              label: l10n.addDishToMenuAction,
+              icon: Icons.add,
+              onPressed: () => context.push('/events/${event.id}/add-dish'),
+            ),
+          ),
+        ),
+        orElse: () => null,
       ),
     );
   }
@@ -135,7 +155,7 @@ class _DetailBody extends ConsumerWidget {
           ),
           data: (dishes) => dishes.isEmpty
               ? const _MenuEmpty()
-              : _MenuByCategory(dishes: dishes),
+              : _MenuByCategory(dishes: dishes, eventId: event.id),
         ),
       ],
     );
@@ -166,9 +186,10 @@ class _MenuEmpty extends StatelessWidget {
 }
 
 class _MenuByCategory extends StatefulWidget {
-  const _MenuByCategory({required this.dishes});
+  const _MenuByCategory({required this.dishes, required this.eventId});
 
   final List<EventDish> dishes;
+  final String eventId;
 
   @override
   State<_MenuByCategory> createState() => _MenuByCategoryState();
@@ -197,8 +218,8 @@ class _MenuByCategoryState extends State<_MenuByCategory> {
         for (final category in dishCategoryOrder)
           if (byCategory[category] != null) ...[
             SectionHeader(
-              icon: _iconFor(category),
-              label: _labelFor(l10n, category),
+              icon: dishCategoryIcon(category),
+              label: dishCategoryLabel(l10n, category),
               count: byCategory[category]!.length,
               expanded: _expanded[category]!,
               onToggle: () =>
@@ -210,7 +231,12 @@ class _MenuByCategoryState extends State<_MenuByCategory> {
                   for (final dish in byCategory[category]!)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 8),
-                      child: _DishRow(name: dish.name),
+                      child: _DishRow(
+                        dish: dish,
+                        onTap: () => context.push(
+                          '/events/${widget.eventId}/dishes/${dish.id}',
+                        ),
+                      ),
                     ),
                   const SizedBox(height: 4),
                 ],
@@ -219,53 +245,59 @@ class _MenuByCategoryState extends State<_MenuByCategory> {
       ],
     );
   }
-
-  IconData _iconFor(DishCategory category) => switch (category) {
-    DishCategory.aperitif => Icons.cookie_outlined,
-    DishCategory.starter => Icons.eco_outlined,
-    DishCategory.main => Icons.restaurant_outlined,
-    DishCategory.dessert => Icons.cake_outlined,
-    DishCategory.drink => Icons.local_bar_outlined,
-    DishCategory.other => Icons.restaurant_menu_outlined,
-  };
-
-  String _labelFor(AppLocalizations l10n, DishCategory category) =>
-      switch (category) {
-        DishCategory.aperitif => l10n.dishCategoryAperitif,
-        DishCategory.starter => l10n.dishCategoryStarter,
-        DishCategory.main => l10n.dishCategoryMain,
-        DishCategory.dessert => l10n.dishCategoryDessert,
-        DishCategory.drink => l10n.dishCategoryDrink,
-        DishCategory.other => l10n.dishCategoryOther,
-      };
 }
 
 class _DishRow extends StatelessWidget {
-  const _DishRow({required this.name});
+  const _DishRow({required this.dish, required this.onTap});
 
-  final String name;
+  final EventDish dish;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
+    final l10n = AppLocalizations.of(context);
+    return Material(
+      color: AppColors.surface,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              name,
-              style: AppTypography.body,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.border),
           ),
-          const Icon(Icons.chevron_right, color: AppColors.disabled, size: 22),
-        ],
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      dish.name,
+                      style: AppTypography.body,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      l10n.eventDishServings(dish.servings),
+                      style: AppTypography.caption,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Icon(
+                Icons.chevron_right,
+                color: AppColors.disabled,
+                size: 22,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

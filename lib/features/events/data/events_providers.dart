@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'event.dart';
 import 'event_dish.dart';
+import 'event_dish_line.dart';
 import 'events_repository.dart';
 
 final _supabaseClientProvider = Provider<SupabaseClient>((ref) {
@@ -40,3 +41,20 @@ final eventDishesProvider = FutureProvider.family<List<EventDish>, String>((
   final repo = ref.watch(eventsRepositoryProvider);
   return repo.listEventDishes(eventId);
 });
+
+/// A single per-event dish (snapshot fields) for the per-event dish detail.
+final eventDishByIdProvider = FutureProvider.family<EventDish, String>((
+  ref,
+  eventDishId,
+) async {
+  return ref.watch(eventsRepositoryProvider).fetchEventDish(eventDishId);
+});
+
+/// The editable ingredient lines of a per-event dish. Invalidated after any
+/// per-event line mutation.
+final eventDishLinesProvider =
+    FutureProvider.family<List<EventDishLine>, String>((ref, eventDishId) async {
+      return ref
+          .watch(eventsRepositoryProvider)
+          .listEventDishLines(eventDishId);
+    });

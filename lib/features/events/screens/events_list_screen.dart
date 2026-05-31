@@ -40,19 +40,16 @@ class EventsListScreen extends ConsumerWidget {
               events.isEmpty ? const _EmptyState() : _EventList(events: events),
         ),
       ),
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-          decoration: const BoxDecoration(
-            color: AppColors.bg,
-            border: Border(top: BorderSide(color: AppColors.border, width: 1)),
-          ),
-          child: PrimaryButton(
-            label: l10n.newEventAction,
-            icon: Icons.add,
-            onPressed: () => context.push('/events/new'),
-          ),
+      bottomNavigationBar: Container(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+        decoration: const BoxDecoration(
+          color: AppColors.bg,
+          border: Border(top: BorderSide(color: AppColors.border, width: 1)),
+        ),
+        child: PrimaryButton(
+          label: l10n.newEventAction,
+          icon: Icons.add,
+          onPressed: () => context.push('/events/new'),
         ),
       ),
     );

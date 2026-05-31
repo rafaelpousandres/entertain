@@ -44,6 +44,7 @@ class AppTextField extends StatelessWidget {
     this.keyboardType,
     this.textInputAction,
     this.onChanged,
+    this.autofocus = false,
   });
 
   final TextEditingController controller;
@@ -53,6 +54,7 @@ class AppTextField extends StatelessWidget {
   final TextInputType? keyboardType;
   final TextInputAction? textInputAction;
   final ValueChanged<String>? onChanged;
+  final bool autofocus;
 
   @override
   Widget build(BuildContext context) {
@@ -63,6 +65,7 @@ class AppTextField extends StatelessWidget {
       keyboardType: keyboardType,
       textInputAction: textInputAction,
       onChanged: onChanged,
+      autofocus: autofocus,
       cursorColor: AppColors.accent,
       style: AppTypography.body,
       decoration: InputDecoration(
