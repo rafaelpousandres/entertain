@@ -15,6 +15,8 @@ import '../features/events/screens/event_dish_line_editor_screen.dart';
 import '../features/events/screens/event_form_screen.dart';
 import '../features/events/screens/events_list_screen.dart';
 import '../features/shell/home_shell.dart';
+import '../features/shopping/screens/settings_screen.dart';
+import '../features/shopping/screens/supplier_message_screen.dart';
 import '../features/startup/bootstrap_gate.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -64,6 +66,14 @@ final GoRouter appRouter = GoRouter(
             ),
           ],
         ),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/settings',
+              builder: (context, state) => const SettingsScreen(),
+            ),
+          ],
+        ),
       ],
     ),
 
@@ -100,6 +110,16 @@ final GoRouter appRouter = GoRouter(
         EventDishDetailScreen(
           eventId: state.pathParameters['id']!,
           eventDishId: state.pathParameters['eventDishId']!,
+        ),
+      ),
+    ),
+    // Supplier message — composes/sends one category's order for one event.
+    GoRoute(
+      path: '/events/:id/orders/:categoryId',
+      builder: (context, state) => _gated(
+        SupplierMessageScreen(
+          eventId: state.pathParameters['id']!,
+          categoryId: state.pathParameters['categoryId']!,
         ),
       ),
     ),

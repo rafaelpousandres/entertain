@@ -5,11 +5,12 @@ import '../../l10n/app_localizations.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_typography.dart';
 
-/// App shell hosting the three top-level catalog sections behind a bottom
-/// navigation bar (Specification 004 §3.9, navigation decision: bottom nav).
-/// The branch list screens scroll inside the shell; detail and editor
-/// screens are pushed on the root navigator so they cover the bar and own
-/// their action bars.
+/// App shell hosting the top-level sections behind a bottom navigation bar
+/// (Specification 004 §3.9, navigation decision: bottom nav). Three co-equal
+/// catalog sections (events, dishes, ingredients) plus the global settings
+/// screen added as a fourth tab in Specification 005 §2.5. The branch screens
+/// scroll inside the shell; detail and editor screens are pushed on the root
+/// navigator so they cover the bar and own their action bars.
 class HomeShell extends StatelessWidget {
   const HomeShell({super.key, required this.navigationShell});
 
@@ -26,6 +27,7 @@ class HomeShell extends StatelessWidget {
         label: l10n.navDishes,
       ),
       _Destination(icon: Icons.eco_outlined, label: l10n.navIngredients),
+      _Destination(icon: Icons.settings_outlined, label: l10n.navSettings),
     ];
 
     return Scaffold(
