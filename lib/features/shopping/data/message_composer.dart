@@ -49,11 +49,8 @@ String composeMessageBody({
 /// shows a dangling space, and the [connector] (the localised Catalan "de") is
 /// likewise dropped when empty.
 ///
-/// Fixes round 2 §2.2: when [prepNote] is non-empty its preparation clause is
-/// appended after a comma — "250 g de tonyina, tallada a daus petits". The note
-/// is rendered exactly as the user entered it (no case change), and no Catalan
-/// elision is applied to the connector for this iteration ("de oli", not
-/// "d'oli").
+/// Fixes round 1 §2.2: when [prepNote] is non-empty its preparation clause is
+/// appended after a comma — "250 g de tonyina, tallada a daus petits".
 ///
 /// Spec 006 §2.3: when there is no unit (a countable item like eggs or lemons)
 /// the connector is dropped along with it, so the line reads "3 ous" — the
@@ -67,6 +64,13 @@ String composeMessageBody({
 /// Catalan elision rule "de" → "d'" before a vowel or a silent "h" ("200 g
 /// d'oli"). The flag is Catalan-specific; callers pass false for other
 /// languages.
+///
+/// Fixes round 2 §2.3: the catalog stores ingredient names and prep notes in
+/// Title Case ("Anxoves", "En oli d'oliva") for natural reading in catalog
+/// screens, but mid-sentence that reads wrong in the message. The first
+/// character of both the ingredient name and the prep note is lowercased here
+/// so the line reads as natural Catalan prose ("80 g d'anxoves, en oli
+/// d'oliva"); the rest of each string is preserved as-is.
 String composeItemLine({
   required String quantity,
   required String? unit,
@@ -78,17 +82,27 @@ String composeItemLine({
   final hasUnit = unit != null && unit.isNotEmpty;
   final measure = hasUnit ? '$quantity $unit' : quantity;
   final trimmedConnector = connector.trim();
+  // Fixes round 2 §2.3: lowercase the initial so it reads as prose mid-line.
+  final name = _firstCharToLowercase(ingredientName);
   // The connector ("de") only makes sense between a unit and the ingredient;
   // with no unit it is dropped so "3 ous" reads naturally (§2.3).
   final String base;
   if (!hasUnit || trimmedConnector.isEmpty) {
-    base = '$measure $ingredientName';
+    base = '$measure $name';
   } else {
     base = '$measure '
-        '${catalanConnector(trimmedConnector, ingredientName, elide: elideConnector)}';
+        '${catalanConnector(trimmedConnector, name, elide: elideConnector)}';
   }
-  final note = prepNote?.trim() ?? '';
+  final note = _firstCharToLowercase(prepNote?.trim() ?? '');
   return note.isEmpty ? base : '$base, $note';
+}
+
+/// Fixes round 2 §2.3 — lowercases only the first character of [text], leaving
+/// the rest untouched so any internal proper nouns or acronyms keep their case.
+/// Returns [text] unchanged when empty.
+String _firstCharToLowercase(String text) {
+  if (text.isEmpty) return text;
+  return text[0].toLowerCase() + text.substring(1);
 }
 
 /// Fixes §2.4 — Catalan elision. Joins [connector] ("de") to [nextWord],

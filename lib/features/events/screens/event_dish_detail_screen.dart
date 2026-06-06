@@ -158,6 +158,18 @@ class EventDishDetailScreen extends ConsumerWidget {
             return ListView(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
               children: [
+                // Fixes round 2 §2.1: the description is the dish's subtitle, so
+                // it sits directly under the title (in the app bar) and ahead of
+                // the metadata line (title → description → metadata).
+                if (description.isNotEmpty) ...[
+                  Text(
+                    description,
+                    style: AppTypography.body.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                ],
                 Text(
                   '${dishCategoryLabel(l10n, dish.category)}'
                   '${l10n.metadataSeparator}'
@@ -166,16 +178,6 @@ class EventDishDetailScreen extends ConsumerWidget {
                     color: AppColors.textSecondary,
                   ),
                 ),
-                // §2.1: the short description as a subtitle below the title.
-                if (description.isNotEmpty) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    description,
-                    style: AppTypography.body.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
                 const SizedBox(height: 20),
                 Text(
                   l10n.dishIngredientsSectionTitle,

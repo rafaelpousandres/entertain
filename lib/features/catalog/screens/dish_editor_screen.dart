@@ -296,6 +296,17 @@ class _DishFormState extends ConsumerState<_DishForm> {
                   style: AppTypography.caption.copyWith(color: AppColors.danger),
                 ),
               ),
+            // Fixes round 2 §2.1: the description is a one-line subtitle of the
+            // dish, so it sits immediately after the title, ahead of the
+            // metadata fields (Nom → Descripció → Categoria → Racions base).
+            const SizedBox(height: 16),
+            FieldLabel(
+              label: l10n.dishDescriptionLabel,
+              child: AppTextField(
+                controller: _descriptionController,
+                hintText: l10n.dishDescriptionHint,
+              ),
+            ),
             const SizedBox(height: 16),
             FieldLabel(
               label: l10n.dishCategoryLabel,
@@ -314,14 +325,6 @@ class _DishFormState extends ConsumerState<_DishForm> {
               child: StepperField(
                 value: _draft.baseServings,
                 onChanged: (v) => setState(() => _draft.baseServings = v),
-              ),
-            ),
-            const SizedBox(height: 16),
-            FieldLabel(
-              label: l10n.dishDescriptionLabel,
-              child: AppTextField(
-                controller: _descriptionController,
-                hintText: l10n.dishDescriptionHint,
               ),
             ),
             const SizedBox(height: 24),

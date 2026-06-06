@@ -42,9 +42,11 @@ join (values
   ('l',     'ca', 'l'),
   ('l',     'es', 'l'),
   ('l',     'en', 'l'),
-  ('unit',  'ca', 'unitat'),
-  ('unit',  'es', 'unidad'),
-  ('unit',  'en', 'unit'),
+  -- Fixes round 2 §2.2: the generic countable unit reads naturally in the
+  -- plural in a quantity picker ("3 unitats", not "3 unitat").
+  ('unit',  'ca', 'unitats'),
+  ('unit',  'es', 'unidades'),
+  ('unit',  'en', 'units'),
   ('bunch', 'ca', 'manat'),
   ('bunch', 'es', 'manojo'),
   ('bunch', 'en', 'bunch'),
