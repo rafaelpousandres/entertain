@@ -2,8 +2,11 @@ import 'package:entertain/features/shopping/data/message_composer.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Tests the supplier message composer after Fixes §2.5 (no event title or date
-/// leak into the message) and Fixes round 2 §2.1–§2.2 (a configurable greeting
-/// heads the body; each item line carries its preparation note when present).
+/// leak into the message), Fixes round 1 (a configurable greeting heads the
+/// body; each item line carries its preparation note when present; the "de"
+/// connector elides to "d'" before vowels) and Fixes round 2 §2.3 (the
+/// ingredient name and prep note are lowercased on their first character so the
+/// line reads as natural Catalan prose).
 void main() {
   group('composeMessageBody', () {
     const items = ['500 g de gambes', '2 unit de llimones'];
@@ -124,7 +127,7 @@ void main() {
       );
     });
 
-    test('the prep note keeps its original casing', () {
+    test('the prep note is lowercased on its first character (§2.3)', () {
       final line = composeItemLine(
         quantity: '400',
         unit: 'g',
@@ -132,17 +135,38 @@ void main() {
         ingredientName: 'bacallà',
         prepNote: 'Esmicolat',
       );
-      expect(line, '400 g de bacallà, Esmicolat');
+      expect(line, '400 g de bacallà, esmicolat');
     });
 
-    test('an unknown unit collapses without a dangling space', () {
+    test('a null unit drops the connector too (§2.3)', () {
       final line = composeItemLine(
         quantity: '3',
         unit: null,
         connector: 'de',
         ingredientName: 'ous',
       );
-      expect(line, '3 de ous');
+      expect(line, '3 ous');
+    });
+
+    test('an empty unit drops the connector too (§2.3)', () {
+      final line = composeItemLine(
+        quantity: '3',
+        unit: '',
+        connector: 'de',
+        ingredientName: 'ous',
+      );
+      expect(line, '3 ous');
+    });
+
+    test('no unit keeps the prep-note clause after a comma (§2.3)', () {
+      final line = composeItemLine(
+        quantity: '2',
+        unit: null,
+        connector: 'de',
+        ingredientName: 'llimones',
+        prepNote: 'tallades a rodanxes',
+      );
+      expect(line, '2 llimones, tallades a rodanxes');
     });
 
     test('an empty connector is dropped', () {
@@ -153,6 +177,168 @@ void main() {
         ingredientName: 'tonyina',
       );
       expect(line, '250 g tonyina');
+    });
+
+    group('first-character lowercasing (Fixes round 2 §2.3)', () {
+      test('lowercases a Title-Case ingredient name mid-line', () {
+        expect(
+          composeItemLine(
+            quantity: '80',
+            unit: 'g',
+            connector: 'de',
+            ingredientName: 'Anxoves',
+            prepNote: 'En oli d\'oliva',
+            elideConnector: true,
+          ),
+          "80 g d'anxoves, en oli d'oliva",
+        );
+      });
+
+      test('lowercases the name on a no-unit countable line', () {
+        expect(
+          composeItemLine(
+            quantity: '3',
+            unit: null,
+            connector: 'de',
+            ingredientName: 'Ous',
+          ),
+          '3 ous',
+        );
+      });
+
+      test('lowercases name and prep note together', () {
+        expect(
+          composeItemLine(
+            quantity: '100',
+            unit: 'g',
+            connector: 'de',
+            ingredientName: 'Llimona',
+            prepNote: 'Tallada a rodanxes',
+            elideConnector: true,
+          ),
+          '100 g de llimona, tallada a rodanxes',
+        );
+      });
+
+      test('only the first character changes; internal capitals are kept', () {
+        expect(
+          composeItemLine(
+            quantity: '1',
+            unit: 'unit',
+            connector: 'de',
+            ingredientName: 'Formatge Manchego',
+          ),
+          '1 unit de formatge Manchego',
+        );
+      });
+    });
+
+    group('Catalan elision (§2.4)', () {
+      test('elides "de" → "d\'" before a vowel', () {
+        expect(
+          composeItemLine(
+            quantity: '200',
+            unit: 'g',
+            connector: 'de',
+            ingredientName: 'oli',
+            elideConnector: true,
+          ),
+          "200 g d'oli",
+        );
+      });
+
+      test('elides before a silent "h"', () {
+        expect(
+          composeItemLine(
+            quantity: '100',
+            unit: 'g',
+            connector: 'de',
+            ingredientName: 'hortalisses',
+            elideConnector: true,
+          ),
+          "100 g d'hortalisses",
+        );
+      });
+
+      test('elides before an accented vowel', () {
+        expect(
+          composeItemLine(
+            quantity: '1',
+            unit: 'kg',
+            connector: 'de',
+            ingredientName: 'ànec',
+            elideConnector: true,
+          ),
+          "1 kg d'ànec",
+        );
+      });
+
+      test('keeps "de" before a consonant', () {
+        expect(
+          composeItemLine(
+            quantity: '250',
+            unit: 'g',
+            connector: 'de',
+            ingredientName: 'tonyina',
+            elideConnector: true,
+          ),
+          '250 g de tonyina',
+        );
+      });
+
+      test('elision is case-insensitive on the initial', () {
+        // §2.3 also lowercases the initial, so a Title-Case catalog name like
+        // "Endívies" both triggers the elision and reads as prose.
+        expect(
+          composeItemLine(
+            quantity: '2',
+            unit: 'kg',
+            connector: 'de',
+            ingredientName: 'Endívies',
+            elideConnector: true,
+          ),
+          "2 kg d'endívies",
+        );
+      });
+
+      test('no elision when the flag is off (default)', () {
+        expect(
+          composeItemLine(
+            quantity: '200',
+            unit: 'g',
+            connector: 'de',
+            ingredientName: 'oli',
+          ),
+          '200 g de oli',
+        );
+      });
+
+      test('elision keeps the prep-note clause', () {
+        expect(
+          composeItemLine(
+            quantity: '200',
+            unit: 'g',
+            connector: 'de',
+            ingredientName: 'oli',
+            prepNote: 'verge extra',
+            elideConnector: true,
+          ),
+          "200 g d'oli, verge extra",
+        );
+      });
+
+      test('no unit: nothing to elide, the connector is already dropped', () {
+        expect(
+          composeItemLine(
+            quantity: '3',
+            unit: null,
+            connector: 'de',
+            ingredientName: 'ous',
+            elideConnector: true,
+          ),
+          '3 ous',
+        );
+      });
     });
   });
 }

@@ -360,6 +360,11 @@ class _EventFormState extends ConsumerState<_EventForm> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Fixes §2.1: the earlier fixed proportion overcorrected — at
+                // 3:1 the Date had excess space and the Time ("21:00") wrapped.
+                // Instead the Time field is sized intrinsically to its content
+                // (HH:MM plus the clear icon) and the Date takes the remaining
+                // width, so neither wraps regardless of the month name's length.
                 Expanded(
                   child: FieldLabel(
                     label: l10n.fieldDateLabel,
@@ -378,7 +383,7 @@ class _EventFormState extends ConsumerState<_EventForm> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                Expanded(
+                IntrinsicWidth(
                   child: FieldLabel(
                     label: l10n.fieldTimeLabel,
                     child: FormFieldTile(

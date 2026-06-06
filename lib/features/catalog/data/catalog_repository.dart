@@ -34,6 +34,7 @@ class CatalogRepository {
         code: code,
         magnitude: UnitMagnitudeWire.parse(row['magnitude'] as String),
         name: names[id] ?? code,
+        omitInDisplay: row['omit_in_display'] as bool? ?? false,
       );
     }).toList();
   }
@@ -203,6 +204,37 @@ class CatalogRepository {
         .from('dishes')
         .update({'deleted_at': DateTime.now().toUtc().toIso8601String()})
         .eq('id', id);
+  }
+
+  /// Appends a single line to a catalog dish's recipe (Spec 006 §2.2, the
+  /// "promote to recipe" path). Used when the user adds an ad-hoc line to an
+  /// event's copy of a dish and ticks the checkbox to also write it to the
+  /// catalog recipe pointed to by `event_dishes.source_dish_id`. The new
+  /// `sort_order` appends after the existing lines.
+  Future<void> addDishIngredientLine(
+    String dishId, {
+    required String ingredientId,
+    required double quantity,
+    required String unitId,
+    String? prepNote,
+  }) async {
+    final existing = await _client
+        .from('dish_ingredients')
+        .select('sort_order')
+        .eq('dish_id', dishId);
+    var nextOrder = 0;
+    for (final r in existing as List) {
+      final so = ((r as Map<String, dynamic>)['sort_order'] as num?)?.toInt();
+      if (so != null && so >= nextOrder) nextOrder = so + 1;
+    }
+    await _client.from('dish_ingredients').insert({
+      'dish_id': dishId,
+      'ingredient_id': ingredientId,
+      'quantity': quantity,
+      'unit_id': unitId,
+      'prep_note': prepNote,
+      'sort_order': nextOrder,
+    });
   }
 
   /// Replaces a dish's recipe lines with the draft's lines. `dish_ingredients`

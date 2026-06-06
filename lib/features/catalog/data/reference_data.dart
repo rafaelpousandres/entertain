@@ -31,6 +31,7 @@ class Unit {
     required this.code,
     required this.magnitude,
     required this.name,
+    this.omitInDisplay = false,
   });
 
   final String id;
@@ -40,7 +41,13 @@ class Unit {
   /// Translated display name in the current locale (falls back to [code]).
   final String name;
 
-  static const String selectColumns = 'id, code, magnitude';
+  /// Fixes §2.3: when true, the supplier-message composer omits this unit (and
+  /// the "de" connector) so a countable line reads "3 ous", not "3 unitats de
+  /// ous". Set for the generic "unitat" unit; a model flag so other units can
+  /// be suppressed the same way without code changes.
+  final bool omitInDisplay;
+
+  static const String selectColumns = 'id, code, magnitude, omit_in_display';
 }
 
 class SupplierCategory {

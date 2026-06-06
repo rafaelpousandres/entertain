@@ -235,6 +235,41 @@ class EventsRepository {
     await _client.from('event_dish_ingredients').insert(payload);
   }
 
+  /// Adds a brand-new ad-hoc ingredient line to a per-event dish (Spec 006
+  /// §2.2). Unlike [addDishToEvent], which copies the catalog recipe, this is
+  /// a standalone line the user adds directly to this event's copy. The new
+  /// `sort_order` appends after the existing lines so the line lands at the
+  /// bottom of the list.
+  Future<void> addEventDishLine(
+    String eventDishId, {
+    required String ingredientId,
+    required String ingredientName,
+    required double quantity,
+    required String unitId,
+    String? prepNote,
+    String? supplierCategoryId,
+  }) async {
+    final existing = await _client
+        .from('event_dish_ingredients')
+        .select('sort_order')
+        .eq('event_dish_id', eventDishId);
+    var nextOrder = 0;
+    for (final r in existing as List) {
+      final so = ((r as Map<String, dynamic>)['sort_order'] as num?)?.toInt();
+      if (so != null && so >= nextOrder) nextOrder = so + 1;
+    }
+    await _client.from('event_dish_ingredients').insert({
+      'event_dish_id': eventDishId,
+      'ingredient_id': ingredientId,
+      'ingredient_name': ingredientName,
+      'quantity': quantity,
+      'unit_id': unitId,
+      'prep_note': prepNote,
+      'supplier_category_id': supplierCategoryId,
+      'sort_order': nextOrder,
+    });
+  }
+
   Future<void> updateEventDishLine(
     String lineId, {
     required String ingredientId,

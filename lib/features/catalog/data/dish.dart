@@ -18,6 +18,7 @@ class Dish {
     required this.category,
     required this.baseServings,
     this.description,
+    this.preparation,
   });
 
   final String id;
@@ -25,7 +26,13 @@ class Dish {
   final String name;
   final DishCategory category;
   final int baseServings;
+
+  /// One-line subtitle / brief identification of the dish.
   final String? description;
+
+  /// Multi-line recipe / cooking instructions (Spec 006 §2.1), separate from
+  /// the short [description].
+  final String? preparation;
 
   factory Dish.fromRow(Map<String, dynamic> row) {
     return Dish(
@@ -35,11 +42,12 @@ class Dish {
       category: DishCategoryWire.parse(row['category'] as String),
       baseServings: (row['base_servings'] as num?)?.toInt() ?? 4,
       description: row['description'] as String?,
+      preparation: row['preparation'] as String?,
     );
   }
 
   static const String selectColumns =
-      'id, group_id, name, category, base_servings, description';
+      'id, group_id, name, category, base_servings, description, preparation';
 }
 
 /// One in-memory recipe line being edited inside the dish editor. Maps to a
@@ -111,6 +119,7 @@ class DishDraft {
     required this.category,
     required this.baseServings,
     this.description,
+    this.preparation,
     List<DishLineDraft>? lines,
   }) : lines = lines ?? [];
 
@@ -124,6 +133,7 @@ class DishDraft {
     category: dish.category,
     baseServings: dish.baseServings,
     description: dish.description,
+    preparation: dish.preparation,
     lines: lines,
   );
 
@@ -131,6 +141,7 @@ class DishDraft {
   DishCategory category;
   int baseServings;
   String? description;
+  String? preparation;
   final List<DishLineDraft> lines;
 
   /// Row payload for the `dishes` table. `group_id` is added by the
@@ -141,6 +152,7 @@ class DishDraft {
       'category': category.wire,
       'base_servings': baseServings,
       'description': _nullIfBlank(description),
+      'preparation': _nullIfBlank(preparation),
     };
   }
 }
