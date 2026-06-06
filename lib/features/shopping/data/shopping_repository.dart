@@ -61,6 +61,7 @@ class ShoppingRepository {
     required MessageChannel? channel,
     required String? address,
     required DateTime sentAt,
+    required DateTime? neededByDate,
     required List<ShoppingLine> items,
   }) async {
     final order = await _client
@@ -72,6 +73,11 @@ class ShoppingRepository {
           'sent_at': sentAt.toUtc().toIso8601String(),
           'sent_channel': channel?.wire,
           'sent_address': address,
+          // Date-only column (Fixes §2.6): send just the calendar date, with no
+          // time or zone, so it is not shifted by UTC conversion.
+          'needed_by_date': neededByDate == null
+              ? null
+              : _dateOnly(neededByDate),
         })
         .select('id')
         .single();
@@ -91,5 +97,13 @@ class ShoppingRepository {
         },
     ];
     await _client.from('order_items').insert(payload);
+  }
+
+  /// `YYYY-MM-DD` for a `date` column, taking the local calendar date.
+  static String _dateOnly(DateTime date) {
+    final y = date.year.toString().padLeft(4, '0');
+    final m = date.month.toString().padLeft(2, '0');
+    final d = date.day.toString().padLeft(2, '0');
+    return '$y-$m-$d';
   }
 }

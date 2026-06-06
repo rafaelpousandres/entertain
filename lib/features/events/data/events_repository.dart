@@ -263,9 +263,25 @@ class EventsRepository {
     await _client.from('event_dish_ingredients').delete().eq('id', lineId);
   }
 
-  /// Removes a dish from an event's menu. Physical delete of the
-  /// `event_dishes` row; its `event_dish_ingredients` cascade via the FK.
+  /// Removes a dish from an event's menu (Fixes §2.2).
+  ///
+  /// The schema declares `event_dish_ingredients.event_dish_id` with
+  /// `on delete cascade`, so deleting the `event_dishes` row should remove its
+  /// lines too. On-device validation, however, surfaced duplicate
+  /// `event_dish_ingredients` rows after a remove-and-re-add cycle — the
+  /// hallmark of a parent delete that did not take its children with it. To
+  /// make cleanup independent of whether the cascade actually fires on the
+  /// remote project, we delete the lines explicitly first and the parent
+  /// after: if the cascade works the line delete is a harmless no-op; if it
+  /// is somehow ineffective (a constraint that differs from the migration, an
+  /// `on delete restrict` left in place) this both clears the children and
+  /// removes the FK obstacle that would otherwise make the parent delete fail
+  /// silently and leave a stale dish in the menu.
   Future<void> removeEventDish(String eventDishId) async {
+    await _client
+        .from('event_dish_ingredients')
+        .delete()
+        .eq('event_dish_id', eventDishId);
     await _client.from('event_dishes').delete().eq('id', eventDishId);
   }
 }

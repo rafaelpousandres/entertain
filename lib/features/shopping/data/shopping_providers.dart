@@ -16,9 +16,17 @@ final settingsRepositoryProvider = Provider<SettingsRepository>((ref) {
 });
 
 /// The full shopping picture for an event — every line and every order —
-/// loaded once and shared by the panel and the message composer. Invalidated
-/// after a send so the panel reflects the new order immediately (Spec §2.6).
-final eventShoppingProvider = FutureProvider.family<EventShopping, String>((
+/// shared by the panel and the message composer.
+///
+/// `autoDispose` (Fixes §2.1): the original provider cached its value for the
+/// whole session and was invalidated only after a send, so menu edits left the
+/// shopping panel showing stale data until a cold restart. Auto-disposing
+/// means the data is re-read from the source of truth every time the panel is
+/// shown anew, and the menu-mutation sites (add/remove dish, edit a line) also
+/// invalidate it explicitly so a panel kept mounted underneath a pushed route
+/// refreshes the moment the user returns.
+final eventShoppingProvider =
+    FutureProvider.autoDispose.family<EventShopping, String>((
   ref,
   eventId,
 ) async {

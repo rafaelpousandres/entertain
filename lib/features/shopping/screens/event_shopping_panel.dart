@@ -72,9 +72,18 @@ class _EventShoppingPanelState extends ConsumerState<EventShoppingPanel> {
     final linesByCat = linesByCategory(shopping.lines);
     final ordersByCat = ordersByCategory(shopping.orders);
 
+    // Fixes §2.4: lines whose effective supplier category is null are not part
+    // of any sendable section, but they must not vanish — the user needs to
+    // know they exist and assign them a category. They get a consultive
+    // section of their own, shown only when there is at least one.
+    final uncategorised = [
+      for (final line in shopping.lines)
+        if (line.supplierCategoryId == null) line,
+    ];
+
     // A category shows if it has current lines or any past order.
     final categoryIds = <String>{...linesByCat.keys, ...ordersByCat.keys};
-    if (categoryIds.isEmpty) {
+    if (categoryIds.isEmpty && uncategorised.isEmpty) {
       return _PanelEmpty(text: l10n.shoppingEmptyBody);
     }
 
@@ -106,9 +115,23 @@ class _EventShoppingPanelState extends ConsumerState<EventShoppingPanel> {
               '/events/${widget.eventId}/orders/$categoryId',
             ),
           ),
+        if (uncategorised.isNotEmpty)
+          _UncategorisedSection(
+            lines: uncategorised,
+            unitsById: unitsById,
+            expanded: _expanded[_uncategorisedKey] ?? true,
+            onToggleExpanded: () => setState(
+              () => _expanded[_uncategorisedKey] =
+                  !(_expanded[_uncategorisedKey] ?? true),
+            ),
+          ),
       ],
     );
   }
+
+  /// Reserved key for the consultive "no category" section's expand state in
+  /// [_expanded]; it cannot collide with a real category id (a uuid).
+  static const String _uncategorisedKey = '__uncategorised__';
 
   /// Render order: known supplier categories in a sensible shopping order,
   /// then any unknown ones, with the consultive pantry section last.
@@ -220,6 +243,56 @@ class _CategorySection extends StatelessWidget {
               onToggleShopMode: onToggleShopMode,
             ),
           ],
+          const SizedBox(height: 12),
+        ],
+      ],
+    );
+  }
+}
+
+/// Consultive section for ingredient lines without an effective supplier
+/// category (Fixes §2.4). No send action — like the pantry section in spirit —
+/// but with an explicit hint that the user should assign a category so these
+/// ingredients can be managed and ordered.
+class _UncategorisedSection extends StatelessWidget {
+  const _UncategorisedSection({
+    required this.lines,
+    required this.unitsById,
+    required this.expanded,
+    required this.onToggleExpanded,
+  });
+
+  final List<ShoppingLine> lines;
+  final Map<String, Unit> unitsById;
+  final bool expanded;
+  final VoidCallback onToggleExpanded;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SectionHeader(
+          icon: Icons.label_off_outlined,
+          label: l10n.shoppingUncategorisedLabel,
+          count: lines.length,
+          expanded: expanded,
+          onToggle: onToggleExpanded,
+        ),
+        if (expanded) ...[
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text(
+              l10n.shoppingUncategorisedHint,
+              style: AppTypography.caption.copyWith(color: AppColors.warning),
+            ),
+          ),
+          for (final line in lines)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: _LineRow(line: line, unit: unitsById[line.unitId]),
+            ),
           const SizedBox(height: 12),
         ],
       ],

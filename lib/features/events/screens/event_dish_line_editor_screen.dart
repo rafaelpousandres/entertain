@@ -14,6 +14,7 @@ import '../../catalog/data/ingredient.dart';
 import '../../catalog/data/reference_data.dart';
 import '../../catalog/widgets/ingredient_picker.dart';
 import '../../catalog/widgets/unit_ordering.dart';
+import '../../shopping/data/shopping_providers.dart';
 import '../data/event_dish_line.dart';
 import '../data/events_providers.dart';
 
@@ -21,10 +22,14 @@ import '../data/events_providers.dart';
 /// `event_dish` it belongs to (so the editor can invalidate the right list).
 class EventDishLineEditorArgs {
   const EventDishLineEditorArgs({
+    required this.eventId,
     required this.eventDishId,
     required this.line,
   });
 
+  /// The owning event, so saving a line can refresh the event shopping panel
+  /// (Fixes §2.1).
+  final String eventId;
   final String eventDishId;
   final EventDishLine line;
 }
@@ -172,6 +177,7 @@ class _EventDishLineEditorScreenState
             supplierCategoryId: _supplierCategoryId,
           );
       ref.invalidate(eventDishLinesProvider(widget.args.eventDishId));
+      ref.invalidate(eventShoppingProvider(widget.args.eventId));
       if (!mounted) return;
       context.pop();
     } catch (_) {
@@ -230,6 +236,7 @@ class _EventDishLineEditorScreenState
           .read(eventsRepositoryProvider)
           .deleteEventDishLine(widget.args.line.id);
       ref.invalidate(eventDishLinesProvider(widget.args.eventDishId));
+      ref.invalidate(eventShoppingProvider(widget.args.eventId));
       if (!mounted) return;
       context.pop();
     } catch (_) {

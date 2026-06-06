@@ -3,13 +3,24 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'message_channel.dart';
 
-/// What was actually used to dispatch the message — persisted on the order
-/// (Spec §2.4). When the share sheet handled it, both are null.
+/// What happened when the message was dispatched.
+///
+/// [channel] / [address] are what was actually used — persisted on the order
+/// (Spec §2.4); when the share sheet handled it, both are null. [opened]
+/// (Fixes §2.7) reports whether an external channel actually came up: false
+/// means nothing was launched (no app to handle it) or the share sheet was
+/// dismissed without acting, so the caller must not ask for send confirmation
+/// and the order stays unsent.
 class DispatchOutcome {
-  const DispatchOutcome({this.channel, this.address});
+  const DispatchOutcome({
+    required this.opened,
+    this.channel,
+    this.address,
+  });
 
   final MessageChannel? channel;
   final String? address;
+  final bool opened;
 }
 
 /// Dispatches a composed supplier message (Spec §2.4):
@@ -36,7 +47,11 @@ Future<DispatchOutcome> dispatchMessage({
       'https://wa.me/$digits?text=${Uri.encodeComponent(body)}',
     );
     if (await _tryLaunch(uri)) {
-      return DispatchOutcome(channel: channel, address: trimmedAddress);
+      return DispatchOutcome(
+        opened: true,
+        channel: channel,
+        address: trimmedAddress,
+      );
     }
   } else if (channel == MessageChannel.email && trimmedAddress.isNotEmpty) {
     final uri = Uri.parse(
@@ -45,14 +60,25 @@ Future<DispatchOutcome> dispatchMessage({
       '&body=${Uri.encodeComponent(body)}',
     );
     if (await _tryLaunch(uri)) {
-      return DispatchOutcome(channel: channel, address: trimmedAddress);
+      return DispatchOutcome(
+        opened: true,
+        channel: channel,
+        address: trimmedAddress,
+      );
     }
   }
 
   // No configured channel, or the launch failed: fall back to the share
   // sheet. The destination is then whatever the user picks, unknown to us.
-  await SharePlus.instance.share(ShareParams(text: body, subject: subject));
-  return const DispatchOutcome();
+  // A dismissed sheet means nothing was sent (Fixes §2.7) — treat anything
+  // other than an explicit dismissal as "opened" and let the post-channel
+  // confirmation be the source of truth for whether it really went out.
+  final result = await SharePlus.instance.share(
+    ShareParams(text: body, subject: subject),
+  );
+  return DispatchOutcome(
+    opened: result.status != ShareResultStatus.dismissed,
+  );
 }
 
 Future<bool> _tryLaunch(Uri uri) async {

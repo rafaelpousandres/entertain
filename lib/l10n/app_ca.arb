@@ -203,6 +203,8 @@
 
   "shoppingEmptyBody": "Aquest esdeveniment encara no té res per comprar. Afegeix-hi plats al menú primer.",
   "pantryConsultiveHint": "El que ja necessites tenir a casa per a l'esdeveniment.",
+  "shoppingUncategorisedLabel": "Sense categoria",
+  "shoppingUncategorisedHint": "Assigna una categoria de proveïdor a aquests ingredients per poder gestionar-los i enviar-los.",
   "shoppingSendMessageAction": "Envia missatge",
   "shoppingUseAsListAction": "Usa com a llista de compra",
   "shoppingInShopModeLabel": "Ho compraràs en persona.",
@@ -226,7 +228,18 @@
   "supplierMessageNothingToSendBody": "Tot el d'aquesta categoria ja s'ha enviat per a aquest esdeveniment.",
   "supplierMessagePreviousOrders": "Comandes enviades",
   "supplierMessageSendError": "No s'ha pogut enviar el missatge. Torna-ho a provar.",
+  "supplierMessageNotSent": "No s'ha enviat res. Pots tornar-ho a provar.",
   "supplierMessagePreviewLabel": "Missatge",
+  "supplierMessageNeededByLabel": "Data de necessitat",
+  "supplierMessageNeededByEmpty": "Tria una data",
+  "supplierMessageNeededBy": "Per al dia {date}",
+  "@supplierMessageNeededBy": {
+    "placeholders": { "date": { "type": "String" } }
+  },
+  "supplierMessageConfirmSentTitle": "Has enviat el missatge?",
+  "supplierMessageConfirmSentBody": "Confirma que el missatge s'ha enviat correctament al proveïdor abans de marcar la comanda com a enviada.",
+  "supplierMessageConfirmSentYes": "Sí, enviat",
+  "supplierMessageConfirmSentNo": "No",
 
   "channelWhatsApp": "WhatsApp",
   "channelEmail": "Correu electrònic",

@@ -203,6 +203,8 @@
 
   "shoppingEmptyBody": "Este evento todavía no tiene nada que comprar. Añade platos al menú primero.",
   "pantryConsultiveHint": "Lo que ya necesitas tener en casa para el evento.",
+  "shoppingUncategorisedLabel": "Sin categoría",
+  "shoppingUncategorisedHint": "Asigna una categoría de proveedor a estos ingredientes para poder gestionarlos y enviarlos.",
   "shoppingSendMessageAction": "Enviar mensaje",
   "shoppingUseAsListAction": "Usar como lista de compra",
   "shoppingInShopModeLabel": "Lo comprarás en persona.",
@@ -226,7 +228,18 @@
   "supplierMessageNothingToSendBody": "Todo lo de esta categoría ya se ha enviado para este evento.",
   "supplierMessagePreviousOrders": "Pedidos enviados",
   "supplierMessageSendError": "No se ha podido enviar el mensaje. Inténtalo de nuevo.",
+  "supplierMessageNotSent": "No se ha enviado nada. Puedes volver a intentarlo.",
   "supplierMessagePreviewLabel": "Mensaje",
+  "supplierMessageNeededByLabel": "Fecha de necesidad",
+  "supplierMessageNeededByEmpty": "Elige una fecha",
+  "supplierMessageNeededBy": "Para el día {date}",
+  "@supplierMessageNeededBy": {
+    "placeholders": { "date": { "type": "String" } }
+  },
+  "supplierMessageConfirmSentTitle": "¿Has enviado el mensaje?",
+  "supplierMessageConfirmSentBody": "Confirma que el mensaje se ha enviado correctamente al proveedor antes de marcar el pedido como enviado.",
+  "supplierMessageConfirmSentYes": "Sí, enviado",
+  "supplierMessageConfirmSentNo": "No",
 
   "channelWhatsApp": "WhatsApp",
   "channelEmail": "Correo electrónico",

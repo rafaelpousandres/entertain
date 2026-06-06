@@ -1,21 +1,32 @@
-/// Composes the universal-text supplier message (Specification 005 §2.4).
+/// Composes the universal-text supplier message (Specification 005 §2.4,
+/// amended by Fixes §2.5).
 ///
-/// Plain text, no Markdown or platform styling: a brief identifying line,
-/// the items one per line as `<quantity> <unit> <ingredient name>`, then the
+/// Plain text, no Markdown or platform styling: an optional leading line, the
+/// items one per line as `<quantity> <unit> <ingredient name>`, then the
 /// signature separated by a blank line. The caller resolves the localised
-/// pieces (date text, unit names, signature) and passes them in, so this
-/// stays free of BuildContext and is unit-testable.
+/// pieces (the needed-by sentence, unit names, signature) and passes them in,
+/// so this stays free of BuildContext and is unit-testable.
+///
+/// Fixes §2.5: the leading line used to carry the event title and date, which
+/// leak private information to the supplier. It now carries only the needed-by
+/// sentence ("Per al dia 5 de juny") — or nothing, when the user left the
+/// needed-by date empty.
 library;
 
-/// Builds the message body. [identifyingLine] is e.g. "Sopar · 14 de juny";
-/// [itemLines] are the pre-formatted item strings; [signature] is appended
-/// after a blank line when non-empty.
+/// Builds the message body. [leadingLine] is e.g. "Per al dia 5 de juny" and
+/// is omitted (with its trailing blank) when empty; [itemLines] are the
+/// pre-formatted item strings; [signature] is appended after a blank line when
+/// non-empty.
 String composeMessageBody({
-  required String identifyingLine,
+  required String leadingLine,
   required List<String> itemLines,
   required String signature,
 }) {
-  final lines = <String>[identifyingLine, '', ...itemLines];
+  final trimmedLeading = leadingLine.trim();
+  final lines = <String>[
+    if (trimmedLeading.isNotEmpty) ...[trimmedLeading, ''],
+    ...itemLines,
+  ];
   final trimmedSignature = signature.trim();
   if (trimmedSignature.isNotEmpty) {
     lines

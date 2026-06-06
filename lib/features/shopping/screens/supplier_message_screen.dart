@@ -49,6 +49,12 @@ class _SupplierMessageScreenState
   MessageChannel? _overrideChannel;
   String? _overrideAddress;
 
+  /// Needed-by date (Fixes §2.5): the date the goods are required by — the
+  /// only date shared with the supplier. Initialised once from the event (the
+  /// day before its date, if any) and editable before sending.
+  bool _neededByInitialised = false;
+  DateTime? _neededByDate;
+
   bool _sending = false;
 
   /// Effective destination for this send: the override if set, else the
@@ -85,7 +91,6 @@ class _SupplierMessageScreenState
   }
 
   Future<void> _send({
-    required Event event,
     required String categoryName,
     required List<ShoppingLine> delta,
     required Map<String, Unit> unitsById,
@@ -99,7 +104,6 @@ class _SupplierMessageScreenState
 
     final destination = _destination(configured);
     final body = _composeBody(
-      event: event,
       delta: delta,
       unitsById: unitsById,
       signature: signature,
@@ -107,7 +111,6 @@ class _SupplierMessageScreenState
       l10n: l10n,
     );
     final subject = _composeSubject(
-      event: event,
       categoryName: categoryName,
       locale: locale,
       l10n: l10n,
@@ -121,12 +124,33 @@ class _SupplierMessageScreenState
         subject: subject,
         body: body,
       );
+
+      // Fixes §2.7: opening the channel is not proof the message went out. If
+      // nothing came up (no app, or the share sheet was dismissed), leave the
+      // order unsent and let the user retry. Otherwise ask them to confirm.
+      if (!outcome.opened) {
+        messenger.showSnackBar(
+          SnackBar(content: Text(l10n.supplierMessageNotSent)),
+        );
+        if (mounted) setState(() => _sending = false);
+        return;
+      }
+
+      final confirmed = await _confirmSent();
+      if (confirmed != true) {
+        // "No" (or dismissed): the message did not go out. Stay on the screen
+        // so the user can retry.
+        if (mounted) setState(() => _sending = false);
+        return;
+      }
+
       await ref.read(shoppingRepositoryProvider).createSentOrder(
             eventId: widget.eventId,
             supplierCategoryId: widget.categoryId,
             channel: outcome.channel,
             address: outcome.address,
             sentAt: DateTime.now(),
+            neededByDate: _neededByDate,
             items: delta,
           );
       ref.invalidate(eventShoppingProvider(widget.eventId));
@@ -140,8 +164,47 @@ class _SupplierMessageScreenState
     }
   }
 
+  /// Post-channel confirmation (Fixes §2.7): the only reliable signal the app
+  /// has that the message actually left the device.
+  Future<bool?> _confirmSent() {
+    final l10n = AppLocalizations.of(context);
+    return showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        title: Text(
+          l10n.supplierMessageConfirmSentTitle,
+          style: AppTypography.sectionTitle,
+        ),
+        content: Text(
+          l10n.supplierMessageConfirmSentBody,
+          style: AppTypography.body.copyWith(color: AppColors.textSecondary),
+        ),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(
+              l10n.supplierMessageConfirmSentNo,
+              style: AppTypography.button.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(
+              l10n.supplierMessageConfirmSentYes,
+              style: AppTypography.button.copyWith(color: AppColors.accent),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   String _composeBody({
-    required Event event,
     required List<ShoppingLine> delta,
     required Map<String, Unit> unitsById,
     required String signature,
@@ -149,7 +212,7 @@ class _SupplierMessageScreenState
     required AppLocalizations l10n,
   }) {
     return composeMessageBody(
-      identifyingLine: _identifyingLine(event, locale, l10n),
+      leadingLine: _neededBySentence(locale, l10n),
       itemLines: [
         for (final line in delta)
           composeItemLine(
@@ -162,10 +225,12 @@ class _SupplierMessageScreenState
     );
   }
 
-  String _identifyingLine(Event event, Locale locale, AppLocalizations l10n) {
-    if (event.eventDate == null) return event.title;
-    return '${event.title}${l10n.metadataSeparator}'
-        '${formatLongDate(event.eventDate!, locale)}';
+  /// The needed-by sentence shared with the supplier, e.g. "Per al dia 5 de
+  /// juny", or empty when the user left the date unset (Fixes §2.5).
+  String _neededBySentence(Locale locale, AppLocalizations l10n) {
+    final date = _neededByDate;
+    if (date == null) return '';
+    return l10n.supplierMessageNeededBy(formatDayMonth(date, locale));
   }
 
   String _categoryName(List<SupplierCategory>? categories) {
@@ -176,18 +241,34 @@ class _SupplierMessageScreenState
     return '';
   }
 
+  /// Email subject (Fixes §2.5): no event title, no event date — only the
+  /// category and, when set, the needed-by sentence. Keeps the supplier's
+  /// inbox informative without leaking the event.
   String _composeSubject({
-    required Event event,
     required String categoryName,
     required Locale locale,
     required AppLocalizations l10n,
   }) {
+    final neededBy = _neededBySentence(locale, l10n);
     final parts = <String>[
-      event.title,
       categoryName,
-      if (event.eventDate != null) formatLongDate(event.eventDate!, locale),
+      if (neededBy.isNotEmpty) neededBy,
     ];
     return parts.join(l10n.metadataSeparator);
+  }
+
+  Future<void> _pickNeededBy(DateTime? eventDate) async {
+    final initial = _neededByDate ?? eventDate ?? DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+    );
+    if (picked == null) return;
+    setState(
+      () => _neededByDate = DateTime(picked.year, picked.month, picked.day),
+    );
   }
 
   @override
@@ -245,6 +326,19 @@ class _SupplierMessageScreenState
             final configured = settingsAsync.value![widget.categoryId];
             final signature = signatureAsync.value!;
 
+            // Fixes §2.5: default the needed-by date to the day before the
+            // event (when known), once, before the first paint. Assigned
+            // directly — we are already inside build, and it must not override
+            // a value the user has since picked.
+            if (!_neededByInitialised) {
+              _neededByInitialised = true;
+              final d = event.eventDate;
+              _neededByDate = d == null
+                  ? null
+                  : DateTime(d.year, d.month, d.day)
+                      .subtract(const Duration(days: 1));
+            }
+
             final categoryLines =
                 linesByCategory(shopping.lines)[widget.categoryId] ??
                 const <ShoppingLine>[];
@@ -264,7 +358,6 @@ class _SupplierMessageScreenState
             }
 
             final body = _composeBody(
-              event: event,
               delta: delta,
               unitsById: unitsById,
               signature: signature,
@@ -280,6 +373,8 @@ class _SupplierMessageScreenState
               destinationChannel: destination.channel,
               destinationAddress: destination.address,
               locale: locale,
+              neededByDate: _neededByDate,
+              onPickNeededBy: () => _pickNeededBy(event.eventDate),
               onChangeDestination: () => _openOverrideSheet(configured),
             );
           },
@@ -290,7 +385,6 @@ class _SupplierMessageScreenState
           : _SendBar(
               shoppingAsync: shoppingAsync,
               onSend: () {
-                final event = eventAsync.value!;
                 final shopping = shoppingAsync.value!;
                 final unitsById = {
                   for (final u in unitsAsync.value!) u.id: u,
@@ -306,7 +400,6 @@ class _SupplierMessageScreenState
                 final delta = deltaForCategory(categoryLines, categoryOrders);
                 if (delta.isEmpty) return;
                 _send(
-                  event: event,
                   categoryName: categoryName,
                   delta: delta,
                   unitsById: unitsById,
@@ -328,6 +421,8 @@ class _Composer extends StatelessWidget {
     required this.destinationChannel,
     required this.destinationAddress,
     required this.locale,
+    required this.neededByDate,
+    required this.onPickNeededBy,
     required this.onChangeDestination,
   });
 
@@ -337,6 +432,8 @@ class _Composer extends StatelessWidget {
   final MessageChannel? destinationChannel;
   final String? destinationAddress;
   final Locale locale;
+  final DateTime? neededByDate;
+  final VoidCallback onPickNeededBy;
   final VoidCallback onChangeDestination;
 
   @override
@@ -378,6 +475,56 @@ class _Composer extends StatelessWidget {
           ),
           const SizedBox(height: 12),
         ],
+        // Needed-by date (Fixes §2.5): editable, defaults to the day before
+        // the event; the only date that reaches the supplier.
+        Text(
+          l10n.supplierMessageNeededByLabel,
+          style: AppTypography.label.copyWith(color: AppColors.textSecondary),
+        ),
+        const SizedBox(height: 6),
+        Material(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(14),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(14),
+            onTap: onPickNeededBy,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.event_outlined,
+                    size: 18,
+                    color: AppColors.accentSecondary,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      neededByDate == null
+                          ? l10n.supplierMessageNeededByEmpty
+                          : formatLongDate(neededByDate!, locale),
+                      style: AppTypography.body.copyWith(
+                        color: neededByDate == null
+                            ? AppColors.textTertiary
+                            : AppColors.textPrimary,
+                      ),
+                    ),
+                  ),
+                  const Icon(
+                    Icons.edit_outlined,
+                    size: 18,
+                    color: AppColors.disabled,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
         Text(
           l10n.supplierMessagePreviewLabel,
           style: AppTypography.label.copyWith(color: AppColors.textSecondary),

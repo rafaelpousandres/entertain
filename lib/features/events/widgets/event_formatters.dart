@@ -46,6 +46,13 @@ String formatLongDate(DateTime date, Locale locale) {
   return DateFormat.MMMMEEEEd(locale.toLanguageTag()).format(date);
 }
 
+/// Day-and-month form, without the weekday — e.g. "5 de juny". Used for the
+/// needed-by sentence in supplier messages (Fixes §2.5), which reads more
+/// naturally without the weekday.
+String formatDayMonth(DateTime date, Locale locale) {
+  return DateFormat.MMMMd(locale.toLanguageTag()).format(date);
+}
+
 /// Composes the "date · guests" line shown on the event detail header.
 String eventDetailMetadata(AppLocalizations l10n, Event event, Locale locale) {
   final guests = l10n.guestsCount(event.guestCount);
