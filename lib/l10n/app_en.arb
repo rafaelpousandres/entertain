@@ -321,5 +321,46 @@
   "settingsLoadError": "Couldn't load the settings.",
   "@settingsLoadError": {},
   "settingsSaveError": "Couldn't save the settings. Check your connection.",
-  "@settingsSaveError": {}
+  "@settingsSaveError": {},
+
+  "eventTabEvent": "Event",
+  "@eventTabEvent": {},
+
+  "settingsTabGeneral": "General",
+  "@settingsTabGeneral": {},
+  "settingsTabSuppliers": "Suppliers",
+  "@settingsTabSuppliers": {},
+  "settingsTabMessages": "Messages",
+  "@settingsTabMessages": {},
+  "settingsAboutVersion": "Version {version}",
+  "@settingsAboutVersion": {
+    "placeholders": { "version": { "type": "String" } }
+  },
+  "settingsAboutDescription": "Organize domestic events: menus, dishes, ingredients, and per-supplier shopping lists.",
+  "@settingsAboutDescription": {},
+
+  "supplierCategoryAddAction": "Add category",
+  "@supplierCategoryAddAction": {},
+  "supplierCategoryAddTitle": "New category",
+  "@supplierCategoryAddTitle": {},
+  "supplierCategoryNameLabel": "Name",
+  "@supplierCategoryNameLabel": {},
+  "supplierCategoryNameHint": "Name the category",
+  "@supplierCategoryNameHint": {},
+  "supplierCategoryNameRequired": "A name is required to save.",
+  "@supplierCategoryNameRequired": {},
+  "supplierCategorySystemNameHint": "Built-in categories can't be renamed. Create your own if you want a different name.",
+  "@supplierCategorySystemNameHint": {},
+  "supplierCategoryPantryHint": "The pantry is consultive — it has no channel or address and never sends messages.",
+  "@supplierCategoryPantryHint": {},
+  "deleteSupplierCategoryAction": "Delete category",
+  "@deleteSupplierCategoryAction": {},
+  "deleteSupplierCategoryConfirmTitle": "Delete this category?",
+  "@deleteSupplierCategoryConfirmTitle": {},
+  "deleteSupplierCategoryConfirmBody": "Ingredients assigned to it will move to \"Uncategorised\". This can't be undone.",
+  "@deleteSupplierCategoryConfirmBody": {},
+  "deleteSupplierCategoryConfirmButton": "Delete category",
+  "@deleteSupplierCategoryConfirmButton": {},
+  "deleteSupplierCategoryError": "Couldn't delete the category. It may have sent orders.",
+  "@deleteSupplierCategoryError": {}
 }

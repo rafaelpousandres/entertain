@@ -55,13 +55,27 @@ class SupplierCategory {
     required this.id,
     required this.code,
     required this.name,
+    required this.isSystem,
+    this.groupId,
   });
 
   final String id;
   final String code;
 
-  /// Translated display name in the current locale (falls back to [code]).
+  /// Resolved display name in the current locale. System categories take it
+  /// from the `translations` table; user categories take it from the row's
+  /// monolingual `name` column (Spec 007 §2.3). Falls back to [code].
   final String name;
 
-  static const String selectColumns = 'id, code';
+  /// System (seed) category, shared across groups and read-only in-app
+  /// (Spec 007 §2.3 decision): only channel/address are configurable.
+  final bool isSystem;
+
+  /// Owning group for user categories; null for system rows.
+  final String? groupId;
+
+  /// A user-created, fully manageable category (rename / delete allowed).
+  bool get isUserCategory => !isSystem && groupId != null;
+
+  static const String selectColumns = 'id, code, is_system, group_id, name';
 }

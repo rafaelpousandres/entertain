@@ -7,7 +7,7 @@ import '../features/catalog/screens/dish_editor_screen.dart';
 import '../features/catalog/screens/ingredient_catalog_screen.dart';
 import '../features/catalog/screens/ingredient_editor_screen.dart';
 import '../features/catalog/screens/ingredient_line_editor_screen.dart';
-import '../features/events/data/event.dart';
+import '../features/catalog/data/reference_data.dart';
 import '../features/events/screens/add_dish_to_menu_screen.dart';
 import '../features/events/screens/event_detail_screen.dart';
 import '../features/events/screens/event_dish_detail_screen.dart';
@@ -16,6 +16,7 @@ import '../features/events/screens/event_form_screen.dart';
 import '../features/events/screens/events_list_screen.dart';
 import '../features/shell/home_shell.dart';
 import '../features/shopping/screens/settings_screen.dart';
+import '../features/shopping/screens/supplier_category_detail_screen.dart';
 import '../features/shopping/screens/supplier_message_screen.dart';
 import '../features/startup/bootstrap_gate.dart';
 
@@ -88,18 +89,6 @@ final GoRouter appRouter = GoRouter(
           _gated(EventDetailScreen(eventId: state.pathParameters['id']!)),
     ),
     GoRoute(
-      path: '/events/:id/edit',
-      builder: (context, state) {
-        final initial = state.extra is Event ? state.extra as Event : null;
-        return _gated(
-          EventFormScreen(
-            eventId: state.pathParameters['id']!,
-            initialEvent: initial,
-          ),
-        );
-      },
-    ),
-    GoRoute(
       path: '/events/:id/add-dish',
       builder: (context, state) =>
           _gated(AddDishToMenuScreen(eventId: state.pathParameters['id']!)),
@@ -120,6 +109,16 @@ final GoRouter appRouter = GoRouter(
         SupplierMessageScreen(
           eventId: state.pathParameters['id']!,
           categoryId: state.pathParameters['categoryId']!,
+        ),
+      ),
+    ),
+
+    // Settings — supplier category detail (covers the bottom bar).
+    GoRoute(
+      path: '/settings/category',
+      builder: (context, state) => _gated(
+        SupplierCategoryDetailScreen(
+          category: state.extra as SupplierCategory,
         ),
       ),
     ),

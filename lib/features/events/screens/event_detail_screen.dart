@@ -1,28 +1,37 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
 import '../../../l10n/app_localizations.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_typography.dart';
-import '../../../ui/icon_circle.dart';
+import '../../../ui/app_form_field.dart';
 import '../../../ui/primary_button.dart';
 import '../../../ui/section_header.dart';
 import '../../../ui/segmented_choice.dart';
+import '../../../ui/stepper_field.dart';
 import '../../catalog/data/dish_category.dart';
 import '../../shopping/screens/event_shopping_panel.dart';
 import '../data/event.dart';
 import '../data/event_dish.dart';
+import '../data/event_draft.dart';
 import '../data/events_providers.dart';
 import '../widgets/event_formatters.dart';
 
-/// Event detail screen (spec 003 §2.4, extended in spec 005 §2.3).
+/// Event detail screen (Spec 007 §2.1).
 ///
-/// A shared event header sits above a segmented control that switches between
-/// two equal-rank views of the same event: the **menu** (dishes grouped by
-/// category) and the **shopping** panel (ingredients grouped by supplier
-/// category, with per-category send actions). The "add dish" action belongs
-/// to the menu view only.
+/// A three-tab layout replaces the previous header + segmented control:
+///
+///   * **Esdeveniment** — the event's own fields, editable in place, with a
+///     "Desa" action shown only when there are unsaved changes (no separate
+///     edit screen, no edit-pencil).
+///   * **Menú** — the dish menu (unchanged).
+///   * **Compra** — the shopping panel (unchanged in this phase).
+///
+/// The default tab is Menú, the most common landing point for ongoing
+/// planning. The event title sits in the app bar so it stays in view across
+/// tabs; delete lives in the app bar overflow menu.
 class EventDetailScreen extends ConsumerStatefulWidget {
   const EventDetailScreen({super.key, required this.eventId});
 
@@ -32,10 +41,159 @@ class EventDetailScreen extends ConsumerStatefulWidget {
   ConsumerState<EventDetailScreen> createState() => _EventDetailScreenState();
 }
 
-enum _EventView { menu, shopping }
+class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tab;
 
-class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
-  _EventView _view = _EventView.menu;
+  final _titleController = TextEditingController();
+  final _locationController = TextEditingController();
+  final _notesController = TextEditingController();
+  late EventDraft _draft;
+  bool _seeded = false;
+  bool _saving = false;
+  bool _deleting = false;
+  String? _titleError;
+
+  @override
+  void initState() {
+    super.initState();
+    _tab = TabController(length: 3, vsync: this, initialIndex: 1)
+      ..addListener(() => setState(() {}));
+    _draft = EventDraft.empty();
+  }
+
+  @override
+  void dispose() {
+    _tab.dispose();
+    _titleController.dispose();
+    _locationController.dispose();
+    _notesController.dispose();
+    super.dispose();
+  }
+
+  void _seed(Event event) {
+    if (_seeded) return;
+    _draft = EventDraft.fromEvent(event);
+    _titleController.text = _draft.title;
+    _locationController.text = _draft.locationName ?? '';
+    _notesController.text = _draft.notes ?? '';
+    _seeded = true;
+  }
+
+  String _norm(String? value) => (value ?? '').trim();
+
+  bool _sameDate(DateTime? a, DateTime? b) {
+    if (a == null || b == null) return a == b;
+    return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
+
+  bool _sameTime(TimeOfDay? a, TimeOfDay? b) {
+    if (a == null || b == null) return a == b;
+    return a.hour == b.hour && a.minute == b.minute;
+  }
+
+  /// Whether the in-place form diverges from the persisted event.
+  bool _isDirty(Event e) {
+    if (!_seeded) return false;
+    return _titleController.text.trim() != e.title ||
+        _draft.type != e.type ||
+        _draft.format != e.format ||
+        _draft.guestCount != e.guestCount ||
+        !_sameDate(_draft.eventDate, e.eventDate) ||
+        !_sameTime(_draft.eventTime, e.eventTime) ||
+        _norm(_locationController.text) != _norm(e.locationName) ||
+        _norm(_notesController.text) != _norm(e.notes);
+  }
+
+  Future<void> _save() async {
+    final l10n = AppLocalizations.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+
+    _draft.title = _titleController.text;
+    _draft.locationName = _locationController.text;
+    _draft.notes = _notesController.text;
+    if (_draft.title.trim().isEmpty) {
+      setState(() => _titleError = l10n.fieldTitleRequired);
+      return;
+    }
+
+    setState(() {
+      _titleError = null;
+      _saving = true;
+    });
+    try {
+      await ref.read(eventsRepositoryProvider).updateEvent(
+            widget.eventId,
+            _draft,
+          );
+      ref.invalidate(eventsListProvider);
+      ref.invalidate(eventByIdProvider(widget.eventId));
+      if (!mounted) return;
+      setState(() => _saving = false);
+      messenger.showSnackBar(SnackBar(content: Text(l10n.saveAction)));
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      messenger.showSnackBar(SnackBar(content: Text(l10n.saveError)));
+    }
+  }
+
+  Future<void> _confirmDelete() async {
+    final l10n = AppLocalizations.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        title: Text(
+          l10n.deleteEventConfirmTitle,
+          style: AppTypography.sectionTitle,
+        ),
+        content: Text(
+          l10n.deleteEventConfirmBody,
+          style: AppTypography.body.copyWith(color: AppColors.textSecondary),
+        ),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(
+              l10n.cancelAction,
+              style: AppTypography.button.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(
+              l10n.deleteEventConfirmButton,
+              style: AppTypography.button.copyWith(color: AppColors.danger),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await _delete();
+  }
+
+  Future<void> _delete() async {
+    final l10n = AppLocalizations.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _deleting = true);
+    try {
+      await ref.read(eventsRepositoryProvider).deleteEvent(widget.eventId);
+      ref.invalidate(eventsListProvider);
+      ref.invalidate(eventByIdProvider(widget.eventId));
+      if (!mounted) return;
+      context.go('/');
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _deleting = false);
+      messenger.showSnackBar(SnackBar(content: Text(l10n.saveError)));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -49,22 +207,58 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           tooltip: l10n.backAction,
-          onPressed: () => context.pop(),
+          onPressed: _deleting ? null : () => context.pop(),
         ),
-        title: const SizedBox.shrink(),
+        title: eventAsync.maybeWhen(
+          data: (event) => Text(
+            event.title,
+            style: AppTypography.sectionTitle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          orElse: () => const SizedBox.shrink(),
+        ),
         actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: eventAsync.maybeWhen(
-              data: (event) => IconCircle(
-                icon: Icons.edit_outlined,
-                onTap: () =>
-                    context.push('/events/${event.id}/edit', extra: event),
+          eventAsync.maybeWhen(
+            data: (_) => PopupMenuButton<_OverflowAction>(
+              icon: const Icon(Icons.more_vert),
+              tooltip: l10n.moreActionsLabel,
+              color: AppColors.surface,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
               ),
-              orElse: () => const SizedBox(width: 34, height: 34),
+              onSelected: (action) {
+                switch (action) {
+                  case _OverflowAction.delete:
+                    _confirmDelete();
+                }
+              },
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                  value: _OverflowAction.delete,
+                  child: Text(
+                    l10n.deleteAction,
+                    style: AppTypography.body.copyWith(color: AppColors.danger),
+                  ),
+                ),
+              ],
             ),
+            orElse: () => const SizedBox(width: 48),
           ),
         ],
+        bottom: TabBar(
+          controller: _tab,
+          labelColor: AppColors.accentSecondary,
+          unselectedLabelColor: AppColors.textTertiary,
+          indicatorColor: AppColors.accentSecondary,
+          labelStyle: AppTypography.label,
+          unselectedLabelStyle: AppTypography.label,
+          tabs: [
+            Tab(text: l10n.eventTabEvent),
+            Tab(text: l10n.eventTabMenu),
+            Tab(text: l10n.eventTabShopping),
+          ],
+        ),
       ),
       body: SafeArea(
         top: false,
@@ -76,102 +270,241 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
             message: l10n.eventsLoadError,
             onRetry: () => ref.invalidate(eventByIdProvider(widget.eventId)),
           ),
-          data: (event) => Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-                child: _EventHeader(event: event, locale: locale),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-                child: SegmentedChoice<_EventView>(
-                  value: _view,
-                  onChanged: (v) => setState(() => _view = v),
-                  options: [
-                    SegmentedChoiceOption(_EventView.menu, l10n.eventTabMenu),
-                    SegmentedChoiceOption(
-                      _EventView.shopping,
-                      l10n.eventTabShopping,
-                    ),
-                  ],
+          data: (event) {
+            _seed(event);
+            return TabBarView(
+              controller: _tab,
+              children: [
+                _buildEventTab(event, locale),
+                _MenuView(event: event),
+                EventShoppingPanel(eventId: event.id),
+              ],
+            );
+          },
+        ),
+      ),
+      bottomNavigationBar: eventAsync.maybeWhen(
+        data: (event) {
+          _seed(event);
+          return _buildBottomBar(event, l10n);
+        },
+        orElse: () => null,
+      ),
+    );
+  }
+
+  Widget? _buildBottomBar(Event event, AppLocalizations l10n) {
+    // Esdeveniment → Desa when there are unsaved changes; Menú → Afegeix plat;
+    // Compra → no global action (the panel owns its per-section actions).
+    if (_tab.index == 0) {
+      if (!_isDirty(event)) return null;
+      return _ActionBar(
+        child: PrimaryButton(
+          label: l10n.saveAction,
+          icon: Icons.check,
+          onPressed: _saving ? null : _save,
+        ),
+      );
+    }
+    if (_tab.index == 1) {
+      return _ActionBar(
+        child: PrimaryButton(
+          label: l10n.addDishToMenuAction,
+          icon: Icons.add,
+          onPressed: () => context.push('/events/${event.id}/add-dish'),
+        ),
+      );
+    }
+    return null;
+  }
+
+  Widget _buildEventTab(Event event, Locale locale) {
+    final l10n = AppLocalizations.of(context);
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+      children: [
+        FieldLabel(
+          label: l10n.fieldTitleLabel,
+          child: AppTextField(
+            controller: _titleController,
+            hintText: l10n.fieldTitleHint,
+            onChanged: (_) => setState(() {
+              if (_titleError != null &&
+                  _titleController.text.trim().isNotEmpty) {
+                _titleError = null;
+              }
+            }),
+          ),
+        ),
+        if (_titleError != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text(
+              _titleError!,
+              style: AppTypography.caption.copyWith(color: AppColors.danger),
+            ),
+          ),
+        const SizedBox(height: 16),
+        FieldLabel(
+          label: l10n.fieldTypeLabel,
+          child: SegmentedChoice<EventType>(
+            value: _draft.type,
+            onChanged: (v) => setState(() => _draft.type = v),
+            options: [
+              for (final t in EventType.values)
+                SegmentedChoiceOption(t, eventTypeLabel(l10n, t)),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        FieldLabel(
+          label: l10n.fieldFormatLabel,
+          child: SegmentedChoice<EventFormat>(
+            value: _draft.format,
+            onChanged: (v) => setState(() => _draft.format = v),
+            options: [
+              for (final f in EventFormat.values)
+                SegmentedChoiceOption(f, eventFormatLabel(l10n, f)),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: FieldLabel(
+                label: l10n.fieldDateLabel,
+                child: FormFieldTile(
+                  onTap: _pickDate,
+                  placeholder: l10n.fieldDateHint,
+                  value: _draft.eventDate == null
+                      ? null
+                      : DateFormat.yMMMd(
+                          locale.toLanguageTag(),
+                        ).format(_draft.eventDate!),
+                  onClear: _draft.eventDate == null
+                      ? null
+                      : () => setState(() => _draft.eventDate = null),
                 ),
               ),
-              Expanded(
-                child: _view == _EventView.menu
-                    ? _MenuView(event: event)
-                    : EventShoppingPanel(eventId: event.id),
+            ),
+            const SizedBox(width: 12),
+            IntrinsicWidth(
+              child: FieldLabel(
+                label: l10n.fieldTimeLabel,
+                child: FormFieldTile(
+                  onTap: _pickTime,
+                  placeholder: l10n.fieldTimeHint,
+                  value: _draft.eventTime == null
+                      ? null
+                      : _formatTime(_draft.eventTime!, locale),
+                  onClear: _draft.eventTime == null
+                      ? null
+                      : () => setState(() => _draft.eventTime = null),
+                ),
               ),
-            ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        FieldLabel(
+          label: l10n.fieldGuestCountLabel,
+          child: StepperField(
+            value: _draft.guestCount,
+            onChanged: (v) => setState(() => _draft.guestCount = v),
+          ),
+        ),
+        const SizedBox(height: 16),
+        FieldLabel(
+          label: l10n.fieldLocationLabel,
+          child: AppTextField(
+            controller: _locationController,
+            hintText: l10n.fieldLocationHint,
+            onChanged: (_) => setState(() {}),
+          ),
+        ),
+        const SizedBox(height: 16),
+        FieldLabel(
+          label: l10n.fieldNotesLabel,
+          child: AppTextField(
+            controller: _notesController,
+            hintText: l10n.fieldNotesHint,
+            maxLines: 4,
+            textInputAction: TextInputAction.newline,
+            onChanged: (_) => setState(() {}),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _pickDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _draft.eventDate ?? now,
+      firstDate: DateTime(now.year - 2),
+      lastDate: DateTime(now.year + 5),
+      builder: _pickerTheme,
+    );
+    if (picked != null) setState(() => _draft.eventDate = picked);
+  }
+
+  Future<void> _pickTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _draft.eventTime ?? const TimeOfDay(hour: 14, minute: 0),
+      builder: _pickerTheme,
+    );
+    if (picked != null) setState(() => _draft.eventTime = picked);
+  }
+
+  Widget _pickerTheme(BuildContext context, Widget? child) {
+    return Theme(
+      data: Theme.of(context).copyWith(
+        colorScheme: const ColorScheme.light(
+          primary: AppColors.accentSecondary,
+          onPrimary: AppColors.onAccent,
+          surface: AppColors.surface,
+          onSurface: AppColors.textPrimary,
+        ),
+        textButtonTheme: TextButtonThemeData(
+          style: TextButton.styleFrom(
+            foregroundColor: AppColors.accent,
+            textStyle: AppTypography.button.copyWith(color: AppColors.accent),
           ),
         ),
       ),
-      bottomNavigationBar: (_view == _EventView.menu)
-          ? eventAsync.maybeWhen(
-              data: (event) => SafeArea(
-                top: false,
-                child: Container(
-                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-                  decoration: const BoxDecoration(
-                    color: AppColors.bg,
-                    border: Border(
-                      top: BorderSide(color: AppColors.border, width: 1),
-                    ),
-                  ),
-                  child: PrimaryButton(
-                    label: l10n.addDishToMenuAction,
-                    icon: Icons.add,
-                    onPressed: () =>
-                        context.push('/events/${event.id}/add-dish'),
-                  ),
-                ),
-              ),
-              orElse: () => null,
-            )
-          : null,
+      child: child!,
     );
+  }
+
+  String _formatTime(TimeOfDay value, Locale locale) {
+    final dt = DateTime(2000, 1, 1, value.hour, value.minute);
+    return DateFormat.Hm(locale.toLanguageTag()).format(dt);
   }
 }
 
-class _EventHeader extends StatelessWidget {
-  const _EventHeader({required this.event, required this.locale});
+enum _OverflowAction { delete }
 
-  final Event event;
-  final Locale locale;
+class _ActionBar extends StatelessWidget {
+  const _ActionBar({required this.child});
+
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(event.title, style: AppTypography.display),
-        const SizedBox(height: 6),
-        Text(
-          eventDetailMetadata(l10n, event, locale),
-          style: AppTypography.body.copyWith(color: AppColors.textSecondary),
+    return SafeArea(
+      top: false,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+        decoration: const BoxDecoration(
+          color: AppColors.bg,
+          border: Border(top: BorderSide(color: AppColors.border, width: 1)),
         ),
-        if (event.locationName != null && event.locationName!.isNotEmpty) ...[
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              const Icon(
-                Icons.place_outlined,
-                size: 16,
-                color: AppColors.textTertiary,
-              ),
-              const SizedBox(width: 4),
-              Expanded(
-                child: Text(
-                  event.locationName!,
-                  style: AppTypography.caption,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ],
+        child: child,
+      ),
     );
   }
 }
@@ -187,15 +520,8 @@ class _MenuView extends ConsumerWidget {
     final dishesAsync = ref.watch(eventDishesProvider(event.id));
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
       children: [
-        if (event.notes != null && event.notes!.isNotEmpty) ...[
-          Text(
-            event.notes!,
-            style: AppTypography.body.copyWith(color: AppColors.textSecondary),
-          ),
-          const SizedBox(height: 16),
-        ],
         dishesAsync.when(
           loading: () => const Padding(
             padding: EdgeInsets.symmetric(vertical: 32),
