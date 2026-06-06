@@ -135,14 +135,35 @@ void main() {
       expect(line, '400 g de bacallà, Esmicolat');
     });
 
-    test('an unknown unit collapses without a dangling space', () {
+    test('a null unit drops the connector too (§2.3)', () {
       final line = composeItemLine(
         quantity: '3',
         unit: null,
         connector: 'de',
         ingredientName: 'ous',
       );
-      expect(line, '3 de ous');
+      expect(line, '3 ous');
+    });
+
+    test('an empty unit drops the connector too (§2.3)', () {
+      final line = composeItemLine(
+        quantity: '3',
+        unit: '',
+        connector: 'de',
+        ingredientName: 'ous',
+      );
+      expect(line, '3 ous');
+    });
+
+    test('no unit keeps the prep-note clause after a comma (§2.3)', () {
+      final line = composeItemLine(
+        quantity: '2',
+        unit: null,
+        connector: 'de',
+        ingredientName: 'llimones',
+        prepNote: 'tallades a rodanxes',
+      );
+      expect(line, '2 llimones, tallades a rodanxes');
     });
 
     test('an empty connector is dropped', () {

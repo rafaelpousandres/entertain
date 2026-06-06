@@ -360,7 +360,12 @@ class _EventFormState extends ConsumerState<_EventForm> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Spec 006 §2.5: a set date renders in the long format
+                // ("13 de juny de 2026") and wrapped to two lines at an equal
+                // 1:1 split. The date takes the larger share (3:1) so the long
+                // format fits on a single line while "21:00" still has room.
                 Expanded(
+                  flex: 3,
                   child: FieldLabel(
                     label: l10n.fieldDateLabel,
                     child: FormFieldTile(
@@ -379,6 +384,7 @@ class _EventFormState extends ConsumerState<_EventForm> {
                 ),
                 const SizedBox(width: 12),
                 Expanded(
+                  flex: 1,
                   child: FieldLabel(
                     label: l10n.fieldTimeLabel,
                     child: FormFieldTile(

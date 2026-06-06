@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_typography.dart';
+import '../../../ui/secondary_button.dart';
 import '../../catalog/data/catalog_providers.dart';
 import '../../catalog/data/dish.dart' show formatQuantity;
 import '../../catalog/data/dish_category.dart';
@@ -89,6 +90,15 @@ class EventDishDetailScreen extends ConsumerWidget {
     final units = ref.watch(unitsProvider(localeCode)).value;
     final categories = ref.watch(supplierCategoriesProvider(localeCode)).value;
 
+    // §2.1: the dish's description and preparation are not snapshotted onto the
+    // event copy — they are read live from the catalog dish via source_dish_id,
+    // so cooks always see the latest recipe. Null when the event-dish has no
+    // source (origin deleted) or the catalog dish is unavailable.
+    final sourceDishId = dishAsync.value?.sourceDishId;
+    final catalogDish = sourceDishId == null
+        ? null
+        : ref.watch(dishByIdProvider(sourceDishId)).value;
+
     final unitsById = {for (final u in units ?? const <Unit>[]) u.id: u};
     final categoriesById = {
       for (final c in categories ?? const <SupplierCategory>[]) c.id: c,
@@ -142,68 +152,114 @@ class EventDishDetailScreen extends ConsumerWidget {
             message: l10n.eventsLoadError,
             onRetry: () => ref.invalidate(eventDishByIdProvider(eventDishId)),
           ),
-          data: (dish) => ListView(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-            children: [
-              Text(
-                '${dishCategoryLabel(l10n, dish.category)}'
-                '${l10n.metadataSeparator}'
-                '${l10n.eventDishServings(dish.servings)}',
-                style: AppTypography.body.copyWith(
-                  color: AppColors.textSecondary,
-                ),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                l10n.dishIngredientsSectionTitle,
-                style: AppTypography.sectionTitle,
-              ),
-              const SizedBox(height: 8),
-              linesAsync.when(
-                loading: () => const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 24),
-                  child: Center(
-                    child: CircularProgressIndicator(color: AppColors.accent),
+          data: (dish) {
+            final description = catalogDish?.description?.trim() ?? '';
+            final preparation = catalogDish?.preparation?.trim() ?? '';
+            return ListView(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+              children: [
+                Text(
+                  '${dishCategoryLabel(l10n, dish.category)}'
+                  '${l10n.metadataSeparator}'
+                  '${l10n.eventDishServings(dish.servings)}',
+                  style: AppTypography.body.copyWith(
+                    color: AppColors.textSecondary,
                   ),
                 ),
-                error: (_, _) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  child: Text(
-                    l10n.eventsLoadError,
+                // §2.1: the short description as a subtitle below the title.
+                if (description.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    description,
                     style: AppTypography.body.copyWith(
                       color: AppColors.textSecondary,
                     ),
                   ),
+                ],
+                const SizedBox(height: 20),
+                Text(
+                  l10n.dishIngredientsSectionTitle,
+                  style: AppTypography.sectionTitle,
                 ),
-                data: (lines) => lines.isEmpty
-                    ? const _LinesEmpty()
-                    : Column(
-                        children: [
-                          for (final line in lines)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: _LineRow(
-                                line: line,
-                                unit: unitsById[line.unitId],
-                                supplierCategory:
-                                    line.supplierCategoryId == null
-                                    ? null
-                                    : categoriesById[line.supplierCategoryId],
-                                onTap: () => context.push(
-                                  '/event-dish-line-editor',
-                                  extra: EventDishLineEditorArgs(
-                                    eventId: eventId,
-                                    eventDishId: eventDishId,
-                                    line: line,
+                const SizedBox(height: 8),
+                linesAsync.when(
+                  loading: () => const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 24),
+                    child: Center(
+                      child: CircularProgressIndicator(color: AppColors.accent),
+                    ),
+                  ),
+                  error: (_, _) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    child: Text(
+                      l10n.eventsLoadError,
+                      style: AppTypography.body.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                  data: (lines) => lines.isEmpty
+                      ? const _LinesEmpty()
+                      : Column(
+                          children: [
+                            for (final line in lines)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: _LineRow(
+                                  line: line,
+                                  unit: unitsById[line.unitId],
+                                  supplierCategory:
+                                      line.supplierCategoryId == null
+                                      ? null
+                                      : categoriesById[line.supplierCategoryId],
+                                  onTap: () => context.push(
+                                    '/event-dish-line-editor',
+                                    extra: EventDishLineEditorArgs(
+                                      eventId: eventId,
+                                      eventDishId: eventDishId,
+                                      line: line,
+                                      sourceDishId: dish.sourceDishId,
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                        ],
-                      ),
-              ),
-            ],
-          ),
+                          ],
+                        ),
+                ),
+                const SizedBox(height: 12),
+                // §2.2: add a brand-new ad-hoc line to this event's copy. The
+                // editor offers to also promote it to the catalog recipe.
+                SecondaryButton(
+                  label: l10n.addIngredientLineAction,
+                  icon: Icons.add,
+                  onPressed: () => context.push(
+                    '/event-dish-line-editor',
+                    extra: EventDishLineEditorArgs(
+                      eventId: eventId,
+                      eventDishId: eventDishId,
+                      sourceDishId: dish.sourceDishId,
+                    ),
+                  ),
+                ),
+                // §2.1: the multi-line preparation as a longer block further
+                // down, read live from the catalog recipe.
+                if (preparation.isNotEmpty) ...[
+                  const SizedBox(height: 24),
+                  Text(
+                    l10n.dishPreparationSectionTitle,
+                    style: AppTypography.sectionTitle,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    preparation,
+                    style: AppTypography.body.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ],
+            );
+          },
         ),
       ),
     );

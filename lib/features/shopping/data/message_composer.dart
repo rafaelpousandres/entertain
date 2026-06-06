@@ -54,6 +54,12 @@ String composeMessageBody({
 /// is rendered exactly as the user entered it (no case change), and no Catalan
 /// elision is applied to the connector for this iteration ("de oli", not
 /// "d'oli").
+///
+/// Spec 006 §2.3: when there is no unit (a countable item like eggs or lemons)
+/// the connector is dropped along with it, so the line reads "3 ous" — the
+/// natural Catalan — rather than "3 de ous". The prep_note clause is unaffected
+/// and still appears after a comma whenever [prepNote] is non-empty, with or
+/// without a unit.
 String composeItemLine({
   required String quantity,
   required String? unit,
@@ -61,11 +67,14 @@ String composeItemLine({
   required String ingredientName,
   String? prepNote,
 }) {
-  final measure = (unit == null || unit.isEmpty)
-      ? quantity
-      : '$quantity $unit';
+  final hasUnit = unit != null && unit.isNotEmpty;
+  final measure = hasUnit ? '$quantity $unit' : quantity;
   final trimmedConnector = connector.trim();
-  final connectorPart = trimmedConnector.isEmpty ? '' : '$trimmedConnector ';
+  // The connector ("de") only makes sense between a unit and the ingredient;
+  // with no unit it is dropped so "3 ous" reads naturally (§2.3).
+  final connectorPart = (!hasUnit || trimmedConnector.isEmpty)
+      ? ''
+      : '$trimmedConnector ';
   final base = '$measure $connectorPart$ingredientName';
   final note = prepNote?.trim() ?? '';
   return note.isEmpty ? base : '$base, $note';

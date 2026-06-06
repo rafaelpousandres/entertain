@@ -99,6 +99,15 @@ class _IngredientLineEditorScreenState
       // Reset the unit to the ingredient's default — its family may differ
       // from whatever was previously selected.
       _unitId = picked.defaultUnitId;
+      // Spec 006 §2.4: a brand-new line pre-fills the prep note with the
+      // ingredient's default preparation (the level above), as a convenience.
+      // Only when the field is still empty, so an explicit value the user has
+      // already typed is never overwritten.
+      if (!widget.isEditing &&
+          _prepController.text.trim().isEmpty &&
+          (picked.prepDescription?.trim().isNotEmpty ?? false)) {
+        _prepController.text = picked.prepDescription!.trim();
+      }
     });
   }
 

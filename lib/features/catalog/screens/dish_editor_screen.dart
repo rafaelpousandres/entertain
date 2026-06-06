@@ -75,6 +75,7 @@ class _DishForm extends ConsumerStatefulWidget {
 class _DishFormState extends ConsumerState<_DishForm> {
   late final TextEditingController _nameController;
   late final TextEditingController _descriptionController;
+  late final TextEditingController _preparationController;
   late final DishDraft _draft;
 
   bool _saving = false;
@@ -92,12 +93,16 @@ class _DishFormState extends ConsumerState<_DishForm> {
     _descriptionController = TextEditingController(
       text: _draft.description ?? '',
     );
+    _preparationController = TextEditingController(
+      text: _draft.preparation ?? '',
+    );
   }
 
   @override
   void dispose() {
     _nameController.dispose();
     _descriptionController.dispose();
+    _preparationController.dispose();
     super.dispose();
   }
 
@@ -130,6 +135,7 @@ class _DishFormState extends ConsumerState<_DishForm> {
     setState(() => _submitted = true);
     _draft.name = _nameController.text;
     _draft.description = _descriptionController.text;
+    _draft.preparation = _preparationController.text;
 
     if (_draft.name.trim().isEmpty) {
       setState(() => _nameError = l10n.dishNameRequired);
@@ -316,7 +322,15 @@ class _DishFormState extends ConsumerState<_DishForm> {
               child: AppTextField(
                 controller: _descriptionController,
                 hintText: l10n.dishDescriptionHint,
-                maxLines: 3,
+              ),
+            ),
+            const SizedBox(height: 16),
+            FieldLabel(
+              label: l10n.dishPreparationLabel,
+              child: AppTextField(
+                controller: _preparationController,
+                hintText: l10n.dishPreparationHint,
+                maxLines: 8,
                 textInputAction: TextInputAction.newline,
               ),
             ),
