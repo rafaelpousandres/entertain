@@ -227,6 +227,21 @@
     "placeholders": { "count": { "type": "int" } }
   },
 
+  "shoppingSummaryTotal": "{count, plural, =1{1 ingrediente} other{{count} ingredientes}}",
+  "@shoppingSummaryTotal": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "shoppingStateToOrder": "Por pedir",
+  "shoppingStateOrdered": "Pedido",
+  "shoppingStateReceived": "Recibido",
+  "shoppingStateMissing": "Falta",
+  "shoppingStateAtHome": "En casa",
+  "shoppingMarkAllReceivedAction": "Marcar todo como recibido",
+  "shoppingStateChangeSubtitle": "Ahora: {state}",
+  "@shoppingStateChangeSubtitle": {
+    "placeholders": { "state": { "type": "String" } }
+  },
+
   "supplierMessageSendAction": "Enviar",
   "supplierMessageChangeDestination": "Cambiar el destinatario de este envío",
   "supplierMessageNothingToSendTitle": "Nada que enviar",

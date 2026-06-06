@@ -11,6 +11,7 @@
 /// copy-on-add of Spec 004).
 library;
 
+import 'ingredient_state.dart';
 import 'message_channel.dart';
 
 class ShoppingLine {
@@ -19,6 +20,7 @@ class ShoppingLine {
     required this.ingredientName,
     required this.quantity,
     required this.unitId,
+    required this.state,
     this.ingredientId,
     this.prepNote,
     this.supplierCategoryId,
@@ -36,6 +38,9 @@ class ShoppingLine {
   /// any supplier section (they have no destination yet).
   final String? supplierCategoryId;
 
+  /// Where this line is in the shopping process (Spec 007 §3.1).
+  final IngredientState state;
+
   factory ShoppingLine.fromRow(Map<String, dynamic> row) {
     return ShoppingLine(
       id: row['id'] as String,
@@ -45,6 +50,7 @@ class ShoppingLine {
       unitId: row['unit_id'] as String,
       prepNote: row['prep_note'] as String?,
       supplierCategoryId: row['supplier_category_id'] as String?,
+      state: IngredientState.parse(row['state'] as String?),
     );
   }
 }

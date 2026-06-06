@@ -15,6 +15,7 @@ import '../../events/data/event.dart';
 import '../../events/data/events_providers.dart';
 import '../../events/widgets/event_formatters.dart';
 import '../data/group_supplier_setting.dart';
+import '../data/ingredient_state.dart';
 import '../data/message_channel.dart';
 import '../data/message_composer.dart';
 import '../data/message_dispatcher.dart';
@@ -152,15 +153,23 @@ class _SupplierMessageScreenState
         return;
       }
 
-      await ref.read(shoppingRepositoryProvider).createSentOrder(
-            eventId: widget.eventId,
-            supplierCategoryId: widget.categoryId,
-            channel: outcome.channel,
-            address: outcome.address,
-            sentAt: DateTime.now(),
-            neededByDate: _neededByDate,
-            items: delta,
-          );
+      final repo = ref.read(shoppingRepositoryProvider);
+      await repo.createSentOrder(
+        eventId: widget.eventId,
+        supplierCategoryId: widget.categoryId,
+        channel: outcome.channel,
+        address: outcome.address,
+        sentAt: DateTime.now(),
+        neededByDate: _neededByDate,
+        items: delta,
+      );
+      // Spec 007 §3.2: every line in the sent order moves to `ordered`, here
+      // at the call site after the confirmation — the dispatcher stays unaware
+      // of the state machine (Spec §5).
+      await repo.updateLineStates(
+        [for (final line in delta) line.id],
+        IngredientState.ordered,
+      );
       ref.invalidate(eventShoppingProvider(widget.eventId));
       if (!mounted) return;
       router.pop();
@@ -366,7 +375,7 @@ class _SupplierMessageScreenState
             final categoryOrders =
                 ordersByCategory(shopping.orders)[widget.categoryId] ??
                 const <SupplierOrder>[];
-            final delta = deltaForCategory(categoryLines, categoryOrders);
+            final delta = deltaForCategory(categoryLines);
 
             if (delta.isEmpty) {
               return _NothingToSend(
@@ -418,10 +427,7 @@ class _SupplierMessageScreenState
                 final categoryLines =
                     linesByCategory(shopping.lines)[widget.categoryId] ??
                     const <ShoppingLine>[];
-                final categoryOrders =
-                    ordersByCategory(shopping.orders)[widget.categoryId] ??
-                    const <SupplierOrder>[];
-                final delta = deltaForCategory(categoryLines, categoryOrders);
+                final delta = deltaForCategory(categoryLines);
                 if (delta.isEmpty) return;
                 _send(
                   categoryName: categoryName,

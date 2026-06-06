@@ -240,6 +240,27 @@
     "placeholders": { "count": { "type": "int" } }
   },
 
+  "shoppingSummaryTotal": "{count, plural, =1{1 ingredient} other{{count} ingredients}}",
+  "@shoppingSummaryTotal": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "shoppingStateToOrder": "To order",
+  "@shoppingStateToOrder": {},
+  "shoppingStateOrdered": "Ordered",
+  "@shoppingStateOrdered": {},
+  "shoppingStateReceived": "Received",
+  "@shoppingStateReceived": {},
+  "shoppingStateMissing": "Missing",
+  "@shoppingStateMissing": {},
+  "shoppingStateAtHome": "At home",
+  "@shoppingStateAtHome": {},
+  "shoppingMarkAllReceivedAction": "Mark all as received",
+  "@shoppingMarkAllReceivedAction": {},
+  "shoppingStateChangeSubtitle": "Now: {state}",
+  "@shoppingStateChangeSubtitle": {
+    "placeholders": { "state": { "type": "String" } }
+  },
+
   "supplierMessageSendAction": "Send",
   "@supplierMessageSendAction": {},
   "supplierMessageChangeDestination": "Change destination for this send",
