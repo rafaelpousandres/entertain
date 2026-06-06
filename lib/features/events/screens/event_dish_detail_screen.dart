@@ -9,6 +9,7 @@ import '../../catalog/data/catalog_providers.dart';
 import '../../catalog/data/dish.dart' show formatQuantity;
 import '../../catalog/data/dish_category.dart';
 import '../../catalog/data/reference_data.dart';
+import '../../shopping/data/shopping_providers.dart';
 import '../data/event_dish_line.dart';
 import '../data/events_providers.dart';
 import 'event_dish_line_editor_screen.dart';
@@ -69,6 +70,9 @@ class EventDishDetailScreen extends ConsumerWidget {
     try {
       await ref.read(eventsRepositoryProvider).removeEventDish(eventDishId);
       ref.invalidate(eventDishesProvider(eventId));
+      // Fixes §2.1: the removed dish's ingredients must disappear from the
+      // shopping panel too, without a restart.
+      ref.invalidate(eventShoppingProvider(eventId));
       if (!context.mounted) return;
       context.pop();
     } catch (_) {
@@ -188,6 +192,7 @@ class EventDishDetailScreen extends ConsumerWidget {
                                 onTap: () => context.push(
                                   '/event-dish-line-editor',
                                   extra: EventDishLineEditorArgs(
+                                    eventId: eventId,
                                     eventDishId: eventDishId,
                                     line: line,
                                   ),

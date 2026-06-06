@@ -196,5 +196,72 @@
   "supplierCategoryPickerTitle": "Elige la categoría de proveedor",
   "@supplierCategoryPickerTitle": {},
   "supplierCategoryNoneLabel": "Ninguna",
-  "@supplierCategoryNoneLabel": {}
+  "@supplierCategoryNoneLabel": {},
+
+  "eventTabMenu": "Menú",
+  "eventTabShopping": "Compra",
+
+  "shoppingEmptyBody": "Este evento todavía no tiene nada que comprar. Añade platos al menú primero.",
+  "pantryConsultiveHint": "Lo que ya necesitas tener en casa para el evento.",
+  "shoppingUncategorisedLabel": "Sin categoría",
+  "shoppingUncategorisedHint": "Asigna una categoría de proveedor a estos ingredientes para poder gestionarlos y enviarlos.",
+  "shoppingSendMessageAction": "Enviar mensaje",
+  "shoppingUseAsListAction": "Usar como lista de compra",
+  "shoppingInShopModeLabel": "Lo comprarás en persona.",
+  "shoppingUnsentCount": "{count, plural, =1{1 ingrediente sin enviar} other{{count} ingredientes sin enviar}}",
+  "@shoppingUnsentCount": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "shoppingAllSentLabel": "Todo enviado",
+  "shoppingSentOrderTitle": "Enviada el {date}",
+  "@shoppingSentOrderTitle": {
+    "placeholders": { "date": { "type": "String" } }
+  },
+  "shoppingSentOrderItemCount": "{count, plural, =1{1 ítem} other{{count} ítems}}",
+  "@shoppingSentOrderItemCount": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+
+  "supplierMessageSendAction": "Enviar",
+  "supplierMessageChangeDestination": "Cambiar el destinatario de este envío",
+  "supplierMessageNothingToSendTitle": "Nada que enviar",
+  "supplierMessageNothingToSendBody": "Todo lo de esta categoría ya se ha enviado para este evento.",
+  "supplierMessagePreviousOrders": "Pedidos enviados",
+  "supplierMessageSendError": "No se ha podido enviar el mensaje. Inténtalo de nuevo.",
+  "supplierMessageNotSent": "No se ha enviado nada. Puedes volver a intentarlo.",
+  "supplierMessagePreviewLabel": "Mensaje",
+  "supplierMessageNeededByLabel": "Fecha de necesidad",
+  "supplierMessageNeededByEmpty": "Elige una fecha",
+  "supplierMessageNeededBy": "Para el día {date}",
+  "@supplierMessageNeededBy": {
+    "placeholders": { "date": { "type": "String" } }
+  },
+  "supplierMessageConfirmSentTitle": "¿Has enviado el mensaje?",
+  "supplierMessageConfirmSentBody": "Confirma que el mensaje se ha enviado correctamente al proveedor antes de marcar el pedido como enviado.",
+  "supplierMessageConfirmSentYes": "Sí, enviado",
+  "supplierMessageConfirmSentNo": "No",
+  "messageItemConnector": "de",
+
+  "channelWhatsApp": "WhatsApp",
+  "channelEmail": "Correo electrónico",
+  "channelNone": "Ninguno (elegir al enviar)",
+  "addressWhatsAppLabel": "Número de WhatsApp",
+  "addressWhatsAppHint": "Con prefijo internacional",
+  "addressEmailLabel": "Dirección de correo",
+  "addressEmailHint": "nombre@ejemplo.com",
+  "destinationOverrideTitle": "Destinatario de este envío",
+  "applyAction": "Aplicar",
+
+  "navSettings": "Configuración",
+  "settingsScreenTitle": "Configuración",
+  "settingsSignatureSectionTitle": "Firma",
+  "settingsGreetingLabel": "Saludo",
+  "settingsGreetingHint": "Se añade al principio de cada mensaje…",
+  "settingsGreetingDefault": "Hola,",
+  "settingsSignatureLabel": "Firma de los mensajes",
+  "settingsSignatureHint": "Se añade al final de cada mensaje…",
+  "settingsCategoriesSectionTitle": "Por categoría de proveedor",
+  "settingsChannelLabel": "Canal",
+  "settingsLoadError": "No se ha podido cargar la configuración.",
+  "settingsSaveError": "No se ha podido guardar la configuración. Comprueba la conexión."
 }

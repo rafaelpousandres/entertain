@@ -9,6 +9,7 @@ import '../../../ui/section_header.dart';
 import '../../catalog/data/catalog_providers.dart';
 import '../../catalog/data/dish.dart';
 import '../../catalog/data/dish_category.dart';
+import '../../shopping/data/shopping_providers.dart';
 import '../data/events_providers.dart';
 
 /// Add dish to event menu (Specification 004 screen 5 / §3.7). Shows the
@@ -45,6 +46,10 @@ class _AddDishToMenuScreenState extends ConsumerState<AddDishToMenuScreen> {
           .read(eventsRepositoryProvider)
           .addDishToEvent(eventId: widget.eventId, dishId: dish.id);
       ref.invalidate(eventDishesProvider(widget.eventId));
+      // Fixes §2.1/§2.3: keep the shopping panel in sync with the menu so the
+      // re-added dish (with any catalog lines added since the first add) shows
+      // up there without a restart.
+      ref.invalidate(eventShoppingProvider(widget.eventId));
       if (!mounted) return;
       context.pop();
     } catch (_) {

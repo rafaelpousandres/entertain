@@ -8,26 +8,40 @@ import '../../../theme/app_typography.dart';
 import '../../../ui/icon_circle.dart';
 import '../../../ui/primary_button.dart';
 import '../../../ui/section_header.dart';
+import '../../../ui/segmented_choice.dart';
 import '../../catalog/data/dish_category.dart';
+import '../../shopping/screens/event_shopping_panel.dart';
 import '../data/event.dart';
 import '../data/event_dish.dart';
 import '../data/events_providers.dart';
 import '../widgets/event_formatters.dart';
 
-/// Event detail / menu screen (spec 003 §2.4).
+/// Event detail screen (spec 003 §2.4, extended in spec 005 §2.3).
 ///
-/// Header with title + a date/guest metadata line + an edit affordance,
-/// followed by the menu grouped by dish category. Adding dishes belongs
-/// to screen group 2, so the menu shows a clear empty state for now.
-class EventDetailScreen extends ConsumerWidget {
+/// A shared event header sits above a segmented control that switches between
+/// two equal-rank views of the same event: the **menu** (dishes grouped by
+/// category) and the **shopping** panel (ingredients grouped by supplier
+/// category, with per-category send actions). The "add dish" action belongs
+/// to the menu view only.
+class EventDetailScreen extends ConsumerStatefulWidget {
   const EventDetailScreen({super.key, required this.eventId});
 
   final String eventId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<EventDetailScreen> createState() => _EventDetailScreenState();
+}
+
+enum _EventView { menu, shopping }
+
+class _EventDetailScreenState extends ConsumerState<EventDetailScreen> {
+  _EventView _view = _EventView.menu;
+
+  @override
+  Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final eventAsync = ref.watch(eventByIdProvider(eventId));
+    final locale = Localizations.localeOf(context);
+    final eventAsync = ref.watch(eventByIdProvider(widget.eventId));
 
     return Scaffold(
       backgroundColor: AppColors.bg,
@@ -60,46 +74,76 @@ class EventDetailScreen extends ConsumerWidget {
           ),
           error: (_, _) => _LoadError(
             message: l10n.eventsLoadError,
-            onRetry: () => ref.invalidate(eventByIdProvider(eventId)),
+            onRetry: () => ref.invalidate(eventByIdProvider(widget.eventId)),
           ),
-          data: (event) => _DetailBody(event: event),
+          data: (event) => Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                child: _EventHeader(event: event, locale: locale),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                child: SegmentedChoice<_EventView>(
+                  value: _view,
+                  onChanged: (v) => setState(() => _view = v),
+                  options: [
+                    SegmentedChoiceOption(_EventView.menu, l10n.eventTabMenu),
+                    SegmentedChoiceOption(
+                      _EventView.shopping,
+                      l10n.eventTabShopping,
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: _view == _EventView.menu
+                    ? _MenuView(event: event)
+                    : EventShoppingPanel(eventId: event.id),
+              ),
+            ],
+          ),
         ),
       ),
-      bottomNavigationBar: eventAsync.maybeWhen(
-        data: (event) => SafeArea(
-          top: false,
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-            decoration: const BoxDecoration(
-              color: AppColors.bg,
-              border: Border(top: BorderSide(color: AppColors.border, width: 1)),
-            ),
-            child: PrimaryButton(
-              label: l10n.addDishToMenuAction,
-              icon: Icons.add,
-              onPressed: () => context.push('/events/${event.id}/add-dish'),
-            ),
-          ),
-        ),
-        orElse: () => null,
-      ),
+      bottomNavigationBar: (_view == _EventView.menu)
+          ? eventAsync.maybeWhen(
+              data: (event) => SafeArea(
+                top: false,
+                child: Container(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+                  decoration: const BoxDecoration(
+                    color: AppColors.bg,
+                    border: Border(
+                      top: BorderSide(color: AppColors.border, width: 1),
+                    ),
+                  ),
+                  child: PrimaryButton(
+                    label: l10n.addDishToMenuAction,
+                    icon: Icons.add,
+                    onPressed: () =>
+                        context.push('/events/${event.id}/add-dish'),
+                  ),
+                ),
+              ),
+              orElse: () => null,
+            )
+          : null,
     );
   }
 }
 
-class _DetailBody extends ConsumerWidget {
-  const _DetailBody({required this.event});
+class _EventHeader extends StatelessWidget {
+  const _EventHeader({required this.event, required this.locale});
 
   final Event event;
+  final Locale locale;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final locale = Localizations.localeOf(context);
-    final dishesAsync = ref.watch(eventDishesProvider(event.id));
-
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(event.title, style: AppTypography.display),
         const SizedBox(height: 6),
@@ -127,16 +171,31 @@ class _DetailBody extends ConsumerWidget {
             ],
           ),
         ],
+      ],
+    );
+  }
+}
+
+class _MenuView extends ConsumerWidget {
+  const _MenuView({required this.event});
+
+  final Event event;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
+    final dishesAsync = ref.watch(eventDishesProvider(event.id));
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+      children: [
         if (event.notes != null && event.notes!.isNotEmpty) ...[
-          const SizedBox(height: 12),
           Text(
             event.notes!,
             style: AppTypography.body.copyWith(color: AppColors.textSecondary),
           ),
+          const SizedBox(height: 16),
         ],
-        const SizedBox(height: 24),
-        Text(l10n.menuSectionTitle, style: AppTypography.sectionTitle),
-        const SizedBox(height: 8),
         dishesAsync.when(
           loading: () => const Padding(
             padding: EdgeInsets.symmetric(vertical: 32),

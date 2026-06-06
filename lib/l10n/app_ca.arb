@@ -196,5 +196,72 @@
   "supplierCategoryPickerTitle": "Tria la categoria de proveïdor",
   "@supplierCategoryPickerTitle": {},
   "supplierCategoryNoneLabel": "Cap",
-  "@supplierCategoryNoneLabel": {}
+  "@supplierCategoryNoneLabel": {},
+
+  "eventTabMenu": "Menú",
+  "eventTabShopping": "Compra",
+
+  "shoppingEmptyBody": "Aquest esdeveniment encara no té res per comprar. Afegeix-hi plats al menú primer.",
+  "pantryConsultiveHint": "El que ja necessites tenir a casa per a l'esdeveniment.",
+  "shoppingUncategorisedLabel": "Sense categoria",
+  "shoppingUncategorisedHint": "Assigna una categoria de proveïdor a aquests ingredients per poder gestionar-los i enviar-los.",
+  "shoppingSendMessageAction": "Envia missatge",
+  "shoppingUseAsListAction": "Usa com a llista de compra",
+  "shoppingInShopModeLabel": "Ho compraràs en persona.",
+  "shoppingUnsentCount": "{count, plural, =1{1 ingredient sense enviar} other{{count} ingredients sense enviar}}",
+  "@shoppingUnsentCount": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "shoppingAllSentLabel": "Tot enviat",
+  "shoppingSentOrderTitle": "Enviada el {date}",
+  "@shoppingSentOrderTitle": {
+    "placeholders": { "date": { "type": "String" } }
+  },
+  "shoppingSentOrderItemCount": "{count, plural, =1{1 ítem} other{{count} ítems}}",
+  "@shoppingSentOrderItemCount": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+
+  "supplierMessageSendAction": "Envia",
+  "supplierMessageChangeDestination": "Canvia el destinatari d'aquest enviament",
+  "supplierMessageNothingToSendTitle": "Res per enviar",
+  "supplierMessageNothingToSendBody": "Tot el d'aquesta categoria ja s'ha enviat per a aquest esdeveniment.",
+  "supplierMessagePreviousOrders": "Comandes enviades",
+  "supplierMessageSendError": "No s'ha pogut enviar el missatge. Torna-ho a provar.",
+  "supplierMessageNotSent": "No s'ha enviat res. Pots tornar-ho a provar.",
+  "supplierMessagePreviewLabel": "Missatge",
+  "supplierMessageNeededByLabel": "Data de necessitat",
+  "supplierMessageNeededByEmpty": "Tria una data",
+  "supplierMessageNeededBy": "Per al dia {date}",
+  "@supplierMessageNeededBy": {
+    "placeholders": { "date": { "type": "String" } }
+  },
+  "supplierMessageConfirmSentTitle": "Has enviat el missatge?",
+  "supplierMessageConfirmSentBody": "Confirma que el missatge s'ha enviat correctament al proveïdor abans de marcar la comanda com a enviada.",
+  "supplierMessageConfirmSentYes": "Sí, enviat",
+  "supplierMessageConfirmSentNo": "No",
+  "messageItemConnector": "de",
+
+  "channelWhatsApp": "WhatsApp",
+  "channelEmail": "Correu electrònic",
+  "channelNone": "Cap (tria en enviar)",
+  "addressWhatsAppLabel": "Número de WhatsApp",
+  "addressWhatsAppHint": "Amb prefix internacional",
+  "addressEmailLabel": "Adreça electrònica",
+  "addressEmailHint": "nom@exemple.com",
+  "destinationOverrideTitle": "Destinatari d'aquest enviament",
+  "applyAction": "Aplica",
+
+  "navSettings": "Configuració",
+  "settingsScreenTitle": "Configuració",
+  "settingsSignatureSectionTitle": "Signatura",
+  "settingsGreetingLabel": "Salutació",
+  "settingsGreetingHint": "S'afegeix al començament de cada missatge…",
+  "settingsGreetingDefault": "Hola,",
+  "settingsSignatureLabel": "Signatura dels missatges",
+  "settingsSignatureHint": "S'afegeix al final de cada missatge…",
+  "settingsCategoriesSectionTitle": "Per categoria de proveïdor",
+  "settingsChannelLabel": "Canal",
+  "settingsLoadError": "No s'ha pogut carregar la configuració.",
+  "settingsSaveError": "No s'ha pogut desar la configuració. Comprova la connexió."
 }
