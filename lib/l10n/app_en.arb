@@ -312,6 +312,22 @@
   "@addressEmailLabel": {},
   "addressEmailHint": "name@example.com",
   "@addressEmailHint": {},
+  "supplierPhoneLabel": "Phone",
+  "@supplierPhoneLabel": {
+    "description": "Label for the phone-number field on a supplier category (Fixes §2.1)."
+  },
+  "supplierEmailLabel": "Email",
+  "@supplierEmailLabel": {
+    "description": "Label for the email-address field on a supplier category (Fixes §2.1)."
+  },
+  "supplierPreferredChannelLabel": "Preferred channel",
+  "@supplierPreferredChannelLabel": {
+    "description": "Selector marking which stored address (phone/email) is the default for outgoing messages (Fixes §2.1)."
+  },
+  "supplierDefaultChannelTag": "Default",
+  "@supplierDefaultChannelTag": {
+    "description": "Tag appended to the phone/email field label that is the default outgoing channel (Fixes §2.1)."
+  },
   "destinationOverrideTitle": "Destination for this send",
   "@destinationOverrideTitle": {},
   "applyAction": "Apply",

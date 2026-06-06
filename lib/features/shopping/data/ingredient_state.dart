@@ -37,44 +37,45 @@ const List<IngredientState> kStateDisplayOrder = [
   IngredientState.atHome,
 ];
 
-/// The legal manual transitions from a line's current state (Spec §3.3).
+/// The four "work" states an ingredient outside the Rebost moves through; the
+/// free transition matrix (Fixes §2.3) lets the user pick any of them.
+const List<IngredientState> _workStates = [
+  IngredientState.toOrder,
+  IngredientState.ordered,
+  IngredientState.received,
+  IngredientState.missing,
+];
+
+/// The legal manual transitions from a line's current state.
 ///
-/// - `received` is reachable from `ordered` or `to_order`.
-/// - `missing` is reachable from any state.
-/// - `to_order` (reset) is reachable from any state.
-/// - `at_home` ⇄ `to_order` only for pantry (Rebost) lines.
+/// Two distinct models (Specification 007 Fixes §2.3 / §2.4):
 ///
-/// `ordered` is intentionally never a manual target: it is set only by the
-/// message-dispatch flow (Spec §3.2). The current state is excluded from its
-/// own option list.
+/// - **Outside the Rebost** — a free matrix: any of the four work states
+///   (`to_order`, `ordered`, `received`, `missing`) is reachable, so the user
+///   can correct any classification error (including marking a line `ordered`
+///   when the order was placed through a non-app channel). The current state is
+///   excluded from its own option list.
+/// - **Rebost (pantry)** — a binary model: a staple is either `at_home` or
+///   `missing`, so only the opposite of the current state is offered.
+///
+/// The automatic transitions (add dish → `to_order`; send message → `ordered`)
+/// are unchanged; the user can always override afterwards.
 List<IngredientState> allowedTransitions(
   IngredientState from, {
   required bool isPantry,
 }) {
-  switch (from) {
-    case IngredientState.toOrder:
-      return [
-        IngredientState.received,
-        IngredientState.missing,
-        if (isPantry) IngredientState.atHome,
-      ];
-    case IngredientState.ordered:
-      return const [
-        IngredientState.received,
-        IngredientState.missing,
-        IngredientState.toOrder,
-      ];
-    case IngredientState.received:
-      return const [
-        IngredientState.toOrder,
-        IngredientState.missing,
-      ];
-    case IngredientState.missing:
-      return const [IngredientState.toOrder];
-    case IngredientState.atHome:
-      return const [
-        IngredientState.toOrder,
-        IngredientState.missing,
-      ];
+  if (isPantry) {
+    // Binary model: offer the opposite state. A pantry line that somehow holds
+    // a work state (legacy data, before the category-change adjustment) is
+    // normalised back into the pair by offering `at_home`.
+    return from == IngredientState.atHome
+        ? const [IngredientState.missing]
+        : const [IngredientState.atHome];
   }
+  // Free matrix: every work state except the current one. A non-pantry line in
+  // `at_home` (legacy) is offered all four so it can re-enter the flow.
+  return [
+    for (final s in _workStates)
+      if (s != from) s,
+  ];
 }

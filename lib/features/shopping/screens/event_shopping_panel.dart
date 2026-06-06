@@ -305,16 +305,17 @@ class _CategorySection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // Fixes §2.2: the section header carries only the supplier name; all
+        // quantitative info lives in the per-state sub-group headers below, so
+        // the previously-shown aggregate count/summary is dropped here.
         SectionHeader(
           icon: supplierCategoryIcon(code),
           label: category?.name ?? code,
-          count: lines.length,
           expanded: expanded,
           onToggle: onToggleExpanded,
         ),
         if (expanded) ...[
-          _CategorySummary(counts: counts),
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
           if (isPantry)
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
@@ -331,11 +332,13 @@ class _CategorySection extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           _SectionFooter(
-            // Pantry / Rebost is consultive: no send, no shop-list mode.
+            // Pantry / Rebost is consultive: no send, no shop-list mode, and
+            // no bulk "mark all as received" — its binary model has no
+            // `ordered` state (Fixes §2.4).
             showSend: !isPantry && toOrder > 0,
             showShopMode: !isPantry &&
                 (toOrder > 0 || orderedCount > 0 || received > 0),
-            showMarkReceived: orderedCount > 0,
+            showMarkReceived: !isPantry && orderedCount > 0,
             toOrderCount: toOrder,
             inShopMode: inShopMode,
             onSend: onSend,
@@ -382,16 +385,15 @@ class _UncategorisedSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // Fixes §2.2: supplier name only; counts live in the sub-group headers.
         SectionHeader(
           icon: Icons.label_off_outlined,
           label: l10n.shoppingUncategorisedLabel,
-          count: lines.length,
           expanded: expanded,
           onToggle: onToggleExpanded,
         ),
         if (expanded) ...[
-          _CategorySummary(counts: counts),
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
             child: Text(
@@ -416,34 +418,6 @@ class _UncategorisedSection extends StatelessWidget {
           const SizedBox(height: 12),
         ],
       ],
-    );
-  }
-}
-
-/// Compact per-supplier summary (Spec 007 §3.4): the non-zero state counts as
-/// coloured dots, a condensed version of the global header for one section.
-class _CategorySummary extends StatelessWidget {
-  const _CategorySummary({required this.counts});
-
-  final Map<IngredientState, int> counts;
-
-  @override
-  Widget build(BuildContext context) {
-    final present = [
-      for (final state in kStateDisplayOrder)
-        if ((counts[state] ?? 0) > 0) state,
-    ];
-    if (present.isEmpty) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.only(top: 2),
-      child: Wrap(
-        spacing: 14,
-        runSpacing: 6,
-        children: [
-          for (final state in present)
-            _StateCount(state: state, count: counts[state] ?? 0),
-        ],
-      ),
     );
   }
 }

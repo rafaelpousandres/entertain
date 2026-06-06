@@ -269,6 +269,10 @@
   "addressWhatsAppHint": "Con prefijo internacional",
   "addressEmailLabel": "Dirección de correo",
   "addressEmailHint": "nombre@ejemplo.com",
+  "supplierPhoneLabel": "Teléfono",
+  "supplierEmailLabel": "Correo electrónico",
+  "supplierPreferredChannelLabel": "Canal preferente",
+  "supplierDefaultChannelTag": "Por defecto",
   "destinationOverrideTitle": "Destinatario de este envío",
   "applyAction": "Aplicar",
 

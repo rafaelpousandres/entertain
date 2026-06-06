@@ -358,7 +358,9 @@ class _CategoryRow extends StatelessWidget {
   String? _channelSubtitle(AppLocalizations l10n) {
     final channel = setting?.channel;
     if (channel == null) return null;
-    final address = setting?.channelAddress?.trim() ?? '';
+    // Fixes §2.1: the indicator shows the default channel and its matching
+    // address (phone for WhatsApp, email for Email).
+    final address = setting?.defaultAddress?.trim() ?? '';
     final label = channel == MessageChannel.whatsapp
         ? l10n.channelWhatsApp
         : l10n.channelEmail;

@@ -15,7 +15,7 @@ class SettingsRepository {
   Future<List<GroupSupplierSetting>> listSettings(String groupId) async {
     final rows = await _client
         .from('group_supplier_settings')
-        .select('supplier_category_id, channel, channel_address')
+        .select('supplier_category_id, channel, phone_address, email_address')
         .eq('group_id', groupId);
     return [
       for (final r in rows as List)
@@ -26,17 +26,22 @@ class SettingsRepository {
   /// Inserts or updates the configuration for one category. Keyed on the
   /// `(group_id, supplier_category_id)` unique constraint so editing the
   /// same category repeatedly never creates duplicate rows.
+  ///
+  /// Fixes §2.1: phone and email are stored independently; [channel] only marks
+  /// which one is the default for outgoing messages.
   Future<void> upsertSetting({
     required String groupId,
     required String supplierCategoryId,
     required MessageChannel? channel,
-    required String? channelAddress,
+    required String? phoneAddress,
+    required String? emailAddress,
   }) async {
     await _client.from('group_supplier_settings').upsert({
       'group_id': groupId,
       'supplier_category_id': supplierCategoryId,
       'channel': channel?.wire,
-      'channel_address': channelAddress,
+      'phone_address': phoneAddress,
+      'email_address': emailAddress,
     }, onConflict: 'group_id,supplier_category_id');
   }
 

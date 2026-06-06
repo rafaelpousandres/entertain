@@ -40,7 +40,12 @@ class SupplierCategoryDetailScreen extends ConsumerStatefulWidget {
 class _SupplierCategoryDetailScreenState
     extends ConsumerState<SupplierCategoryDetailScreen> {
   final _nameController = TextEditingController();
-  final _addressController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _emailController = TextEditingController();
+
+  /// Fixes §2.1: the *default* channel for outgoing messages; phone and email
+  /// are stored independently below, and this marks which one the composer uses
+  /// unless overridden for a single send.
   MessageChannel? _channel;
   bool _seeded = false;
   bool _saving = false;
@@ -60,7 +65,8 @@ class _SupplierCategoryDetailScreenState
   @override
   void dispose() {
     _nameController.dispose();
-    _addressController.dispose();
+    _phoneController.dispose();
+    _emailController.dispose();
     super.dispose();
   }
 
@@ -68,7 +74,8 @@ class _SupplierCategoryDetailScreenState
     if (_seeded) return;
     final setting = settingsMap[widget.category.id];
     _channel = setting?.channel;
-    _addressController.text = setting?.channelAddress ?? '';
+    _phoneController.text = setting?.phoneAddress ?? '';
+    _emailController.text = setting?.emailAddress ?? '';
     _seeded = true;
   }
 
@@ -95,12 +102,14 @@ class _SupplierCategoryDetailScreenState
       }
       if (_showChannel) {
         final groupId = await ref.read(currentGroupIdProvider.future);
-        final address = _addressController.text.trim();
+        final phone = _phoneController.text.trim();
+        final email = _emailController.text.trim();
         await ref.read(settingsRepositoryProvider).upsertSetting(
               groupId: groupId,
               supplierCategoryId: widget.category.id,
               channel: _channel,
-              channelAddress: address.isEmpty ? null : address,
+              phoneAddress: phone.isEmpty ? null : phone,
+              emailAddress: email.isEmpty ? null : email,
             );
       }
       ref.invalidate(supplierCategoriesProvider);
@@ -174,6 +183,29 @@ class _SupplierCategoryDetailScreenState
       );
     }
   }
+
+  /// Field label with a "default channel" tag appended when this is the
+  /// preferred channel (Fixes §2.1), e.g. "Telèfon · Per defecte".
+  String _phoneFieldLabel(AppLocalizations l10n) => _labelWithDefault(
+        l10n,
+        l10n.supplierPhoneLabel,
+        _channel == MessageChannel.whatsapp,
+      );
+
+  String _emailFieldLabel(AppLocalizations l10n) => _labelWithDefault(
+        l10n,
+        l10n.supplierEmailLabel,
+        _channel == MessageChannel.email,
+      );
+
+  String _labelWithDefault(
+    AppLocalizations l10n,
+    String base,
+    bool isDefault,
+  ) =>
+      isDefault
+          ? '$base${l10n.metadataSeparator}${l10n.supplierDefaultChannelTag}'
+          : base;
 
   @override
   Widget build(BuildContext context) {
@@ -252,9 +284,32 @@ class _SupplierCategoryDetailScreenState
                   ),
                 ],
                 if (_showChannel) ...[
+                  // Fixes §2.1: phone and email are both stored; the "preferred
+                  // channel" selector only marks which one the composer uses by
+                  // default. Both fields stay editable regardless.
+                  const SizedBox(height: 24),
+                  FieldLabel(
+                    label: _phoneFieldLabel(l10n),
+                    child: AppTextField(
+                      controller: _phoneController,
+                      hintText: l10n.addressWhatsAppHint,
+                      keyboardType: TextInputType.phone,
+                      textCapitalization: TextCapitalization.none,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  FieldLabel(
+                    label: _emailFieldLabel(l10n),
+                    child: AppTextField(
+                      controller: _emailController,
+                      hintText: l10n.addressEmailHint,
+                      keyboardType: TextInputType.emailAddress,
+                      textCapitalization: TextCapitalization.none,
+                    ),
+                  ),
                   const SizedBox(height: 24),
                   Text(
-                    l10n.settingsChannelLabel,
+                    l10n.supplierPreferredChannelLabel,
                     style: AppTypography.label.copyWith(
                       color: AppColors.textSecondary,
                     ),
@@ -275,24 +330,6 @@ class _SupplierCategoryDetailScreenState
                       SegmentedChoiceOption(null, l10n.channelNone),
                     ],
                   ),
-                  if (_channel != null) ...[
-                    const SizedBox(height: 16),
-                    FieldLabel(
-                      label: _channel == MessageChannel.whatsapp
-                          ? l10n.addressWhatsAppLabel
-                          : l10n.addressEmailLabel,
-                      child: AppTextField(
-                        controller: _addressController,
-                        hintText: _channel == MessageChannel.whatsapp
-                            ? l10n.addressWhatsAppHint
-                            : l10n.addressEmailHint,
-                        keyboardType: _channel == MessageChannel.whatsapp
-                            ? TextInputType.phone
-                            : TextInputType.emailAddress,
-                        textCapitalization: TextCapitalization.none,
-                      ),
-                    ),
-                  ],
                 ] else ...[
                   const SizedBox(height: 16),
                   Text(

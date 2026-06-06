@@ -1,10 +1,13 @@
 import 'package:entertain/features/shopping/data/ingredient_state.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Locks the manual-transition matrix of Specification 007 §3.3:
-/// received from ordered/to_order; missing from any; back to to_order from
-/// any; at_home ⇄ to_order only for pantry. `ordered` is never a manual
-/// target, and a state is never offered as a transition to itself.
+/// Locks the manual-transition matrix after Specification 007 Fixes §2.3 / §2.4:
+///
+/// - Outside the Rebost, a *free* matrix — any of the four work states
+///   (to_order, ordered, received, missing) is reachable except the current
+///   one; `at_home` is never offered.
+/// - In the Rebost, a *binary* model — only the opposite of the current state
+///   (at_home ↔ missing) is offered.
 
 void main() {
   group('IngredientState.parse', () {
@@ -19,64 +22,66 @@ void main() {
     });
   });
 
-  group('allowedTransitions', () {
-    test('never offers the current state or ordered as a target', () {
-      for (final from in IngredientState.values) {
-        for (final pantry in [true, false]) {
-          final targets = allowedTransitions(from, isPantry: pantry);
-          expect(targets, isNot(contains(from)),
-              reason: 'self-transition from $from');
-          expect(targets, isNot(contains(IngredientState.ordered)),
-              reason: 'ordered is set only by sending');
-        }
+  group('allowedTransitions — outside the Rebost (free matrix)', () {
+    const work = [
+      IngredientState.toOrder,
+      IngredientState.ordered,
+      IngredientState.received,
+      IngredientState.missing,
+    ];
+
+    test('offers the three other work states, never self, never at_home', () {
+      for (final from in work) {
+        final targets = allowedTransitions(from, isPantry: false);
+        expect(targets, [for (final s in work) if (s != from) s],
+            reason: 'free matrix from $from');
+        expect(targets, isNot(contains(from)));
+        expect(targets, isNot(contains(IngredientState.atHome)));
       }
     });
 
-    test('to_order: received + missing, plus at_home only for pantry', () {
+    test('to_order can now move directly to ordered (non-app order)', () {
       expect(
         allowedTransitions(IngredientState.toOrder, isPantry: false),
-        [IngredientState.received, IngredientState.missing],
-      );
-      expect(
-        allowedTransitions(IngredientState.toOrder, isPantry: true),
-        [
-          IngredientState.received,
-          IngredientState.missing,
-          IngredientState.atHome,
-        ],
+        contains(IngredientState.ordered),
       );
     });
 
-    test('ordered can go to received, missing or reset to to_order', () {
+    test('a legacy at_home line is offered all four work states', () {
       expect(
-        allowedTransitions(IngredientState.ordered, isPantry: false),
-        [
-          IngredientState.received,
-          IngredientState.missing,
-          IngredientState.toOrder,
-        ],
+        allowedTransitions(IngredientState.atHome, isPantry: false),
+        work,
       );
     });
+  });
 
-    test('received can be reset or flagged missing', () {
-      expect(
-        allowedTransitions(IngredientState.received, isPantry: false),
-        [IngredientState.toOrder, IngredientState.missing],
-      );
-    });
-
-    test('missing can only be reset to to_order', () {
-      expect(
-        allowedTransitions(IngredientState.missing, isPantry: true),
-        [IngredientState.toOrder],
-      );
-    });
-
-    test('at_home toggles to to_order or flags missing', () {
+  group('allowedTransitions — Rebost (binary model)', () {
+    test('at_home offers only missing', () {
       expect(
         allowedTransitions(IngredientState.atHome, isPantry: true),
-        [IngredientState.toOrder, IngredientState.missing],
+        [IngredientState.missing],
       );
+    });
+
+    test('missing offers only at_home', () {
+      expect(
+        allowedTransitions(IngredientState.missing, isPantry: true),
+        [IngredientState.atHome],
+      );
+    });
+
+    test('a legacy work state is normalised back to at_home', () {
+      for (final from in const [
+        IngredientState.toOrder,
+        IngredientState.ordered,
+        IngredientState.received,
+      ]) {
+        expect(
+          allowedTransitions(from, isPantry: true),
+          [IngredientState.atHome],
+          reason: 'pantry normalises $from',
+        );
+      }
     });
   });
 }

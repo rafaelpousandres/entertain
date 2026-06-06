@@ -269,6 +269,10 @@
   "addressWhatsAppHint": "Amb prefix internacional",
   "addressEmailLabel": "Adreça electrònica",
   "addressEmailHint": "nom@exemple.com",
+  "supplierPhoneLabel": "Telèfon",
+  "supplierEmailLabel": "Correu electrònic",
+  "supplierPreferredChannelLabel": "Canal preferent",
+  "supplierDefaultChannelTag": "Per defecte",
   "destinationOverrideTitle": "Destinatari d'aquest enviament",
   "applyAction": "Aplica",
 
