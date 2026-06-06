@@ -175,5 +175,111 @@ void main() {
       );
       expect(line, '250 g tonyina');
     });
+
+    group('Catalan elision (§2.4)', () {
+      test('elides "de" → "d\'" before a vowel', () {
+        expect(
+          composeItemLine(
+            quantity: '200',
+            unit: 'g',
+            connector: 'de',
+            ingredientName: 'oli',
+            elideConnector: true,
+          ),
+          "200 g d'oli",
+        );
+      });
+
+      test('elides before a silent "h"', () {
+        expect(
+          composeItemLine(
+            quantity: '100',
+            unit: 'g',
+            connector: 'de',
+            ingredientName: 'hortalisses',
+            elideConnector: true,
+          ),
+          "100 g d'hortalisses",
+        );
+      });
+
+      test('elides before an accented vowel', () {
+        expect(
+          composeItemLine(
+            quantity: '1',
+            unit: 'kg',
+            connector: 'de',
+            ingredientName: 'ànec',
+            elideConnector: true,
+          ),
+          "1 kg d'ànec",
+        );
+      });
+
+      test('keeps "de" before a consonant', () {
+        expect(
+          composeItemLine(
+            quantity: '250',
+            unit: 'g',
+            connector: 'de',
+            ingredientName: 'tonyina',
+            elideConnector: true,
+          ),
+          '250 g de tonyina',
+        );
+      });
+
+      test('elision is case-insensitive on the initial', () {
+        expect(
+          composeItemLine(
+            quantity: '2',
+            unit: 'kg',
+            connector: 'de',
+            ingredientName: 'Endívies',
+            elideConnector: true,
+          ),
+          "2 kg d'Endívies",
+        );
+      });
+
+      test('no elision when the flag is off (default)', () {
+        expect(
+          composeItemLine(
+            quantity: '200',
+            unit: 'g',
+            connector: 'de',
+            ingredientName: 'oli',
+          ),
+          '200 g de oli',
+        );
+      });
+
+      test('elision keeps the prep-note clause', () {
+        expect(
+          composeItemLine(
+            quantity: '200',
+            unit: 'g',
+            connector: 'de',
+            ingredientName: 'oli',
+            prepNote: 'verge extra',
+            elideConnector: true,
+          ),
+          "200 g d'oli, verge extra",
+        );
+      });
+
+      test('no unit: nothing to elide, the connector is already dropped', () {
+        expect(
+          composeItemLine(
+            quantity: '3',
+            unit: null,
+            connector: 'de',
+            ingredientName: 'ous',
+            elideConnector: true,
+          ),
+          '3 ous',
+        );
+      });
+    });
   });
 }

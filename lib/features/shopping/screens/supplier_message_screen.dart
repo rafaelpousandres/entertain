@@ -22,6 +22,12 @@ import '../data/shopping_delta.dart';
 import '../data/shopping_models.dart';
 import '../data/shopping_providers.dart';
 
+/// Fixes §2.3: the unit name to print in a message line, or null when the
+/// unit is flagged `omit_in_display` (or unknown) so the composer drops the
+/// unit and its connector — "3 ous", not "3 unitats de ous".
+String? _displayUnit(Unit? unit) =>
+    (unit == null || unit.omitInDisplay) ? null : unit.name;
+
 /// Composes and sends the supplier message for one category of one event
 /// (Specification 005 §2.4). The body is the current unsent delta; sending
 /// freezes it into a new `orders` row and dispatches through the configured
@@ -221,10 +227,14 @@ class _SupplierMessageScreenState
         for (final line in delta)
           composeItemLine(
             quantity: formatQuantity(line.quantity),
-            unit: unitsById[line.unitId]?.name,
+            // Fixes §2.3: a unit flagged omit_in_display drops out (and the
+            // connector with it) by reusing the no-unit path → "3 ous".
+            unit: _displayUnit(unitsById[line.unitId]),
             connector: l10n.messageItemConnector,
             ingredientName: line.ingredientName,
             prepNote: line.prepNote,
+            // Fixes §2.4: Catalan-only "de" → "d'" elision before vowels/h.
+            elideConnector: locale.languageCode == 'ca',
           ),
       ],
       signature: signature,
@@ -763,10 +773,11 @@ class SentOrderCard extends StatelessWidget {
               child: Text(
                 composeItemLine(
                   quantity: formatQuantity(item.quantity),
-                  unit: unitsById[item.unitId]?.name,
+                  unit: _displayUnit(unitsById[item.unitId]),
                   connector: l10n.messageItemConnector,
                   ingredientName: item.ingredientName,
                   prepNote: item.prepNote,
+                  elideConnector: locale.languageCode == 'ca',
                 ),
                 style: AppTypography.caption,
               ),

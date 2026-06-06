@@ -324,16 +324,6 @@ class _DishFormState extends ConsumerState<_DishForm> {
                 hintText: l10n.dishDescriptionHint,
               ),
             ),
-            const SizedBox(height: 16),
-            FieldLabel(
-              label: l10n.dishPreparationLabel,
-              child: AppTextField(
-                controller: _preparationController,
-                hintText: l10n.dishPreparationHint,
-                maxLines: 8,
-                textInputAction: TextInputAction.newline,
-              ),
-            ),
             const SizedBox(height: 24),
             Text(l10n.dishIngredientsSectionTitle, style: AppTypography.sectionTitle),
             const SizedBox(height: 8),
@@ -354,6 +344,19 @@ class _DishFormState extends ConsumerState<_DishForm> {
               label: l10n.addIngredientLineAction,
               icon: Icons.add,
               onPressed: _busy ? null : _addLine,
+            ),
+            // Fixes §2.2: the preparation goes below the ingredient lines so the
+            // editor follows a recipe's natural reading order (title →
+            // description → metadata → ingredients → preparation).
+            const SizedBox(height: 24),
+            FieldLabel(
+              label: l10n.dishPreparationLabel,
+              child: AppTextField(
+                controller: _preparationController,
+                hintText: l10n.dishPreparationHint,
+                maxLines: 8,
+                textInputAction: TextInputAction.newline,
+              ),
             ),
           ],
         ),

@@ -34,6 +34,7 @@ class CatalogRepository {
         code: code,
         magnitude: UnitMagnitudeWire.parse(row['magnitude'] as String),
         name: names[id] ?? code,
+        omitInDisplay: row['omit_in_display'] as bool? ?? false,
       );
     }).toList();
   }

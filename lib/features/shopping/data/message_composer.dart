@@ -59,23 +59,62 @@ String composeMessageBody({
 /// the connector is dropped along with it, so the line reads "3 ous" — the
 /// natural Catalan — rather than "3 de ous". The prep_note clause is unaffected
 /// and still appears after a comma whenever [prepNote] is non-empty, with or
-/// without a unit.
+/// without a unit. (Fixes §2.3 reuses the no-unit path: the caller passes a null
+/// [unit] for a unit flagged `omit_in_display`, so "3 unitats de ous" becomes
+/// "3 ous".)
+///
+/// Fixes §2.4: when [elideConnector] is true the connector goes through the
+/// Catalan elision rule "de" → "d'" before a vowel or a silent "h" ("200 g
+/// d'oli"). The flag is Catalan-specific; callers pass false for other
+/// languages.
 String composeItemLine({
   required String quantity,
   required String? unit,
   required String connector,
   required String ingredientName,
   String? prepNote,
+  bool elideConnector = false,
 }) {
   final hasUnit = unit != null && unit.isNotEmpty;
   final measure = hasUnit ? '$quantity $unit' : quantity;
   final trimmedConnector = connector.trim();
   // The connector ("de") only makes sense between a unit and the ingredient;
   // with no unit it is dropped so "3 ous" reads naturally (§2.3).
-  final connectorPart = (!hasUnit || trimmedConnector.isEmpty)
-      ? ''
-      : '$trimmedConnector ';
-  final base = '$measure $connectorPart$ingredientName';
+  final String base;
+  if (!hasUnit || trimmedConnector.isEmpty) {
+    base = '$measure $ingredientName';
+  } else {
+    base = '$measure '
+        '${catalanConnector(trimmedConnector, ingredientName, elide: elideConnector)}';
+  }
   final note = prepNote?.trim() ?? '';
   return note.isEmpty ? base : '$base, $note';
 }
+
+/// Fixes §2.4 — Catalan elision. Joins [connector] ("de") to [nextWord],
+/// contracting "de" → "d'" with no trailing space before a vowel or a silent
+/// "h" ("d'oli", "d'hortalisses") when [elide] is true; otherwise emits
+/// `connector nextWord` verbatim ("de tonyina"). The contraction is
+/// Catalan-specific, so non-Catalan callers pass `elide: false`. The simple
+/// vowel-or-h test covers the vast majority of food names; the rare exceptions
+/// (aspirated h, some loanwords) are left for if and when they appear.
+String catalanConnector(
+  String connector,
+  String nextWord, {
+  required bool elide,
+}) {
+  if (!elide) return '$connector $nextWord';
+  final stripped = nextWord.trimLeft();
+  if (stripped.isNotEmpty &&
+      _catalanElisionInitials.contains(stripped[0].toLowerCase())) {
+    return "d'$stripped";
+  }
+  return '$connector $nextWord';
+}
+
+/// Initial letters that trigger the "de" → "d'" elision in Catalan: the five
+/// vowels (including accented forms) and the silent "h".
+const Set<String> _catalanElisionInitials = {
+  'a', 'e', 'i', 'o', 'u', 'h', //
+  'à', 'á', 'è', 'é', 'í', 'ï', 'ò', 'ó', 'ú', 'ü',
+};

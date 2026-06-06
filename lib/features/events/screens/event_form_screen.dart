@@ -360,12 +360,12 @@ class _EventFormState extends ConsumerState<_EventForm> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Spec 006 §2.5: a set date renders in the long format
-                // ("13 de juny de 2026") and wrapped to two lines at an equal
-                // 1:1 split. The date takes the larger share (3:1) so the long
-                // format fits on a single line while "21:00" still has room.
+                // Fixes §2.1: the earlier fixed proportion overcorrected — at
+                // 3:1 the Date had excess space and the Time ("21:00") wrapped.
+                // Instead the Time field is sized intrinsically to its content
+                // (HH:MM plus the clear icon) and the Date takes the remaining
+                // width, so neither wraps regardless of the month name's length.
                 Expanded(
-                  flex: 3,
                   child: FieldLabel(
                     label: l10n.fieldDateLabel,
                     child: FormFieldTile(
@@ -383,8 +383,7 @@ class _EventFormState extends ConsumerState<_EventForm> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                Expanded(
-                  flex: 1,
+                IntrinsicWidth(
                   child: FieldLabel(
                     label: l10n.fieldTimeLabel,
                     child: FormFieldTile(
