@@ -294,7 +294,8 @@ class _SummaryHeader extends StatelessWidget {
             runSpacing: 8,
             children: [
               for (final state in kDisplayStateOrder)
-                _StateCount(state: state, count: counts[state] ?? 0),
+                if ((counts[state] ?? 0) > 0)
+                  _StateCount(state: state, count: counts[state]!),
             ],
           ),
         ],
