@@ -22,6 +22,7 @@ import '../data/message_dispatcher.dart';
 import '../data/shopping_delta.dart';
 import '../data/shopping_models.dart';
 import '../data/shopping_providers.dart';
+import '../supplier_category_format.dart';
 
 /// Fixes §2.3: the unit name to print in a message line, or null when the
 /// unit is flagged `omit_in_display` (or unknown) so the composer drops the
@@ -496,11 +497,7 @@ class _Composer extends StatelessWidget {
           Row(
             children: [
               Icon(
-                destinationChannel == MessageChannel.whatsapp
-                    ? Icons.chat_outlined
-                    : destinationChannel == MessageChannel.email
-                    ? Icons.mail_outline
-                    : Icons.ios_share,
+                channelIcon(destinationChannel),
                 size: 18,
                 color: AppColors.accentSecondary,
               ),
@@ -878,14 +875,29 @@ class _OverrideSheetState extends State<_OverrideSheet> {
             SegmentedChoice<MessageChannel?>(
               value: _channel,
               onChanged: (channel) => setState(() => _channel = channel),
+              // Fixes round 3 §2.2: icon chips (label kept as tooltip) so the
+              // four channels read at a glance and never truncate as text.
               options: [
                 SegmentedChoiceOption(
                   MessageChannel.whatsapp,
                   l10n.channelWhatsApp,
+                  icon: channelIcon(MessageChannel.whatsapp),
                 ),
-                SegmentedChoiceOption(MessageChannel.email, l10n.channelEmail),
-                SegmentedChoiceOption(MessageChannel.share, l10n.channelShare),
-                SegmentedChoiceOption(null, l10n.channelNone),
+                SegmentedChoiceOption(
+                  MessageChannel.email,
+                  l10n.channelEmail,
+                  icon: channelIcon(MessageChannel.email),
+                ),
+                SegmentedChoiceOption(
+                  MessageChannel.share,
+                  l10n.channelShare,
+                  icon: channelIcon(MessageChannel.share),
+                ),
+                SegmentedChoiceOption(
+                  null,
+                  l10n.channelNone,
+                  icon: channelIcon(null),
+                ),
               ],
             ),
             if (_channel == MessageChannel.whatsapp) ...[

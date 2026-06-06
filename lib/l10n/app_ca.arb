@@ -212,7 +212,7 @@
   "shoppingUncategorisedHint": "Assigna una categoria de proveïdor a aquests ingredients per poder gestionar-los i enviar-los.",
   "shoppingSendMessageAction": "Envia missatge",
   "shoppingUseAsListAction": "Usa com a llista de compra",
-  "shoppingInShopModeLabel": "Ho compraràs en persona.",
+  "shoppingListCopiedToast": "Llista copiada al porta-retalls",
   "shoppingUnsentCount": "{count, plural, =1{1 ingredient sense enviar} other{{count} ingredients sense enviar}}",
   "@shoppingUnsentCount": {
     "placeholders": { "count": { "type": "int" } }

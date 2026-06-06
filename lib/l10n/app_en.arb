@@ -223,8 +223,8 @@
   "@shoppingSendMessageAction": {},
   "shoppingUseAsListAction": "Use as a shopping list",
   "@shoppingUseAsListAction": {},
-  "shoppingInShopModeLabel": "You'll buy this in person.",
-  "@shoppingInShopModeLabel": {},
+  "shoppingListCopiedToast": "List copied to clipboard",
+  "@shoppingListCopiedToast": {},
   "shoppingUnsentCount": "{count, plural, =1{1 ingredient not sent} other{{count} ingredients not sent}}",
   "@shoppingUnsentCount": {
     "placeholders": { "count": { "type": "int" } }

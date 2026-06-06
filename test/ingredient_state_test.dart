@@ -99,6 +99,24 @@ void main() {
     });
   });
 
+  group('kDisplayStateOrder (Fixes round 3 §2.1)', () {
+    test('is the concern-decreasing canonical order', () {
+      expect(kDisplayStateOrder, const [
+        DisplayState.toOrder, // Per demanar (red)
+        DisplayState.missing, // Falta (red)
+        DisplayState.delayed, // Retrassat (orange)
+        DisplayState.ordered, // Demanat (yellow)
+        DisplayState.received, // Rebut (green)
+        DisplayState.atHome, // A casa (green)
+      ]);
+    });
+
+    test('covers every display state exactly once', () {
+      expect(kDisplayStateOrder.toSet(), DisplayState.values.toSet());
+      expect(kDisplayStateOrder.length, DisplayState.values.length);
+    });
+  });
+
   group('allowedTransitions — Rebost (binary model)', () {
     test('at_home offers only missing', () {
       expect(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -11,6 +12,7 @@ import '../../catalog/data/catalog_providers.dart';
 import '../../catalog/data/dish.dart' show formatQuantity;
 import '../../catalog/data/reference_data.dart';
 import '../data/ingredient_state.dart';
+import '../data/message_composer.dart';
 import '../data/shopping_delta.dart';
 import '../data/shopping_models.dart';
 import '../data/shopping_providers.dart';
@@ -21,8 +23,9 @@ import '../supplier_category_format.dart';
 /// ingredient lines grouped by effective supplier category, each line carrying
 /// a state (Spec 007 §3.1). A summary header at the top shows the global state
 /// of the event. Within each supplier section the lines are sub-grouped by
-/// state (Per demanar / Demanat / Rebut / Falta / A casa); each line has a
-/// colour indicator and a tap-to-change action with only its legal transitions.
+/// state in concern-decreasing order (Per demanar / Falta / Retrassat / Demanat
+/// / Rebut / A casa); each line has a colour indicator and a tap-to-change
+/// action with only its legal transitions.
 ///
 /// The pantry ("Rebost") and "Sense categoria" sections are consultive — no
 /// message-sending actions — but show the full state machine and the bulk
@@ -40,11 +43,52 @@ class EventShoppingPanel extends ConsumerStatefulWidget {
 
 class _EventShoppingPanelState extends ConsumerState<EventShoppingPanel> {
   final _expanded = <String, bool>{};
-  final _inShopMode = <String>{};
 
   /// Reserved key for the consultive "no category" section's expand state in
   /// [_expanded]; it cannot collide with a real category id (a uuid).
   static const String _uncategorisedKey = '__uncategorised__';
+
+  /// "Usa com a llista de la compra" (Fixes round 3 §2.3): turns the section's
+  /// `to_order` lines into a plain text shopping list — the same per-line format
+  /// as the supplier message (quantity, unit suppression, Catalan elision,
+  /// prep note) but without greeting / needed-by / signature — copies it to the
+  /// clipboard, confirms with a toast, and moves those lines to `ordered` so the
+  /// state machine reflects that the user has taken on the purchase themselves.
+  Future<void> _useAsShoppingList(
+    List<ShoppingLine> toOrderLines,
+    Map<String, Unit> unitsById,
+  ) async {
+    if (toOrderLines.isEmpty) return;
+    final l10n = AppLocalizations.of(context);
+    final locale = Localizations.localeOf(context);
+    final messenger = ScaffoldMessenger.of(context);
+
+    final text = [
+      for (final line in toOrderLines)
+        composeItemLine(
+          quantity: formatQuantity(line.quantity),
+          // A unit flagged omit_in_display drops out with its connector → "3 ous".
+          unit: (unitsById[line.unitId]?.omitInDisplay ?? true)
+              ? null
+              : unitsById[line.unitId]?.name,
+          connector: l10n.messageItemConnector,
+          ingredientName: line.ingredientName,
+          prepNote: line.prepNote,
+          // Catalan-only "de" → "d'" elision before vowels / h.
+          elideConnector: locale.languageCode == 'ca',
+        ),
+    ].join('\n');
+
+    await Clipboard.setData(ClipboardData(text: text));
+    await ref.read(shoppingRepositoryProvider).updateLineStates(
+          [for (final line in toOrderLines) line.id],
+          IngredientState.ordered,
+        );
+    ref.invalidate(eventShoppingProvider(widget.eventId));
+    messenger.showSnackBar(
+      SnackBar(content: Text(l10n.shoppingListCopiedToast)),
+    );
+  }
 
   Future<void> _changeState(ShoppingLine line, {required bool isPantry}) async {
     final options = allowedTransitions(line.state, isPantry: isPantry);
@@ -141,19 +185,14 @@ class _EventShoppingPanelState extends ConsumerState<EventShoppingPanel> {
             displayStates: displayStates,
             unitsById: unitsById,
             expanded: _expanded[categoryId] ?? true,
-            inShopMode: _inShopMode.contains(categoryId),
             onToggleExpanded: () => setState(
               () => _expanded[categoryId] = !(_expanded[categoryId] ?? true),
             ),
-            onToggleShopMode: () => setState(() {
-              if (!_inShopMode.remove(categoryId)) {
-                _inShopMode.add(categoryId);
-              }
-            }),
             onSend: () =>
                 context.push('/events/${widget.eventId}/orders/$categoryId'),
             onChangeState: _changeState,
             onMarkAllReceived: _markAllReceived,
+            onUseAsShoppingList: _useAsShoppingList,
           ),
         if (uncategorised.isNotEmpty)
           _UncategorisedSection(
@@ -311,12 +350,11 @@ class _CategorySection extends StatelessWidget {
     required this.displayStates,
     required this.unitsById,
     required this.expanded,
-    required this.inShopMode,
     required this.onToggleExpanded,
-    required this.onToggleShopMode,
     required this.onSend,
     required this.onChangeState,
     required this.onMarkAllReceived,
+    required this.onUseAsShoppingList,
   });
 
   final SupplierCategory? category;
@@ -324,12 +362,14 @@ class _CategorySection extends StatelessWidget {
   final Map<String, DisplayState> displayStates;
   final Map<String, Unit> unitsById;
   final bool expanded;
-  final bool inShopMode;
   final VoidCallback onToggleExpanded;
-  final VoidCallback onToggleShopMode;
   final VoidCallback onSend;
   final void Function(ShoppingLine line, {required bool isPantry}) onChangeState;
   final void Function(List<String> orderedLineIds) onMarkAllReceived;
+  final void Function(
+    List<ShoppingLine> toOrderLines,
+    Map<String, Unit> unitsById,
+  ) onUseAsShoppingList;
 
   @override
   Widget build(BuildContext context) {
@@ -338,10 +378,13 @@ class _CategorySection extends StatelessWidget {
     final counts = _countStates(lines);
     final toOrder = counts[IngredientState.toOrder] ?? 0;
     final orderedCount = counts[IngredientState.ordered] ?? 0;
-    final received = counts[IngredientState.received] ?? 0;
     final orderedIds = [
       for (final line in lines)
         if (line.state == IngredientState.ordered) line.id,
+    ];
+    final toOrderLines = [
+      for (final line in lines)
+        if (line.state == IngredientState.toOrder) line,
     ];
 
     return Column(
@@ -375,18 +418,17 @@ class _CategorySection extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           _SectionFooter(
-            // Pantry / Rebost is consultive: no send, no shop-list mode, and
+            // Pantry / Rebost is consultive: no send, no shop-list action, and
             // no bulk "mark all as received" — its binary model has no
             // `ordered` state (Fixes §2.4).
             showSend: !isPantry && toOrder > 0,
-            showShopMode: !isPantry &&
-                (toOrder > 0 || orderedCount > 0 || received > 0),
+            // Fixes round 3 §2.3: the shop-list action consumes the `to_order`
+            // lines, so it is offered only when there are some.
+            showUseAsList: !isPantry && toOrder > 0,
             showMarkReceived: !isPantry && orderedCount > 0,
-            toOrderCount: toOrder,
-            inShopMode: inShopMode,
             onSend: onSend,
-            onToggleShopMode: onToggleShopMode,
             onMarkAllReceived: () => onMarkAllReceived(orderedIds),
+            onUseAsList: () => onUseAsShoppingList(toOrderLines, unitsById),
           ),
           const SizedBox(height: 12),
         ],
@@ -469,8 +511,8 @@ class _UncategorisedSection extends StatelessWidget {
 }
 
 /// The ingredient lines of one section, sub-grouped by display state with a
-/// mini-header per non-empty group, in the order Per demanar / Demanat /
-/// Retrassat / Rebut / Falta / A casa (Spec 007 §3.4 + Fixes round 2 §2.2).
+/// mini-header per non-empty group, in the concern-decreasing order Per demanar
+/// / Falta / Retrassat / Demanat / Rebut / A casa (Fixes round 3 §2.1).
 class _StateGroups extends StatelessWidget {
   const _StateGroups({
     required this.lines,
@@ -534,55 +576,32 @@ class _StateGroups extends StatelessWidget {
 class _SectionFooter extends StatelessWidget {
   const _SectionFooter({
     required this.showSend,
-    required this.showShopMode,
+    required this.showUseAsList,
     required this.showMarkReceived,
-    required this.toOrderCount,
-    required this.inShopMode,
     required this.onSend,
-    required this.onToggleShopMode,
     required this.onMarkAllReceived,
+    required this.onUseAsList,
   });
 
   final bool showSend;
-  final bool showShopMode;
+  final bool showUseAsList;
   final bool showMarkReceived;
-  final int toOrderCount;
-  final bool inShopMode;
   final VoidCallback onSend;
-  final VoidCallback onToggleShopMode;
   final VoidCallback onMarkAllReceived;
+  final VoidCallback onUseAsList;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final children = <Widget>[];
 
-    if (inShopMode && showShopMode) {
-      children.add(
-        Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Row(
-            children: [
-              const Icon(
-                Icons.storefront_outlined,
-                size: 16,
-                color: AppColors.accentSecondary,
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  l10n.shoppingInShopModeLabel,
-                  style: AppTypography.caption
-                      .copyWith(color: AppColors.accentSecondary),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
+    void addButton(SecondaryButton button) {
+      if (children.isNotEmpty) children.add(const SizedBox(height: 8));
+      children.add(button);
     }
+
     if (showSend) {
-      children.add(
+      addButton(
         SecondaryButton(
           label: l10n.shoppingSendMessageAction,
           icon: Icons.send_outlined,
@@ -591,10 +610,7 @@ class _SectionFooter extends StatelessWidget {
       );
     }
     if (showMarkReceived) {
-      if (children.isNotEmpty && children.last is SecondaryButton) {
-        children.add(const SizedBox(height: 8));
-      }
-      children.add(
+      addButton(
         SecondaryButton(
           label: l10n.shoppingMarkAllReceivedAction,
           icon: Icons.done_all,
@@ -602,17 +618,14 @@ class _SectionFooter extends StatelessWidget {
         ),
       );
     }
-    if (showShopMode) {
-      if (children.isNotEmpty && children.last is SecondaryButton) {
-        children.add(const SizedBox(height: 8));
-      }
-      children.add(
+    if (showUseAsList) {
+      // Fixes round 3 §2.3: one-shot action — copy the list to the clipboard
+      // and move the lines to `ordered`; the toast is the confirmation.
+      addButton(
         SecondaryButton(
           label: l10n.shoppingUseAsListAction,
-          icon: inShopMode
-              ? Icons.check_circle_outline
-              : Icons.shopping_basket_outlined,
-          onPressed: onToggleShopMode,
+          icon: Icons.shopping_basket_outlined,
+          onPressed: onUseAsList,
         ),
       );
     }

@@ -55,14 +55,19 @@ enum DisplayState {
   }
 }
 
-/// Sub-group and summary order with the derived "Retrassat" group inserted
-/// between "Demanat" (ordered) and "Rebut" (received), per Fixes round 2 §2.2.
+/// Canonical render order for the summary header and the per-supplier sub-group
+/// headers (Fixes round 3 §2.1): a **concern-decreasing** sequence, from the
+/// most urgent to the most settled — Per demanar → Falta → Retrassat → Demanat
+/// → Rebut → A casa. Reds first, then orange, yellow, greens last, so the order
+/// reinforces the availability colour code (Fixes round 2 §2.1). States with no
+/// lines in a given place are omitted by the caller, so this order shows through
+/// implicitly on the states that are present.
 const List<DisplayState> kDisplayStateOrder = [
   DisplayState.toOrder,
-  DisplayState.ordered,
-  DisplayState.delayed,
-  DisplayState.received,
   DisplayState.missing,
+  DisplayState.delayed,
+  DisplayState.ordered,
+  DisplayState.received,
   DisplayState.atHome,
 ];
 

@@ -275,6 +275,7 @@ class _SupplierCategoryDetailScreenState
                   ),
                   const SizedBox(height: 8),
                   _ChannelRow(
+                    icon: channelIcon(MessageChannel.whatsapp),
                     label: l10n.channelWhatsApp,
                     selected: _channel == MessageChannel.whatsapp,
                     onSelect: () =>
@@ -288,6 +289,7 @@ class _SupplierCategoryDetailScreenState
                   ),
                   const SizedBox(height: 10),
                   _ChannelRow(
+                    icon: channelIcon(MessageChannel.email),
                     label: l10n.channelEmail,
                     selected: _channel == MessageChannel.email,
                     onSelect: () =>
@@ -301,6 +303,7 @@ class _SupplierCategoryDetailScreenState
                   ),
                   const SizedBox(height: 10),
                   _ChannelRow(
+                    icon: channelIcon(MessageChannel.share),
                     label: l10n.channelShare,
                     selected: _channel == MessageChannel.share,
                     onSelect: () =>
@@ -309,6 +312,7 @@ class _SupplierCategoryDetailScreenState
                   ),
                   const SizedBox(height: 10),
                   _ChannelRow(
+                    icon: channelIcon(null),
                     label: l10n.channelNone,
                     selected: _channel == null,
                     onSelect: () => setState(() => _channel = null),
@@ -363,13 +367,16 @@ class _SupplierCategoryDetailScreenState
   }
 }
 
-/// A preferred-channel option row (Fixes round 2 §2.4): a selection circle and
-/// label paired on the same row with the channel's address [field] (WhatsApp /
-/// Email), a [hint] (Compartir — no address needed), or nothing (Cap). Tapping
-/// the circle/label selects the channel; the address field stays editable and
-/// reads as secondary (dimmed) until its row is the selected one.
+/// A preferred-channel option row (Fixes round 2 §2.4, restyled in round 3 §2.2):
+/// a selection circle and a channel **icon** paired on the same row with the
+/// channel's address [field] (WhatsApp / Email), a [hint] (Compartir — no
+/// address needed), or nothing (Cap). The icon replaces the text label, which
+/// truncated on narrow widths; [label] survives as the long-press tooltip.
+/// Tapping the circle/icon selects the channel; the address field stays editable
+/// and reads as secondary (dimmed) until its row is the selected one.
 class _ChannelRow extends StatelessWidget {
   const _ChannelRow({
+    required this.icon,
     required this.label,
     required this.selected,
     required this.onSelect,
@@ -377,6 +384,7 @@ class _ChannelRow extends StatelessWidget {
     this.hint,
   });
 
+  final IconData icon;
   final String label;
   final bool selected;
   final VoidCallback onSelect;
@@ -385,34 +393,26 @@ class _ChannelRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tint =
+        selected ? AppColors.accentSecondary : AppColors.textSecondary;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        // Fixed-width selector + label so the trailing fields line up vertically.
+        // Fixed-width selector + icon so the trailing fields line up vertically.
         InkWell(
           borderRadius: BorderRadius.circular(8),
           onTap: onSelect,
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 2),
             child: SizedBox(
-              width: 104,
+              width: 62,
               child: Row(
                 children: [
                   _SelectionCircle(selected: selected),
                   const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      label,
-                      style: AppTypography.body.copyWith(
-                        color: selected
-                            ? AppColors.textPrimary
-                            : AppColors.textSecondary,
-                        fontWeight:
-                            selected ? FontWeight.w500 : FontWeight.w400,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                  Tooltip(
+                    message: label,
+                    child: Icon(icon, size: 22, color: tint),
                   ),
                 ],
               ),
