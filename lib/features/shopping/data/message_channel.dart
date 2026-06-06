@@ -1,21 +1,32 @@
 /// Outgoing message channel — mirrors the Postgres `message_channel` enum
-/// (Specification 005 migration). `none` is the UI-only "send via the system
-/// share sheet" option; it has no wire value (the column is simply null).
+/// (Specification 005 migration, extended with `share` in Fixes round 2 §2.3).
+///
+/// The preferred channel for a supplier category is now one of four choices:
+///   * [whatsapp] / [email] — a direct channel to the stored address.
+///   * [share] ("Compartir") — explicitly dispatch through the OS share sheet,
+///     no stored address required; the user picks the destination at send time.
+///   * null ("Cap") — no preferred channel configured.
+///
+/// Both [share] and null fall back to the share sheet at dispatch time (only
+/// WhatsApp/Email are special-cased), but they are distinct *preferences*:
+/// `share` is a deliberate choice, null is "not set yet".
 library;
 
-enum MessageChannel { whatsapp, email }
+enum MessageChannel { whatsapp, email, share }
 
 extension MessageChannelWire on MessageChannel {
   String get wire => switch (this) {
     MessageChannel.whatsapp => 'whatsapp',
     MessageChannel.email => 'email',
+    MessageChannel.share => 'share',
   };
 
   /// Parses the nullable wire value; null (no configured channel) maps to
-  /// null, meaning "use the share sheet".
+  /// null, meaning "Cap" — which, like `share`, uses the share sheet.
   static MessageChannel? parse(String? value) => switch (value) {
     'whatsapp' => MessageChannel.whatsapp,
     'email' => MessageChannel.email,
+    'share' => MessageChannel.share,
     _ => null,
   };
 }

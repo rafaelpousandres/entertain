@@ -52,3 +52,59 @@ List<ShoppingLine> deltaForCategory(List<ShoppingLine> categoryLines) => [
   for (final line in categoryLines)
     if (line.state == IngredientState.toOrder) line,
 ];
+
+/// Content key matching an ordered line to the frozen order items that ordered
+/// it (Fixes round 2 §2.2). Scoped to the category, then keyed by the catalog
+/// ingredient id when present, falling back to the (frozen) ingredient name for
+/// ad-hoc lines without a catalog id. `order_items` carry no back-reference to
+/// the originating line, so this content key is how Spec 005's snapshot is
+/// re-associated — the same approach the delta logic used before the state
+/// machine replaced it.
+String _itemKey(String? categoryId, String? ingredientId, String name) =>
+    '${categoryId ?? ''}|${ingredientId ?? 'name:$name'}';
+
+/// The operative needed-by date per ordered ingredient (Fixes round 2 §2.2),
+/// keyed by [_itemKey]. Only orders that carry a `needed_by_date` contribute;
+/// when an ingredient was sent across several orders the latest send (by
+/// `sent_at`) wins, since that is the user's most recent commitment.
+Map<String, DateTime> neededByByItem(List<SupplierOrder> orders) {
+  final winners = <String, ({DateTime needed, DateTime sent})>{};
+  for (final order in orders) {
+    final needed = order.neededByDate;
+    if (needed == null) continue;
+    // A sent order always has a sent_at; guard with the epoch so an unstamped
+    // row still participates without ever beating a real send.
+    final sent = order.sentAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+    for (final item in order.items) {
+      final key = _itemKey(
+        order.supplierCategoryId,
+        item.ingredientId,
+        item.ingredientName,
+      );
+      final current = winners[key];
+      if (current == null || sent.isAfter(current.sent)) {
+        winners[key] = (needed: needed, sent: sent);
+      }
+    }
+  }
+  return {for (final e in winners.entries) e.key: e.value.needed};
+}
+
+/// Whether a line renders as "Retrassat" (Fixes round 2 §2.2): it is still
+/// `ordered` and the [today] calendar date is strictly past the needed-by date
+/// of the most recent order that ordered it. [today] must be a date-only value
+/// (local midnight) so the comparison is purely by calendar day.
+bool lineIsDelayed(
+  ShoppingLine line,
+  Map<String, DateTime> neededByItem,
+  DateTime today,
+) {
+  if (line.state != IngredientState.ordered) return false;
+  final needed = neededByItem[_itemKey(
+    line.supplierCategoryId,
+    line.ingredientId,
+    line.ingredientName,
+  )];
+  if (needed == null) return false;
+  return today.isAfter(needed);
+}

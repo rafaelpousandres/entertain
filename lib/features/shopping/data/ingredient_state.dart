@@ -27,14 +27,43 @@ enum IngredientState {
   }
 }
 
-/// Sub-group render order within a supplier section and the summary header
-/// order (Spec §3.4): Per demanar, Demanat, Rebut, Falta, A casa.
-const List<IngredientState> kStateDisplayOrder = [
-  IngredientState.toOrder,
-  IngredientState.ordered,
-  IngredientState.received,
-  IngredientState.missing,
-  IngredientState.atHome,
+/// Presentation-only state shown in the shopping panel (Spec 007 Fixes round 2
+/// §2.2). It is the five persisted [IngredientState] values plus the derived
+/// **delayed** ("Retrassat") overlay: a line that is still `ordered` past its
+/// order's needed-by date. `delayed` is never persisted — the database column
+/// keeps the four operational values — it is computed at render time and only
+/// changes how the line is grouped, coloured, and labelled.
+enum DisplayState {
+  toOrder,
+  ordered,
+  delayed,
+  received,
+  missing,
+  atHome;
+
+  /// The display state for a line: `delayed` when an `ordered` line is overdue,
+  /// otherwise the direct mapping of its persisted [IngredientState].
+  static DisplayState of(IngredientState state, {required bool delayed}) {
+    if (delayed && state == IngredientState.ordered) return DisplayState.delayed;
+    return switch (state) {
+      IngredientState.toOrder => DisplayState.toOrder,
+      IngredientState.ordered => DisplayState.ordered,
+      IngredientState.received => DisplayState.received,
+      IngredientState.missing => DisplayState.missing,
+      IngredientState.atHome => DisplayState.atHome,
+    };
+  }
+}
+
+/// Sub-group and summary order with the derived "Retrassat" group inserted
+/// between "Demanat" (ordered) and "Rebut" (received), per Fixes round 2 §2.2.
+const List<DisplayState> kDisplayStateOrder = [
+  DisplayState.toOrder,
+  DisplayState.ordered,
+  DisplayState.delayed,
+  DisplayState.received,
+  DisplayState.missing,
+  DisplayState.atHome,
 ];
 
 /// The four "work" states an ingredient outside the Rebost moves through; the

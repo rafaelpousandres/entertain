@@ -236,6 +236,7 @@
   "shoppingStateReceived": "Rebut",
   "shoppingStateMissing": "Falta",
   "shoppingStateAtHome": "A casa",
+  "shoppingStateDelayed": "Retrassat",
   "shoppingMarkAllReceivedAction": "Marca tot com a rebut",
   "shoppingStateChangeSubtitle": "Ara: {state}",
   "@shoppingStateChangeSubtitle": {
@@ -264,7 +265,8 @@
 
   "channelWhatsApp": "WhatsApp",
   "channelEmail": "Correu electrònic",
-  "channelNone": "Cap (tria en enviar)",
+  "channelShare": "Compartir",
+  "channelNone": "Cap",
   "addressWhatsAppLabel": "Número de WhatsApp",
   "addressWhatsAppHint": "Amb prefix internacional",
   "addressEmailLabel": "Adreça electrònica",
@@ -272,6 +274,7 @@
   "supplierPhoneLabel": "Telèfon",
   "supplierEmailLabel": "Correu electrònic",
   "supplierPreferredChannelLabel": "Canal preferent",
+  "supplierShareNoAddressHint": "No cal adreça",
   "supplierDefaultChannelTag": "Per defecte",
   "destinationOverrideTitle": "Destinatari d'aquest enviament",
   "applyAction": "Aplica",

@@ -7,7 +7,6 @@ import '../../../theme/app_colors.dart';
 import '../../../theme/app_typography.dart';
 import '../../../ui/app_form_field.dart';
 import '../../../ui/primary_button.dart';
-import '../../../ui/segmented_choice.dart';
 import '../../catalog/data/catalog_providers.dart';
 import '../../catalog/data/reference_data.dart';
 import '../../events/data/events_providers.dart' show currentGroupIdProvider;
@@ -184,29 +183,6 @@ class _SupplierCategoryDetailScreenState
     }
   }
 
-  /// Field label with a "default channel" tag appended when this is the
-  /// preferred channel (Fixes §2.1), e.g. "Telèfon · Per defecte".
-  String _phoneFieldLabel(AppLocalizations l10n) => _labelWithDefault(
-        l10n,
-        l10n.supplierPhoneLabel,
-        _channel == MessageChannel.whatsapp,
-      );
-
-  String _emailFieldLabel(AppLocalizations l10n) => _labelWithDefault(
-        l10n,
-        l10n.supplierEmailLabel,
-        _channel == MessageChannel.email,
-      );
-
-  String _labelWithDefault(
-    AppLocalizations l10n,
-    String base,
-    bool isDefault,
-  ) =>
-      isDefault
-          ? '$base${l10n.metadataSeparator}${l10n.supplierDefaultChannelTag}'
-          : base;
-
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -284,29 +260,12 @@ class _SupplierCategoryDetailScreenState
                   ),
                 ],
                 if (_showChannel) ...[
-                  // Fixes §2.1: phone and email are both stored; the "preferred
-                  // channel" selector only marks which one the composer uses by
-                  // default. Both fields stay editable regardless.
-                  const SizedBox(height: 24),
-                  FieldLabel(
-                    label: _phoneFieldLabel(l10n),
-                    child: AppTextField(
-                      controller: _phoneController,
-                      hintText: l10n.addressWhatsAppHint,
-                      keyboardType: TextInputType.phone,
-                      textCapitalization: TextCapitalization.none,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  FieldLabel(
-                    label: _emailFieldLabel(l10n),
-                    child: AppTextField(
-                      controller: _emailController,
-                      hintText: l10n.addressEmailHint,
-                      keyboardType: TextInputType.emailAddress,
-                      textCapitalization: TextCapitalization.none,
-                    ),
-                  ),
+                  // Fixes round 2 §2.4: pair each preferred-channel option with
+                  // its address on the same row, so the link between a channel
+                  // and the address it sends to is immediate. Both addresses
+                  // stay stored and editable (Fixes §2.1); the non-selected rows
+                  // read as visually secondary. Compartir (round 2 §2.3) and Cap
+                  // need no address.
                   const SizedBox(height: 24),
                   Text(
                     l10n.supplierPreferredChannelLabel,
@@ -314,21 +273,45 @@ class _SupplierCategoryDetailScreenState
                       color: AppColors.textSecondary,
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  SegmentedChoice<MessageChannel?>(
-                    value: _channel,
-                    onChanged: (channel) => setState(() => _channel = channel),
-                    options: [
-                      SegmentedChoiceOption(
-                        MessageChannel.whatsapp,
-                        l10n.channelWhatsApp,
-                      ),
-                      SegmentedChoiceOption(
-                        MessageChannel.email,
-                        l10n.channelEmail,
-                      ),
-                      SegmentedChoiceOption(null, l10n.channelNone),
-                    ],
+                  const SizedBox(height: 8),
+                  _ChannelRow(
+                    label: l10n.channelWhatsApp,
+                    selected: _channel == MessageChannel.whatsapp,
+                    onSelect: () =>
+                        setState(() => _channel = MessageChannel.whatsapp),
+                    field: AppTextField(
+                      controller: _phoneController,
+                      hintText: l10n.addressWhatsAppHint,
+                      keyboardType: TextInputType.phone,
+                      textCapitalization: TextCapitalization.none,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  _ChannelRow(
+                    label: l10n.channelEmail,
+                    selected: _channel == MessageChannel.email,
+                    onSelect: () =>
+                        setState(() => _channel = MessageChannel.email),
+                    field: AppTextField(
+                      controller: _emailController,
+                      hintText: l10n.addressEmailHint,
+                      keyboardType: TextInputType.emailAddress,
+                      textCapitalization: TextCapitalization.none,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  _ChannelRow(
+                    label: l10n.channelShare,
+                    selected: _channel == MessageChannel.share,
+                    onSelect: () =>
+                        setState(() => _channel = MessageChannel.share),
+                    hint: l10n.supplierShareNoAddressHint,
+                  ),
+                  const SizedBox(height: 10),
+                  _ChannelRow(
+                    label: l10n.channelNone,
+                    selected: _channel == null,
+                    onSelect: () => setState(() => _channel = null),
                   ),
                 ] else ...[
                   const SizedBox(height: 16),
@@ -376,6 +359,103 @@ class _SupplierCategoryDetailScreenState
           ),
         ),
       ),
+    );
+  }
+}
+
+/// A preferred-channel option row (Fixes round 2 §2.4): a selection circle and
+/// label paired on the same row with the channel's address [field] (WhatsApp /
+/// Email), a [hint] (Compartir — no address needed), or nothing (Cap). Tapping
+/// the circle/label selects the channel; the address field stays editable and
+/// reads as secondary (dimmed) until its row is the selected one.
+class _ChannelRow extends StatelessWidget {
+  const _ChannelRow({
+    required this.label,
+    required this.selected,
+    required this.onSelect,
+    this.field,
+    this.hint,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onSelect;
+  final Widget? field;
+  final String? hint;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        // Fixed-width selector + label so the trailing fields line up vertically.
+        InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: onSelect,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 2),
+            child: SizedBox(
+              width: 104,
+              child: Row(
+                children: [
+                  _SelectionCircle(selected: selected),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      label,
+                      style: AppTypography.body.copyWith(
+                        color: selected
+                            ? AppColors.textPrimary
+                            : AppColors.textSecondary,
+                        fontWeight:
+                            selected ? FontWeight.w500 : FontWeight.w400,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: switch ((field, hint)) {
+            (final Widget f, _) => Opacity(opacity: selected ? 1 : 0.5, child: f),
+            (null, final String h) => Text(h, style: AppTypography.caption),
+            _ => const SizedBox.shrink(),
+          },
+        ),
+      ],
+    );
+  }
+}
+
+/// Design-system selection control (§5): an empty circle with a `disabled`
+/// border when unselected; a filled `accent-secondary` circle with a white
+/// check when selected.
+class _SelectionCircle extends StatelessWidget {
+  const _SelectionCircle({required this.selected});
+
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 22,
+      height: 22,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: selected ? AppColors.accentSecondary : Colors.transparent,
+        border: Border.all(
+          color: selected ? AppColors.accentSecondary : AppColors.disabled,
+          width: 1.5,
+        ),
+      ),
+      child: selected
+          ? const Icon(Icons.check, size: 14, color: AppColors.onAccent)
+          : null,
     );
   }
 }

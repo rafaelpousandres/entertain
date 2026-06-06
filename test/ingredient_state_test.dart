@@ -55,6 +55,50 @@ void main() {
     });
   });
 
+  group('DisplayState.of (Fixes round 2 §2.2)', () {
+    test('an overdue ordered line maps to the delayed overlay', () {
+      expect(
+        DisplayState.of(IngredientState.ordered, delayed: true),
+        DisplayState.delayed,
+      );
+    });
+
+    test('an on-time ordered line stays ordered', () {
+      expect(
+        DisplayState.of(IngredientState.ordered, delayed: false),
+        DisplayState.ordered,
+      );
+    });
+
+    test('the delayed overlay only applies to ordered lines', () {
+      for (final s in const [
+        IngredientState.toOrder,
+        IngredientState.received,
+        IngredientState.missing,
+        IngredientState.atHome,
+      ]) {
+        // Even if the flag is somehow set, a non-ordered line never reads as
+        // delayed — only `ordered` carries the overlay.
+        expect(
+          DisplayState.of(s, delayed: true),
+          isNot(DisplayState.delayed),
+          reason: '$s',
+        );
+      }
+    });
+
+    test('every real state maps to its same-named display state', () {
+      expect(DisplayState.of(IngredientState.toOrder, delayed: false),
+          DisplayState.toOrder);
+      expect(DisplayState.of(IngredientState.received, delayed: false),
+          DisplayState.received);
+      expect(DisplayState.of(IngredientState.missing, delayed: false),
+          DisplayState.missing);
+      expect(DisplayState.of(IngredientState.atHome, delayed: false),
+          DisplayState.atHome);
+    });
+  });
+
   group('allowedTransitions — Rebost (binary model)', () {
     test('at_home offers only missing', () {
       expect(

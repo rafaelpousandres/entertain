@@ -39,6 +39,7 @@ class ShoppingRepository {
         .from('orders')
         .select(
           'id, supplier_category_id, sent_at, sent_channel, sent_address, '
+          'needed_by_date, '
           'order_items(id, ingredient_id, ingredient_name, quantity, '
           'unit_id, prep_note)',
         )

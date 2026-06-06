@@ -236,6 +236,7 @@
   "shoppingStateReceived": "Recibido",
   "shoppingStateMissing": "Falta",
   "shoppingStateAtHome": "En casa",
+  "shoppingStateDelayed": "Retrasado",
   "shoppingMarkAllReceivedAction": "Marcar todo como recibido",
   "shoppingStateChangeSubtitle": "Ahora: {state}",
   "@shoppingStateChangeSubtitle": {
@@ -264,7 +265,8 @@
 
   "channelWhatsApp": "WhatsApp",
   "channelEmail": "Correo electrónico",
-  "channelNone": "Ninguno (elegir al enviar)",
+  "channelShare": "Compartir",
+  "channelNone": "Ninguno",
   "addressWhatsAppLabel": "Número de WhatsApp",
   "addressWhatsAppHint": "Con prefijo internacional",
   "addressEmailLabel": "Dirección de correo",
@@ -272,6 +274,7 @@
   "supplierPhoneLabel": "Teléfono",
   "supplierEmailLabel": "Correo electrónico",
   "supplierPreferredChannelLabel": "Canal preferente",
+  "supplierShareNoAddressHint": "No hace falta dirección",
   "supplierDefaultChannelTag": "Por defecto",
   "destinationOverrideTitle": "Destinatario de este envío",
   "applyAction": "Aplicar",

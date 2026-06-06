@@ -102,6 +102,20 @@ class _EventShoppingPanelState extends ConsumerState<EventShoppingPanel> {
     final categoriesById = {for (final c in categoriesAsync.value!) c.id: c};
     final unitsById = {for (final u in unitsAsync.value!) u.id: u};
 
+    // Fixes round 2 §2.2: derive the "Retrassat" overlay per line — an `ordered`
+    // line whose most recent order is past its needed-by date. Computed once
+    // here at render time (no persistence) and looked up by line id downstream.
+    final neededBy = neededByByItem(shopping.orders);
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final displayStates = <String, DisplayState>{
+      for (final line in shopping.lines)
+        line.id: DisplayState.of(
+          line.state,
+          delayed: lineIsDelayed(line, neededBy, today),
+        ),
+    };
+
     final linesByCat = linesByCategory(shopping.lines);
 
     final uncategorised = [
@@ -118,12 +132,13 @@ class _EventShoppingPanelState extends ConsumerState<EventShoppingPanel> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
       children: [
-        _SummaryHeader(lines: shopping.lines),
+        _SummaryHeader(lines: shopping.lines, displayStates: displayStates),
         const SizedBox(height: 16),
         for (final categoryId in ordered)
           _CategorySection(
             category: categoriesById[categoryId],
             lines: linesByCat[categoryId] ?? const [],
+            displayStates: displayStates,
             unitsById: unitsById,
             expanded: _expanded[categoryId] ?? true,
             inShopMode: _inShopMode.contains(categoryId),
@@ -143,6 +158,7 @@ class _EventShoppingPanelState extends ConsumerState<EventShoppingPanel> {
         if (uncategorised.isNotEmpty)
           _UncategorisedSection(
             lines: uncategorised,
+            displayStates: displayStates,
             unitsById: unitsById,
             expanded: _expanded[_uncategorisedKey] ?? true,
             onToggleExpanded: () => setState(
@@ -156,15 +172,21 @@ class _EventShoppingPanelState extends ConsumerState<EventShoppingPanel> {
     );
   }
 
-  /// Render order (Spec 007 §3.4): assigned supplier categories sorted by
-  /// display name; the consultive "Sense categoria" section is appended last
-  /// by the caller.
+  /// Render order (Spec 007 §3.4 + Fixes round 2 §2.5): dispatching categories
+  /// first, sorted by display name, then the consultive Rebost (pantry). The
+  /// "Sense categoria" catch-all is appended after both by the caller, so the
+  /// final order is dispatching → Rebost → Sense categoria.
   List<String> _orderedCategoryIds(
     Set<String> ids,
     Map<String, SupplierCategory> categoriesById,
   ) {
+    // 0 = dispatching, 1 = Rebost; the consultive pantry sinks below the rest.
+    int rank(String id) =>
+        isPantryCategory(categoriesById[id]?.code ?? '') ? 1 : 0;
     final list = ids.toList();
     list.sort((a, b) {
+      final byRank = rank(a).compareTo(rank(b));
+      if (byRank != 0) return byRank;
       final aName = categoriesById[a]?.name ?? '';
       final bName = categoriesById[b]?.name ?? '';
       return aName.toLowerCase().compareTo(bName.toLowerCase());
@@ -173,7 +195,9 @@ class _EventShoppingPanelState extends ConsumerState<EventShoppingPanel> {
   }
 }
 
-/// Counts each state across [lines] (zeros included for every state).
+/// Counts each persisted state across [lines] (zeros included). Used for the
+/// section footer gating, which keys off the operational states (send delta =
+/// `to_order`; mark-all-received = `ordered`), not the display overlay.
 Map<IngredientState, int> _countStates(List<ShoppingLine> lines) {
   final counts = {for (final s in IngredientState.values) s: 0};
   for (final line in lines) {
@@ -182,17 +206,34 @@ Map<IngredientState, int> _countStates(List<ShoppingLine> lines) {
   return counts;
 }
 
+/// Counts each [DisplayState] across [lines] (zeros included), resolving each
+/// line through [displayStates] so the derived "Retrassat" overlay is counted
+/// as its own group (Fixes round 2 §2.2).
+Map<DisplayState, int> _countDisplay(
+  List<ShoppingLine> lines,
+  Map<String, DisplayState> displayStates,
+) {
+  final counts = {for (final s in DisplayState.values) s: 0};
+  for (final line in lines) {
+    final s = displayStates[line.id] ?? DisplayState.of(line.state, delayed: false);
+    counts[s] = (counts[s] ?? 0) + 1;
+  }
+  return counts;
+}
+
 /// Global summary at the top of the panel (Spec 007 §3.4): the total ingredient
-/// count and a coloured-dot legend with the count of each state.
+/// count and a coloured-dot legend with the count of each state, including the
+/// derived "Retrassat" count (Fixes round 2 §2.2).
 class _SummaryHeader extends StatelessWidget {
-  const _SummaryHeader({required this.lines});
+  const _SummaryHeader({required this.lines, required this.displayStates});
 
   final List<ShoppingLine> lines;
+  final Map<String, DisplayState> displayStates;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final counts = _countStates(lines);
+    final counts = _countDisplay(lines, displayStates);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
@@ -213,7 +254,7 @@ class _SummaryHeader extends StatelessWidget {
             spacing: 16,
             runSpacing: 8,
             children: [
-              for (final state in kStateDisplayOrder)
+              for (final state in kDisplayStateOrder)
                 _StateCount(state: state, count: counts[state] ?? 0),
             ],
           ),
@@ -223,12 +264,11 @@ class _SummaryHeader extends StatelessWidget {
   }
 }
 
-/// A coloured dot followed by `count label`, used in the summary header and
-/// the per-category compact summary.
+/// A coloured dot followed by `count label`, used in the summary header.
 class _StateCount extends StatelessWidget {
   const _StateCount({required this.state, required this.count});
 
-  final IngredientState state;
+  final DisplayState state;
   final int count;
 
   @override
@@ -237,10 +277,10 @@ class _StateCount extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _Dot(color: ingredientStateColor(state)),
+        _Dot(color: displayStateColor(state)),
         const SizedBox(width: 6),
         Text(
-          '$count ${ingredientStateLabel(l10n, state).toLowerCase()}',
+          '$count ${displayStateLabel(l10n, state).toLowerCase()}',
           style: AppTypography.caption.copyWith(color: AppColors.textSecondary),
         ),
       ],
@@ -268,6 +308,7 @@ class _CategorySection extends StatelessWidget {
   const _CategorySection({
     required this.category,
     required this.lines,
+    required this.displayStates,
     required this.unitsById,
     required this.expanded,
     required this.inShopMode,
@@ -280,6 +321,7 @@ class _CategorySection extends StatelessWidget {
 
   final SupplierCategory? category;
   final List<ShoppingLine> lines;
+  final Map<String, DisplayState> displayStates;
   final Map<String, Unit> unitsById;
   final bool expanded;
   final bool inShopMode;
@@ -326,6 +368,7 @@ class _CategorySection extends StatelessWidget {
             ),
           _StateGroups(
             lines: lines,
+            displayStates: displayStates,
             unitsById: unitsById,
             isPantry: isPantry,
             onChangeState: onChangeState,
@@ -359,6 +402,7 @@ class _CategorySection extends StatelessWidget {
 class _UncategorisedSection extends StatelessWidget {
   const _UncategorisedSection({
     required this.lines,
+    required this.displayStates,
     required this.unitsById,
     required this.expanded,
     required this.onToggleExpanded,
@@ -367,6 +411,7 @@ class _UncategorisedSection extends StatelessWidget {
   });
 
   final List<ShoppingLine> lines;
+  final Map<String, DisplayState> displayStates;
   final Map<String, Unit> unitsById;
   final bool expanded;
   final VoidCallback onToggleExpanded;
@@ -403,6 +448,7 @@ class _UncategorisedSection extends StatelessWidget {
           ),
           _StateGroups(
             lines: lines,
+            displayStates: displayStates,
             unitsById: unitsById,
             isPantry: false,
             onChangeState: onChangeState,
@@ -422,42 +468,47 @@ class _UncategorisedSection extends StatelessWidget {
   }
 }
 
-/// The ingredient lines of one section, sub-grouped by state with a mini-header
-/// per non-empty state, in the order Per demanar / Demanat / Rebut / Falta /
-/// A casa (Spec 007 §3.4).
+/// The ingredient lines of one section, sub-grouped by display state with a
+/// mini-header per non-empty group, in the order Per demanar / Demanat /
+/// Retrassat / Rebut / Falta / A casa (Spec 007 §3.4 + Fixes round 2 §2.2).
 class _StateGroups extends StatelessWidget {
   const _StateGroups({
     required this.lines,
+    required this.displayStates,
     required this.unitsById,
     required this.isPantry,
     required this.onChangeState,
   });
 
   final List<ShoppingLine> lines;
+  final Map<String, DisplayState> displayStates;
   final Map<String, Unit> unitsById;
   final bool isPantry;
   final void Function(ShoppingLine line, {required bool isPantry}) onChangeState;
+
+  DisplayState _displayOf(ShoppingLine line) =>
+      displayStates[line.id] ?? DisplayState.of(line.state, delayed: false);
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final byState = {
-      for (final state in IngredientState.values)
-        state: [for (final l in lines) if (l.state == state) l],
+      for (final state in DisplayState.values)
+        state: [for (final l in lines) if (_displayOf(l) == state) l],
     };
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (final state in kStateDisplayOrder)
+        for (final state in kDisplayStateOrder)
           if ((byState[state] ?? const []).isNotEmpty) ...[
             Padding(
               padding: const EdgeInsets.only(top: 4, bottom: 6),
               child: Row(
                 children: [
-                  _Dot(color: ingredientStateColor(state), size: 8),
+                  _Dot(color: displayStateColor(state), size: 8),
                   const SizedBox(width: 6),
                   Text(
-                    '${ingredientStateLabel(l10n, state)} · ${byState[state]!.length}',
+                    '${displayStateLabel(l10n, state)} · ${byState[state]!.length}',
                     style: AppTypography.label
                         .copyWith(color: AppColors.textSecondary),
                   ),
@@ -469,6 +520,7 @@ class _StateGroups extends StatelessWidget {
                 padding: const EdgeInsets.only(bottom: 8),
                 child: _LineRow(
                   line: line,
+                  displayState: state,
                   unit: unitsById[line.unitId],
                   onTap: () => onChangeState(line, isPantry: isPantry),
                 ),
@@ -574,9 +626,15 @@ class _SectionFooter extends StatelessWidget {
 }
 
 class _LineRow extends StatelessWidget {
-  const _LineRow({required this.line, required this.unit, required this.onTap});
+  const _LineRow({
+    required this.line,
+    required this.displayState,
+    required this.unit,
+    required this.onTap,
+  });
 
   final ShoppingLine line;
+  final DisplayState displayState;
   final Unit? unit;
   final VoidCallback onTap;
 
@@ -614,12 +672,12 @@ class _LineRow extends StatelessWidget {
                     AppTypography.caption.copyWith(color: AppColors.textSecondary),
               ),
               const SizedBox(width: 10),
-              _Dot(color: ingredientStateColor(line.state)),
+              _Dot(color: displayStateColor(displayState)),
               const SizedBox(width: 6),
               Text(
-                ingredientStateLabel(l10n, line.state).toLowerCase(),
+                displayStateLabel(l10n, displayState).toLowerCase(),
                 style: AppTypography.caption.copyWith(
-                  color: ingredientStateColor(line.state),
+                  color: displayStateColor(displayState),
                 ),
               ),
             ],

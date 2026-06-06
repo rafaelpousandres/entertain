@@ -27,4 +27,10 @@ class AppColors {
   static const Color success = Color(0xFF3B6D11);
   static const Color warning = Color(0xFFBA7517);
   static const Color danger = Color(0xFFA32D2D);
+
+  /// Burnt orange for the derived "Retrassat" (delayed) state — Spec 007 Fixes
+  /// round 2 §2.2. Sits between `warning` (amber, "ordered") and `danger` (red),
+  /// reading as more urgent than amber without colliding with the terracotta
+  /// `accent` used by primary actions.
+  static const Color delayed = Color(0xFFC85212);
 }

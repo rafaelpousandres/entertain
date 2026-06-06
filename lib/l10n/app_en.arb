@@ -254,6 +254,10 @@
   "@shoppingStateMissing": {},
   "shoppingStateAtHome": "At home",
   "@shoppingStateAtHome": {},
+  "shoppingStateDelayed": "Delayed",
+  "@shoppingStateDelayed": {
+    "description": "Derived 'Retrassat' state: an ordered line past its needed-by date (Fixes round 2 §2.2)."
+  },
   "shoppingMarkAllReceivedAction": "Mark all as received",
   "@shoppingMarkAllReceivedAction": {},
   "shoppingStateChangeSubtitle": "Now: {state}",
@@ -302,7 +306,11 @@
   "@channelWhatsApp": {},
   "channelEmail": "Email",
   "@channelEmail": {},
-  "channelNone": "None (choose when sending)",
+  "channelShare": "Share",
+  "@channelShare": {
+    "description": "Preferred channel that dispatches through the OS share sheet, no stored address needed (Fixes round 2 §2.3)."
+  },
+  "channelNone": "None",
   "@channelNone": {},
   "addressWhatsAppLabel": "WhatsApp number",
   "@addressWhatsAppLabel": {},
@@ -323,6 +331,10 @@
   "supplierPreferredChannelLabel": "Preferred channel",
   "@supplierPreferredChannelLabel": {
     "description": "Selector marking which stored address (phone/email) is the default for outgoing messages (Fixes §2.1)."
+  },
+  "supplierShareNoAddressHint": "No address needed",
+  "@supplierShareNoAddressHint": {
+    "description": "Shown beside the Compartir option, which dispatches via the share sheet (Fixes round 2 §2.3 / §2.4)."
   },
   "supplierDefaultChannelTag": "Default",
   "@supplierDefaultChannelTag": {

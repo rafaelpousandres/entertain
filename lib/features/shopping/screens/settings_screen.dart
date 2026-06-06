@@ -359,11 +359,15 @@ class _CategoryRow extends StatelessWidget {
     final channel = setting?.channel;
     if (channel == null) return null;
     // Fixes §2.1: the indicator shows the default channel and its matching
-    // address (phone for WhatsApp, email for Email).
+    // address (phone for WhatsApp, email for Email). Compartir (round 2 §2.3)
+    // has no address — just the channel label.
+    final label = switch (channel) {
+      MessageChannel.whatsapp => l10n.channelWhatsApp,
+      MessageChannel.email => l10n.channelEmail,
+      MessageChannel.share => l10n.channelShare,
+    };
+    if (channel == MessageChannel.share) return label;
     final address = setting?.defaultAddress?.trim() ?? '';
-    final label = channel == MessageChannel.whatsapp
-        ? l10n.channelWhatsApp
-        : l10n.channelEmail;
     return address.isEmpty ? label : '$label${l10n.metadataSeparator}$address';
   }
 }

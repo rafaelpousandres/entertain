@@ -27,10 +27,11 @@ class GroupSupplierSetting {
   final String? emailAddress;
 
   /// The stored address for a given channel, or null when that channel has no
-  /// address (or the channel is "none").
+  /// address (Compartir / "Cap", which use the share sheet, never carry one).
   String? addressForChannel(MessageChannel? channel) => switch (channel) {
     MessageChannel.whatsapp => phoneAddress,
     MessageChannel.email => emailAddress,
+    MessageChannel.share => null,
     null => null,
   };
 

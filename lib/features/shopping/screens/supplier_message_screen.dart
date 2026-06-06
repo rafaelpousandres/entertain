@@ -884,6 +884,7 @@ class _OverrideSheetState extends State<_OverrideSheet> {
                   l10n.channelWhatsApp,
                 ),
                 SegmentedChoiceOption(MessageChannel.email, l10n.channelEmail),
+                SegmentedChoiceOption(MessageChannel.share, l10n.channelShare),
                 SegmentedChoiceOption(null, l10n.channelNone),
               ],
             ),
@@ -920,6 +921,8 @@ class _OverrideSheetState extends State<_OverrideSheet> {
                 final address = switch (_channel) {
                   MessageChannel.whatsapp => _phoneController.text.trim(),
                   MessageChannel.email => _emailController.text.trim(),
+                  // Compartir / Cap both go through the share sheet — no address.
+                  MessageChannel.share => '',
                   null => '',
                 };
                 Navigator.of(context).pop(
