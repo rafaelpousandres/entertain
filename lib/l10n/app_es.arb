@@ -240,6 +240,7 @@
   "supplierMessageConfirmSentBody": "Confirma que el mensaje se ha enviado correctamente al proveedor antes de marcar el pedido como enviado.",
   "supplierMessageConfirmSentYes": "Sí, enviado",
   "supplierMessageConfirmSentNo": "No",
+  "messageItemConnector": "de",
 
   "channelWhatsApp": "WhatsApp",
   "channelEmail": "Correo electrónico",
@@ -254,6 +255,9 @@
   "navSettings": "Configuración",
   "settingsScreenTitle": "Configuración",
   "settingsSignatureSectionTitle": "Firma",
+  "settingsGreetingLabel": "Saludo",
+  "settingsGreetingHint": "Se añade al principio de cada mensaje…",
+  "settingsGreetingDefault": "Hola,",
   "settingsSignatureLabel": "Firma de los mensajes",
   "settingsSignatureHint": "Se añade al final de cada mensaje…",
   "settingsCategoriesSectionTitle": "Por categoría de proveedor",

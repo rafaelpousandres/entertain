@@ -30,6 +30,7 @@ class SettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  final _greetingController = TextEditingController();
   final _signatureController = TextEditingController();
   final _addressControllers = <String, TextEditingController>{};
   final _channels = <String, MessageChannel?>{};
@@ -38,6 +39,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   @override
   void dispose() {
+    _greetingController.dispose();
     _signatureController.dispose();
     for (final c in _addressControllers.values) {
       c.dispose();
@@ -49,11 +51,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   /// in build the first time all three sources resolve; setting controller
   /// text here doesn't require a rebuild.
   void _seed(
+    String greeting,
     String signature,
     List<SupplierCategory> categories,
     Map<String, dynamic> settingsMap,
   ) {
     if (_seeded) return;
+    _greetingController.text = greeting;
     _signatureController.text = signature;
     for (final category in categories) {
       final setting = settingsMap[category.id];
@@ -73,6 +77,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       final groupId = await ref.read(currentGroupIdProvider.future);
       final repo = ref.read(settingsRepositoryProvider);
 
+      // The greeting is stored verbatim, empty included (Fixes round 2 §2.1):
+      // an explicitly cleared greeting must stay cleared, not revert to the
+      // default. (The signature, by contrast, nulls out to fall back to the
+      // display name.)
+      await repo.updateGreeting(groupId, _greetingController.text.trim());
+
       final signature = _signatureController.text.trim();
       await repo.updateSignature(groupId, signature.isEmpty ? null : signature);
 
@@ -86,6 +96,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         );
       }
 
+      ref.invalidate(groupGreetingProvider);
       ref.invalidate(groupSignatureProvider);
       ref.invalidate(groupSupplierSettingsProvider);
       if (!mounted) return;
@@ -103,15 +114,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final localeCode = Localizations.localeOf(context).languageCode;
     final categoriesAsync = ref.watch(supplierCategoriesProvider(localeCode));
     final settingsAsync = ref.watch(groupSupplierSettingsProvider);
+    final greetingAsync = ref.watch(groupGreetingProvider);
     final signatureAsync = ref.watch(groupSignatureProvider);
 
     final loading =
         categoriesAsync.isLoading ||
         settingsAsync.isLoading ||
+        greetingAsync.isLoading ||
         signatureAsync.isLoading;
     final hasError =
         categoriesAsync.hasError ||
         settingsAsync.hasError ||
+        greetingAsync.hasError ||
         signatureAsync.hasError;
 
     Widget body;
@@ -126,8 +140,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           .where((c) => !isPantryCategory(c.code))
           .toList()
         ..sort((a, b) => a.name.compareTo(b.name));
-      _seed(signatureAsync.value!, categories, settingsAsync.value!);
+      // Null greeting means "never set" — seed the localised default ("Hola,").
+      // An empty string means the user cleared it; keep it empty.
+      final greeting = greetingAsync.value ?? l10n.settingsGreetingDefault;
+      _seed(greeting, signatureAsync.value!, categories, settingsAsync.value!);
       body = _SettingsForm(
+        greetingController: _greetingController,
         signatureController: _signatureController,
         categories: categories,
         addressControllers: _addressControllers,
@@ -161,6 +179,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
 class _SettingsForm extends StatelessWidget {
   const _SettingsForm({
+    required this.greetingController,
     required this.signatureController,
     required this.categories,
     required this.addressControllers,
@@ -168,6 +187,7 @@ class _SettingsForm extends StatelessWidget {
     required this.onChannelChanged,
   });
 
+  final TextEditingController greetingController;
   final TextEditingController signatureController;
   final List<SupplierCategory> categories;
   final Map<String, TextEditingController> addressControllers;
@@ -186,6 +206,14 @@ class _SettingsForm extends StatelessWidget {
           style: AppTypography.sectionTitle,
         ),
         const SizedBox(height: 12),
+        FieldLabel(
+          label: l10n.settingsGreetingLabel,
+          child: AppTextField(
+            controller: greetingController,
+            hintText: l10n.settingsGreetingHint,
+          ),
+        ),
+        const SizedBox(height: 16),
         FieldLabel(
           label: l10n.settingsSignatureLabel,
           child: AppTextField(

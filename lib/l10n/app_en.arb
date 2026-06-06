@@ -267,6 +267,10 @@
   "@supplierMessageConfirmSentYes": {},
   "supplierMessageConfirmSentNo": "No",
   "@supplierMessageConfirmSentNo": {},
+  "messageItemConnector": "of",
+  "@messageItemConnector": {
+    "description": "Connector between the measure and the ingredient name in a supplier-message item line, e.g. '250 g of tuna'. Catalan/Spanish: 'de'."
+  },
 
   "channelWhatsApp": "WhatsApp",
   "@channelWhatsApp": {},
@@ -293,6 +297,14 @@
   "@settingsScreenTitle": {},
   "settingsSignatureSectionTitle": "Signature",
   "@settingsSignatureSectionTitle": {},
+  "settingsGreetingLabel": "Greeting",
+  "@settingsGreetingLabel": {},
+  "settingsGreetingHint": "Added to the start of every message…",
+  "@settingsGreetingHint": {},
+  "settingsGreetingDefault": "Hello,",
+  "@settingsGreetingDefault": {
+    "description": "Default greeting seeded the first time Settings is shown. Catalan: 'Hola,'."
+  },
   "settingsSignatureLabel": "Message signature",
   "@settingsSignatureLabel": {},
   "settingsSignatureHint": "Added to the end of every message…",

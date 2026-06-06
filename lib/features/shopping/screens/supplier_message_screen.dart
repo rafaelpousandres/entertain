@@ -95,6 +95,7 @@ class _SupplierMessageScreenState
     required List<ShoppingLine> delta,
     required Map<String, Unit> unitsById,
     required GroupSupplierSetting? configured,
+    required String greeting,
     required String signature,
   }) async {
     final l10n = AppLocalizations.of(context);
@@ -106,6 +107,7 @@ class _SupplierMessageScreenState
     final body = _composeBody(
       delta: delta,
       unitsById: unitsById,
+      greeting: greeting,
       signature: signature,
       locale: locale,
       l10n: l10n,
@@ -207,18 +209,22 @@ class _SupplierMessageScreenState
   String _composeBody({
     required List<ShoppingLine> delta,
     required Map<String, Unit> unitsById,
+    required String greeting,
     required String signature,
     required Locale locale,
     required AppLocalizations l10n,
   }) {
     return composeMessageBody(
+      greeting: greeting,
       leadingLine: _neededBySentence(locale, l10n),
       itemLines: [
         for (final line in delta)
           composeItemLine(
             quantity: formatQuantity(line.quantity),
             unit: unitsById[line.unitId]?.name,
+            connector: l10n.messageItemConnector,
             ingredientName: line.ingredientName,
+            prepNote: line.prepNote,
           ),
       ],
       signature: signature,
@@ -282,6 +288,7 @@ class _SupplierMessageScreenState
     final categoriesAsync = ref.watch(supplierCategoriesProvider(localeCode));
     final unitsAsync = ref.watch(unitsProvider(localeCode));
     final settingsAsync = ref.watch(groupSupplierSettingsProvider);
+    final greetingAsync = ref.watch(groupGreetingProvider);
     final signatureAsync = ref.watch(groupSignatureProvider);
 
     final asyncs = [
@@ -290,6 +297,7 @@ class _SupplierMessageScreenState
       categoriesAsync,
       unitsAsync,
       settingsAsync,
+      greetingAsync,
       signatureAsync,
     ];
     final loading = asyncs.any((a) => a.isLoading);
@@ -324,6 +332,9 @@ class _SupplierMessageScreenState
             final shopping = shoppingAsync.value!;
             final unitsById = {for (final u in unitsAsync.value!) u.id: u};
             final configured = settingsAsync.value![widget.categoryId];
+            // Null greeting means "never set" — fall back to the localised
+            // default ("Hola,"); an empty string means the user cleared it.
+            final greeting = greetingAsync.value ?? l10n.settingsGreetingDefault;
             final signature = signatureAsync.value!;
 
             // Fixes §2.5: default the needed-by date to the day before the
@@ -360,6 +371,7 @@ class _SupplierMessageScreenState
             final body = _composeBody(
               delta: delta,
               unitsById: unitsById,
+              greeting: greeting,
               signature: signature,
               locale: locale,
               l10n: l10n,
@@ -390,6 +402,8 @@ class _SupplierMessageScreenState
                   for (final u in unitsAsync.value!) u.id: u,
                 };
                 final configured = settingsAsync.value![widget.categoryId];
+                final greeting =
+                    greetingAsync.value ?? l10n.settingsGreetingDefault;
                 final signature = signatureAsync.value!;
                 final categoryLines =
                     linesByCategory(shopping.lines)[widget.categoryId] ??
@@ -404,6 +418,7 @@ class _SupplierMessageScreenState
                   delta: delta,
                   unitsById: unitsById,
                   configured: configured,
+                  greeting: greeting,
                   signature: signature,
                 );
               },
@@ -749,7 +764,9 @@ class SentOrderCard extends StatelessWidget {
                 composeItemLine(
                   quantity: formatQuantity(item.quantity),
                   unit: unitsById[item.unitId]?.name,
+                  connector: l10n.messageItemConnector,
                   ingredientName: item.ingredientName,
+                  prepNote: item.prepNote,
                 ),
                 style: AppTypography.caption,
               ),

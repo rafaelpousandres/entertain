@@ -57,6 +57,30 @@ class SettingsRepository {
         .eq('id', groupId);
   }
 
+  /// The group's stored greeting (Fixes round 2 §2.1). Returns the raw column
+  /// value so the caller can tell the three states apart: null (never set —
+  /// seed the localised default), '' (cleared — no greeting line), or the
+  /// user's greeting text.
+  Future<String?> fetchGreeting(String groupId) async {
+    final row = await _client
+        .from('groups')
+        .select('greeting')
+        .eq('id', groupId)
+        .maybeSingle();
+    return row?['greeting'] as String?;
+  }
+
+  /// Persists the greeting exactly as given, including the empty string. Unlike
+  /// the signature, an empty greeting is stored as '' (not null) so that a user
+  /// who deliberately clears it keeps it cleared instead of falling back to the
+  /// default on the next load.
+  Future<void> updateGreeting(String groupId, String greeting) async {
+    await _client
+        .from('groups')
+        .update({'greeting': greeting})
+        .eq('id', groupId);
+  }
+
   /// The current user's `profiles.display_name`, used as the default
   /// signature the first time the Settings screen is shown (Spec §2.5).
   Future<String?> fetchProfileDisplayName() async {

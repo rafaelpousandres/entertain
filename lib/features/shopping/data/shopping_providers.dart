@@ -58,3 +58,13 @@ final groupSignatureProvider = FutureProvider<String>((ref) async {
   final displayName = await repo.fetchProfileDisplayName();
   return displayName ?? '';
 });
+
+/// The group's outgoing-message greeting (Fixes round 2 §2.1), returned raw:
+/// null when never set (the consumer seeds the localised default), '' when the
+/// user cleared it (no greeting line), or the user's greeting text. The default
+/// is resolved at the consumer because it is locale-dependent and this provider
+/// has no BuildContext. Invalidated after a Settings edit.
+final groupGreetingProvider = FutureProvider<String?>((ref) async {
+  final groupId = await ref.watch(currentGroupIdProvider.future);
+  return ref.watch(settingsRepositoryProvider).fetchGreeting(groupId);
+});
