@@ -11,6 +11,7 @@
 /// copy-on-add of Spec 004).
 library;
 
+import 'ingredient_state.dart';
 import 'message_channel.dart';
 
 class ShoppingLine {
@@ -19,6 +20,7 @@ class ShoppingLine {
     required this.ingredientName,
     required this.quantity,
     required this.unitId,
+    required this.state,
     this.ingredientId,
     this.prepNote,
     this.supplierCategoryId,
@@ -36,6 +38,9 @@ class ShoppingLine {
   /// any supplier section (they have no destination yet).
   final String? supplierCategoryId;
 
+  /// Where this line is in the shopping process (Spec 007 §3.1).
+  final IngredientState state;
+
   factory ShoppingLine.fromRow(Map<String, dynamic> row) {
     return ShoppingLine(
       id: row['id'] as String,
@@ -45,6 +50,7 @@ class ShoppingLine {
       unitId: row['unit_id'] as String,
       prepNote: row['prep_note'] as String?,
       supplierCategoryId: row['supplier_category_id'] as String?,
+      state: IngredientState.parse(row['state'] as String?),
     );
   }
 }
@@ -86,6 +92,7 @@ class SupplierOrder {
     this.sentAt,
     this.sentChannel,
     this.sentAddress,
+    this.neededByDate,
   });
 
   final String id;
@@ -93,6 +100,10 @@ class SupplierOrder {
   final DateTime? sentAt;
   final MessageChannel? sentChannel;
   final String? sentAddress;
+
+  /// Date the goods are required by (Spec 005 §2.6). A date-only value; used to
+  /// derive the "Retrassat" overlay (Fixes round 2 §2.2).
+  final DateTime? neededByDate;
   final List<OrderItem> items;
 
   factory SupplierOrder.fromRow(Map<String, dynamic> row) {
@@ -105,6 +116,10 @@ class SupplierOrder {
           : DateTime.parse(row['sent_at'] as String),
       sentChannel: MessageChannelWire.parse(row['sent_channel'] as String?),
       sentAddress: row['sent_address'] as String?,
+      // `date` column comes back as 'YYYY-MM-DD'; parse to a local date-only.
+      neededByDate: row['needed_by_date'] == null
+          ? null
+          : DateTime.parse(row['needed_by_date'] as String),
       items: [
         for (final r in rawItems)
           OrderItem.fromRow(r as Map<String, dynamic>),

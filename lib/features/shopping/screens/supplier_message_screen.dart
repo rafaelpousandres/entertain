@@ -15,12 +15,14 @@ import '../../events/data/event.dart';
 import '../../events/data/events_providers.dart';
 import '../../events/widgets/event_formatters.dart';
 import '../data/group_supplier_setting.dart';
+import '../data/ingredient_state.dart';
 import '../data/message_channel.dart';
 import '../data/message_composer.dart';
 import '../data/message_dispatcher.dart';
 import '../data/shopping_delta.dart';
 import '../data/shopping_models.dart';
 import '../data/shopping_providers.dart';
+import '../supplier_category_format.dart';
 
 /// Fixes §2.3: the unit name to print in a message line, or null when the
 /// unit is flagged `omit_in_display` (or unknown) so the composer drops the
@@ -71,11 +73,21 @@ class _SupplierMessageScreenState
     if (_hasOverride) {
       return (channel: _overrideChannel, address: _overrideAddress);
     }
-    return (channel: configured?.channel, address: configured?.channelAddress);
+    // Fixes §2.1: the default channel's stored address (phone for WhatsApp,
+    // email for Email).
+    return (channel: configured?.channel, address: configured?.defaultAddress);
   }
 
   Future<void> _openOverrideSheet(GroupSupplierSetting? configured) async {
     final current = _destination(configured);
+    // Seed each field from the per-channel stored address, letting an active
+    // override take precedence for the channel it set (Fixes §2.1 / §2.2).
+    final phone = _hasOverride && _overrideChannel == MessageChannel.whatsapp
+        ? _overrideAddress
+        : configured?.phoneAddress;
+    final email = _hasOverride && _overrideChannel == MessageChannel.email
+        ? _overrideAddress
+        : configured?.emailAddress;
     final result = await showModalBottomSheet<_OverrideResult>(
       context: context,
       backgroundColor: AppColors.surface,
@@ -85,7 +97,8 @@ class _SupplierMessageScreenState
       ),
       builder: (sheetContext) => _OverrideSheet(
         initialChannel: current.channel,
-        initialAddress: current.address,
+        initialPhone: phone,
+        initialEmail: email,
       ),
     );
     if (result == null) return;
@@ -152,15 +165,23 @@ class _SupplierMessageScreenState
         return;
       }
 
-      await ref.read(shoppingRepositoryProvider).createSentOrder(
-            eventId: widget.eventId,
-            supplierCategoryId: widget.categoryId,
-            channel: outcome.channel,
-            address: outcome.address,
-            sentAt: DateTime.now(),
-            neededByDate: _neededByDate,
-            items: delta,
-          );
+      final repo = ref.read(shoppingRepositoryProvider);
+      await repo.createSentOrder(
+        eventId: widget.eventId,
+        supplierCategoryId: widget.categoryId,
+        channel: outcome.channel,
+        address: outcome.address,
+        sentAt: DateTime.now(),
+        neededByDate: _neededByDate,
+        items: delta,
+      );
+      // Spec 007 §3.2: every line in the sent order moves to `ordered`, here
+      // at the call site after the confirmation — the dispatcher stays unaware
+      // of the state machine (Spec §5).
+      await repo.updateLineStates(
+        [for (final line in delta) line.id],
+        IngredientState.ordered,
+      );
       ref.invalidate(eventShoppingProvider(widget.eventId));
       if (!mounted) return;
       router.pop();
@@ -366,7 +387,7 @@ class _SupplierMessageScreenState
             final categoryOrders =
                 ordersByCategory(shopping.orders)[widget.categoryId] ??
                 const <SupplierOrder>[];
-            final delta = deltaForCategory(categoryLines, categoryOrders);
+            final delta = deltaForCategory(categoryLines);
 
             if (delta.isEmpty) {
               return _NothingToSend(
@@ -418,10 +439,7 @@ class _SupplierMessageScreenState
                 final categoryLines =
                     linesByCategory(shopping.lines)[widget.categoryId] ??
                     const <ShoppingLine>[];
-                final categoryOrders =
-                    ordersByCategory(shopping.orders)[widget.categoryId] ??
-                    const <SupplierOrder>[];
-                final delta = deltaForCategory(categoryLines, categoryOrders);
+                final delta = deltaForCategory(categoryLines);
                 if (delta.isEmpty) return;
                 _send(
                   categoryName: categoryName,
@@ -479,11 +497,7 @@ class _Composer extends StatelessWidget {
           Row(
             children: [
               Icon(
-                destinationChannel == MessageChannel.whatsapp
-                    ? Icons.chat_outlined
-                    : destinationChannel == MessageChannel.email
-                    ? Icons.mail_outline
-                    : Icons.ios_share,
+                channelIcon(destinationChannel),
                 size: 18,
                 color: AppColors.accentSecondary,
               ),
@@ -794,11 +808,20 @@ class _OverrideResult {
   final String? address;
 }
 
+/// Per-send destination chooser (Spec §2.4, Fixes §2.1). Holds a phone and an
+/// email field independently and a channel selector; switching the channel
+/// changes which stored address the send uses, so the user can flip from the
+/// default WhatsApp number to the email address (or vice versa) before sending.
 class _OverrideSheet extends StatefulWidget {
-  const _OverrideSheet({this.initialChannel, this.initialAddress});
+  const _OverrideSheet({
+    this.initialChannel,
+    this.initialPhone,
+    this.initialEmail,
+  });
 
   final MessageChannel? initialChannel;
-  final String? initialAddress;
+  final String? initialPhone;
+  final String? initialEmail;
 
   @override
   State<_OverrideSheet> createState() => _OverrideSheetState();
@@ -806,12 +829,15 @@ class _OverrideSheet extends StatefulWidget {
 
 class _OverrideSheetState extends State<_OverrideSheet> {
   late MessageChannel? _channel = widget.initialChannel;
-  late final TextEditingController _addressController =
-      TextEditingController(text: widget.initialAddress ?? '');
+  late final TextEditingController _phoneController =
+      TextEditingController(text: widget.initialPhone ?? '');
+  late final TextEditingController _emailController =
+      TextEditingController(text: widget.initialEmail ?? '');
 
   @override
   void dispose() {
-    _addressController.dispose();
+    _phoneController.dispose();
+    _emailController.dispose();
     super.dispose();
   }
 
@@ -849,30 +875,52 @@ class _OverrideSheetState extends State<_OverrideSheet> {
             SegmentedChoice<MessageChannel?>(
               value: _channel,
               onChanged: (channel) => setState(() => _channel = channel),
+              // Fixes round 3 §2.2: icon chips (label kept as tooltip) so the
+              // four channels read at a glance and never truncate as text.
               options: [
                 SegmentedChoiceOption(
                   MessageChannel.whatsapp,
                   l10n.channelWhatsApp,
+                  icon: channelIcon(MessageChannel.whatsapp),
                 ),
-                SegmentedChoiceOption(MessageChannel.email, l10n.channelEmail),
-                SegmentedChoiceOption(null, l10n.channelNone),
+                SegmentedChoiceOption(
+                  MessageChannel.email,
+                  l10n.channelEmail,
+                  icon: channelIcon(MessageChannel.email),
+                ),
+                SegmentedChoiceOption(
+                  MessageChannel.share,
+                  l10n.channelShare,
+                  icon: channelIcon(MessageChannel.share),
+                ),
+                SegmentedChoiceOption(
+                  null,
+                  l10n.channelNone,
+                  icon: channelIcon(null),
+                ),
               ],
             ),
-            if (_channel != null) ...[
+            if (_channel == MessageChannel.whatsapp) ...[
               const SizedBox(height: 16),
               FieldLabel(
-                label: _channel == MessageChannel.whatsapp
-                    ? l10n.addressWhatsAppLabel
-                    : l10n.addressEmailLabel,
+                label: l10n.supplierPhoneLabel,
                 child: AppTextField(
-                  controller: _addressController,
+                  controller: _phoneController,
                   autofocus: true,
-                  hintText: _channel == MessageChannel.whatsapp
-                      ? l10n.addressWhatsAppHint
-                      : l10n.addressEmailHint,
-                  keyboardType: _channel == MessageChannel.whatsapp
-                      ? TextInputType.phone
-                      : TextInputType.emailAddress,
+                  hintText: l10n.addressWhatsAppHint,
+                  keyboardType: TextInputType.phone,
+                  textCapitalization: TextCapitalization.none,
+                ),
+              ),
+            ] else if (_channel == MessageChannel.email) ...[
+              const SizedBox(height: 16),
+              FieldLabel(
+                label: l10n.supplierEmailLabel,
+                child: AppTextField(
+                  controller: _emailController,
+                  autofocus: true,
+                  hintText: l10n.addressEmailHint,
+                  keyboardType: TextInputType.emailAddress,
                   textCapitalization: TextCapitalization.none,
                 ),
               ),
@@ -881,7 +929,14 @@ class _OverrideSheetState extends State<_OverrideSheet> {
             PrimaryButton(
               label: l10n.applyAction,
               onPressed: () {
-                final address = _addressController.text.trim();
+                // The send uses the address of the selected channel.
+                final address = switch (_channel) {
+                  MessageChannel.whatsapp => _phoneController.text.trim(),
+                  MessageChannel.email => _emailController.text.trim(),
+                  // Compartir / Cap both go through the share sheet — no address.
+                  MessageChannel.share => '',
+                  null => '',
+                };
                 Navigator.of(context).pop(
                   _OverrideResult(
                     channel: _channel,

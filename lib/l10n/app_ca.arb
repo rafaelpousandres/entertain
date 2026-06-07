@@ -212,7 +212,7 @@
   "shoppingUncategorisedHint": "Assigna una categoria de proveïdor a aquests ingredients per poder gestionar-los i enviar-los.",
   "shoppingSendMessageAction": "Envia missatge",
   "shoppingUseAsListAction": "Usa com a llista de compra",
-  "shoppingInShopModeLabel": "Ho compraràs en persona.",
+  "shoppingListCopiedToast": "Llista copiada al porta-retalls",
   "shoppingUnsentCount": "{count, plural, =1{1 ingredient sense enviar} other{{count} ingredients sense enviar}}",
   "@shoppingUnsentCount": {
     "placeholders": { "count": { "type": "int" } }
@@ -225,6 +225,22 @@
   "shoppingSentOrderItemCount": "{count, plural, =1{1 ítem} other{{count} ítems}}",
   "@shoppingSentOrderItemCount": {
     "placeholders": { "count": { "type": "int" } }
+  },
+
+  "shoppingSummaryTotal": "{count, plural, =1{1 ingredient} other{{count} ingredients}}",
+  "@shoppingSummaryTotal": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "shoppingStateToOrder": "Per demanar",
+  "shoppingStateOrdered": "Demanat",
+  "shoppingStateReceived": "Rebut",
+  "shoppingStateMissing": "Falta",
+  "shoppingStateAtHome": "A casa",
+  "shoppingStateDelayed": "Retrassat",
+  "shoppingMarkAllReceivedAction": "Marca tot com a rebut",
+  "shoppingStateChangeSubtitle": "Ara: {state}",
+  "@shoppingStateChangeSubtitle": {
+    "placeholders": { "state": { "type": "String" } }
   },
 
   "supplierMessageSendAction": "Envia",
@@ -249,11 +265,17 @@
 
   "channelWhatsApp": "WhatsApp",
   "channelEmail": "Correu electrònic",
-  "channelNone": "Cap (tria en enviar)",
+  "channelShare": "Compartir",
+  "channelNone": "Cap",
   "addressWhatsAppLabel": "Número de WhatsApp",
   "addressWhatsAppHint": "Amb prefix internacional",
   "addressEmailLabel": "Adreça electrònica",
   "addressEmailHint": "nom@exemple.com",
+  "supplierPhoneLabel": "Telèfon",
+  "supplierEmailLabel": "Correu electrònic",
+  "supplierPreferredChannelLabel": "Canal preferent",
+  "supplierShareNoAddressHint": "No cal adreça",
+  "supplierDefaultChannelTag": "Per defecte",
   "destinationOverrideTitle": "Destinatari d'aquest enviament",
   "applyAction": "Aplica",
 
@@ -268,5 +290,26 @@
   "settingsCategoriesSectionTitle": "Per categoria de proveïdor",
   "settingsChannelLabel": "Canal",
   "settingsLoadError": "No s'ha pogut carregar la configuració.",
-  "settingsSaveError": "No s'ha pogut desar la configuració. Comprova la connexió."
+  "settingsSaveError": "No s'ha pogut desar la configuració. Comprova la connexió.",
+
+  "eventTabEvent": "Esdeveniment",
+
+  "settingsTabGeneral": "General",
+  "settingsTabSuppliers": "Proveïdors",
+  "settingsTabMessages": "Missatges",
+  "settingsAboutVersion": "Versió {version}",
+  "settingsAboutDescription": "Organitza esdeveniments domèstics: menús, plats, ingredients i llistes de compra per proveïdor.",
+
+  "supplierCategoryAddAction": "Afegeix categoria",
+  "supplierCategoryAddTitle": "Nova categoria",
+  "supplierCategoryNameLabel": "Nom",
+  "supplierCategoryNameHint": "Posa un nom a la categoria",
+  "supplierCategoryNameRequired": "Cal un nom per desar.",
+  "supplierCategorySystemNameHint": "Les categories del sistema no es poden reanomenar. Crea'n una de pròpia si en vols un nom diferent.",
+  "supplierCategoryPantryHint": "El rebost és consultiu: no té canal ni adreça i no envia missatges.",
+  "deleteSupplierCategoryAction": "Esborra categoria",
+  "deleteSupplierCategoryConfirmTitle": "Vols esborrar aquesta categoria?",
+  "deleteSupplierCategoryConfirmBody": "Els ingredients que hi estiguin assignats passaran a «Sense categoria». No es pot desfer.",
+  "deleteSupplierCategoryConfirmButton": "Esborra categoria",
+  "deleteSupplierCategoryError": "No s'ha pogut esborrar la categoria. Potser té comandes enviades."
 }

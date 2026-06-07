@@ -1,59 +1,18 @@
-/// Delta computation — the central mechanism of Specification 005 §2.4.
+/// Grouping and delta helpers for the shopping surfaces.
 ///
-/// A category may accumulate several orders as the user adds items between
-/// sends. The *delta* for a category is the set of current event lines that
-/// have not yet been included in any sent order for the same (event,
-/// category). Sending freezes only that delta, so successive sends never
-/// duplicate already-sent items and the second send carries only what is new
-/// (acceptance criterion 8).
-///
-/// Matching strategy. The ideal key is the originating
-/// `event_dish_ingredients.id`, but `order_items` does not store it and the
-/// Spec fixes the schema changes to `orders` / the companion table with "no
-/// other structural changes" — so the id is not available on the order side.
-/// We therefore fall back to the Spec's sanctioned alternative: a stable key
-/// "composed of the ingredient and the line's identity", reconstructable from
-/// the snapshot fields present on both `event_dish_ingredients` and the
-/// frozen `order_items` (ingredient identity + quantity + unit + prep note).
-/// Matching is multiset-based so that two identical lines, or adding more of
-/// an already-sent ingredient, correctly surface the extra line in the delta.
+/// Spec 005 computed the unsent delta by matching current lines against the
+/// frozen items of past orders (a content key, since `order_items` does not
+/// store the originating line id). Spec 007 §3.4 replaces that with the state
+/// machine: the delta to send for a category is simply its lines in state
+/// `to_order`. Sending moves those exact lines to `ordered` (their ids are
+/// known), so the next delta naturally excludes them and successive sends
+/// never duplicate — the multi-order behaviour of Spec 005 is preserved
+/// without content matching. The orders / order_items snapshot is still
+/// written on send as immutable history.
 library;
 
+import 'ingredient_state.dart';
 import 'shopping_models.dart';
-
-/// Stable key identifying a line by its content. Ingredient identity prefers
-/// the catalog id (survives a rename) and falls back to the snapshot name.
-String _key({
-  String? ingredientId,
-  required String ingredientName,
-  required double quantity,
-  required String unitId,
-  String? prepNote,
-}) {
-  final identity = ingredientId != null
-      ? 'id:$ingredientId'
-      : 'name:${ingredientName.trim().toLowerCase()}';
-  final note = (prepNote ?? '').trim();
-  // quantity comes from `numeric` parsed identically on both sides, so its
-  // toString() is deterministic for equal stored values.
-  return '$identity|$quantity|$unitId|$note';
-}
-
-String lineKey(ShoppingLine line) => _key(
-  ingredientId: line.ingredientId,
-  ingredientName: line.ingredientName,
-  quantity: line.quantity,
-  unitId: line.unitId,
-  prepNote: line.prepNote,
-);
-
-String orderItemKey(OrderItem item) => _key(
-  ingredientId: item.ingredientId,
-  ingredientName: item.ingredientName,
-  quantity: item.quantity,
-  unitId: item.unitId,
-  prepNote: item.prepNote,
-);
 
 /// Lines that carry a supplier category, grouped by it. Lines with no
 /// category are excluded — they have no destination section.
@@ -68,7 +27,7 @@ Map<String, List<ShoppingLine>> linesByCategory(List<ShoppingLine> lines) {
 }
 
 /// Orders grouped by category, each list ordered oldest-send first so the
-/// panel renders the send history in chronological order.
+/// message screen renders the send history in chronological order.
 Map<String, List<SupplierOrder>> ordersByCategory(List<SupplierOrder> orders) {
   final map = <String, List<SupplierOrder>>{};
   for (final order in orders) {
@@ -86,29 +45,66 @@ Map<String, List<SupplierOrder>> ordersByCategory(List<SupplierOrder> orders) {
   return map;
 }
 
-/// The unsent delta for a single category: the current lines minus the
-/// multiset of items already frozen across [categoryOrders].
-List<ShoppingLine> deltaForCategory(
-  List<ShoppingLine> categoryLines,
-  List<SupplierOrder> categoryOrders,
-) {
-  final sentCounts = <String, int>{};
-  for (final order in categoryOrders) {
-    for (final item in order.items) {
-      final key = orderItemKey(item);
-      sentCounts[key] = (sentCounts[key] ?? 0) + 1;
-    }
-  }
+/// The unsent delta for a category (Spec 007 §3.4): its lines still in state
+/// `to_order`. These are exactly the lines a "send message" would carry, and
+/// the lines whose state moves to `ordered` once the send is confirmed.
+List<ShoppingLine> deltaForCategory(List<ShoppingLine> categoryLines) => [
+  for (final line in categoryLines)
+    if (line.state == IngredientState.toOrder) line,
+];
 
-  final delta = <ShoppingLine>[];
-  for (final line in categoryLines) {
-    final key = lineKey(line);
-    final remaining = sentCounts[key] ?? 0;
-    if (remaining > 0) {
-      sentCounts[key] = remaining - 1; // already covered by a sent order
-    } else {
-      delta.add(line);
+/// Content key matching an ordered line to the frozen order items that ordered
+/// it (Fixes round 2 §2.2). Scoped to the category, then keyed by the catalog
+/// ingredient id when present, falling back to the (frozen) ingredient name for
+/// ad-hoc lines without a catalog id. `order_items` carry no back-reference to
+/// the originating line, so this content key is how Spec 005's snapshot is
+/// re-associated — the same approach the delta logic used before the state
+/// machine replaced it.
+String _itemKey(String? categoryId, String? ingredientId, String name) =>
+    '${categoryId ?? ''}|${ingredientId ?? 'name:$name'}';
+
+/// The operative needed-by date per ordered ingredient (Fixes round 2 §2.2),
+/// keyed by [_itemKey]. Only orders that carry a `needed_by_date` contribute;
+/// when an ingredient was sent across several orders the latest send (by
+/// `sent_at`) wins, since that is the user's most recent commitment.
+Map<String, DateTime> neededByByItem(List<SupplierOrder> orders) {
+  final winners = <String, ({DateTime needed, DateTime sent})>{};
+  for (final order in orders) {
+    final needed = order.neededByDate;
+    if (needed == null) continue;
+    // A sent order always has a sent_at; guard with the epoch so an unstamped
+    // row still participates without ever beating a real send.
+    final sent = order.sentAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+    for (final item in order.items) {
+      final key = _itemKey(
+        order.supplierCategoryId,
+        item.ingredientId,
+        item.ingredientName,
+      );
+      final current = winners[key];
+      if (current == null || sent.isAfter(current.sent)) {
+        winners[key] = (needed: needed, sent: sent);
+      }
     }
   }
-  return delta;
+  return {for (final e in winners.entries) e.key: e.value.needed};
+}
+
+/// Whether a line renders as "Retrassat" (Fixes round 2 §2.2): it is still
+/// `ordered` and the [today] calendar date is strictly past the needed-by date
+/// of the most recent order that ordered it. [today] must be a date-only value
+/// (local midnight) so the comparison is purely by calendar day.
+bool lineIsDelayed(
+  ShoppingLine line,
+  Map<String, DateTime> neededByItem,
+  DateTime today,
+) {
+  if (line.state != IngredientState.ordered) return false;
+  final needed = neededByItem[_itemKey(
+    line.supplierCategoryId,
+    line.ingredientId,
+    line.ingredientName,
+  )];
+  if (needed == null) return false;
+  return today.isAfter(needed);
 }

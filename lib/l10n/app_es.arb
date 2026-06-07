@@ -212,7 +212,7 @@
   "shoppingUncategorisedHint": "Asigna una categoría de proveedor a estos ingredientes para poder gestionarlos y enviarlos.",
   "shoppingSendMessageAction": "Enviar mensaje",
   "shoppingUseAsListAction": "Usar como lista de compra",
-  "shoppingInShopModeLabel": "Lo comprarás en persona.",
+  "shoppingListCopiedToast": "Lista copiada al portapapeles",
   "shoppingUnsentCount": "{count, plural, =1{1 ingrediente sin enviar} other{{count} ingredientes sin enviar}}",
   "@shoppingUnsentCount": {
     "placeholders": { "count": { "type": "int" } }
@@ -225,6 +225,22 @@
   "shoppingSentOrderItemCount": "{count, plural, =1{1 ítem} other{{count} ítems}}",
   "@shoppingSentOrderItemCount": {
     "placeholders": { "count": { "type": "int" } }
+  },
+
+  "shoppingSummaryTotal": "{count, plural, =1{1 ingrediente} other{{count} ingredientes}}",
+  "@shoppingSummaryTotal": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "shoppingStateToOrder": "Por pedir",
+  "shoppingStateOrdered": "Pedido",
+  "shoppingStateReceived": "Recibido",
+  "shoppingStateMissing": "Falta",
+  "shoppingStateAtHome": "En casa",
+  "shoppingStateDelayed": "Retrasado",
+  "shoppingMarkAllReceivedAction": "Marcar todo como recibido",
+  "shoppingStateChangeSubtitle": "Ahora: {state}",
+  "@shoppingStateChangeSubtitle": {
+    "placeholders": { "state": { "type": "String" } }
   },
 
   "supplierMessageSendAction": "Enviar",
@@ -249,11 +265,17 @@
 
   "channelWhatsApp": "WhatsApp",
   "channelEmail": "Correo electrónico",
-  "channelNone": "Ninguno (elegir al enviar)",
+  "channelShare": "Compartir",
+  "channelNone": "Ninguno",
   "addressWhatsAppLabel": "Número de WhatsApp",
   "addressWhatsAppHint": "Con prefijo internacional",
   "addressEmailLabel": "Dirección de correo",
   "addressEmailHint": "nombre@ejemplo.com",
+  "supplierPhoneLabel": "Teléfono",
+  "supplierEmailLabel": "Correo electrónico",
+  "supplierPreferredChannelLabel": "Canal preferente",
+  "supplierShareNoAddressHint": "No hace falta dirección",
+  "supplierDefaultChannelTag": "Por defecto",
   "destinationOverrideTitle": "Destinatario de este envío",
   "applyAction": "Aplicar",
 
@@ -268,5 +290,26 @@
   "settingsCategoriesSectionTitle": "Por categoría de proveedor",
   "settingsChannelLabel": "Canal",
   "settingsLoadError": "No se ha podido cargar la configuración.",
-  "settingsSaveError": "No se ha podido guardar la configuración. Comprueba la conexión."
+  "settingsSaveError": "No se ha podido guardar la configuración. Comprueba la conexión.",
+
+  "eventTabEvent": "Evento",
+
+  "settingsTabGeneral": "General",
+  "settingsTabSuppliers": "Proveedores",
+  "settingsTabMessages": "Mensajes",
+  "settingsAboutVersion": "Versión {version}",
+  "settingsAboutDescription": "Organiza eventos domésticos: menús, platos, ingredientes y listas de compra por proveedor.",
+
+  "supplierCategoryAddAction": "Añadir categoría",
+  "supplierCategoryAddTitle": "Nueva categoría",
+  "supplierCategoryNameLabel": "Nombre",
+  "supplierCategoryNameHint": "Pon un nombre a la categoría",
+  "supplierCategoryNameRequired": "Hace falta un nombre para guardar.",
+  "supplierCategorySystemNameHint": "Las categorías del sistema no se pueden renombrar. Crea una propia si quieres otro nombre.",
+  "supplierCategoryPantryHint": "La despensa es consultiva: no tiene canal ni dirección y no envía mensajes.",
+  "deleteSupplierCategoryAction": "Eliminar categoría",
+  "deleteSupplierCategoryConfirmTitle": "¿Eliminar esta categoría?",
+  "deleteSupplierCategoryConfirmBody": "Los ingredientes asignados pasarán a «Sin categoría». No se puede deshacer.",
+  "deleteSupplierCategoryConfirmButton": "Eliminar categoría",
+  "deleteSupplierCategoryError": "No se ha podido eliminar la categoría. Puede que tenga pedidos enviados."
 }

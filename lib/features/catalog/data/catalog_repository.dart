@@ -39,8 +39,10 @@ class CatalogRepository {
     }).toList();
   }
 
-  /// Supplier categories (system rows in the MVP) with their translated
-  /// name in [localeCode]. Group-created rows, if any, fall back to code.
+  /// Supplier categories visible to the caller: the system seed (shared) plus
+  /// the caller's own user categories (RLS gates the rows). System rows take
+  /// their display name from `translations` in [localeCode]; user rows take it
+  /// from their monolingual `name` column (Spec 007 §2.3).
   Future<List<SupplierCategory>> listSupplierCategories(
     String localeCode,
   ) async {
@@ -53,8 +55,58 @@ class CatalogRepository {
       final row = r as Map<String, dynamic>;
       final id = row['id'] as String;
       final code = row['code'] as String;
-      return SupplierCategory(id: id, code: code, name: names[id] ?? code);
+      final isSystem = row['is_system'] as bool? ?? false;
+      final groupId = row['group_id'] as String?;
+      final userName = (row['name'] as String?)?.trim();
+      final display = (userName != null && userName.isNotEmpty)
+          ? userName
+          : (names[id] ?? code);
+      return SupplierCategory(
+        id: id,
+        code: code,
+        name: display,
+        isSystem: isSystem,
+        groupId: groupId,
+      );
     }).toList();
+  }
+
+  /// Creates a user supplier category for the group (Spec 007 §2.3). The name
+  /// is monolingual (the locale the user typed it in). `code` must be unique
+  /// within the group but is never shown — the `name` column drives display —
+  /// so a timestamp-based code is sufficient.
+  Future<void> createUserSupplierCategory({
+    required String groupId,
+    required String name,
+  }) async {
+    await _client.from('supplier_categories').insert({
+      'group_id': groupId,
+      'code': 'user_${DateTime.now().microsecondsSinceEpoch}',
+      'is_system': false,
+      'name': name.trim(),
+    });
+  }
+
+  /// Renames a user category (current-locale-only monolingual name).
+  Future<void> updateUserSupplierCategoryName(String id, String name) async {
+    await _client
+        .from('supplier_categories')
+        .update({'name': name.trim()})
+        .eq('id', id);
+  }
+
+  /// Deletes a user category (Spec 007 §2.3). `event_dish_ingredients`
+  /// references it with `on delete restrict`, so the assignments are cleared to
+  /// null first (RLS scopes the update to the caller's own events — those lines
+  /// then surface under "Sense categoria"). `ingredients.default_supplier_
+  /// category_id` is `on delete set null` and `group_supplier_settings`
+  /// cascades, so neither needs manual cleanup.
+  Future<void> deleteUserSupplierCategory(String id) async {
+    await _client
+        .from('event_dish_ingredients')
+        .update({'supplier_category_id': null})
+        .eq('supplier_category_id', id);
+    await _client.from('supplier_categories').delete().eq('id', id);
   }
 
   /// entity_id → translated text map for a translation entity type and

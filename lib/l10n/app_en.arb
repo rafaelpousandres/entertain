@@ -223,8 +223,8 @@
   "@shoppingSendMessageAction": {},
   "shoppingUseAsListAction": "Use as a shopping list",
   "@shoppingUseAsListAction": {},
-  "shoppingInShopModeLabel": "You'll buy this in person.",
-  "@shoppingInShopModeLabel": {},
+  "shoppingListCopiedToast": "List copied to clipboard",
+  "@shoppingListCopiedToast": {},
   "shoppingUnsentCount": "{count, plural, =1{1 ingredient not sent} other{{count} ingredients not sent}}",
   "@shoppingUnsentCount": {
     "placeholders": { "count": { "type": "int" } }
@@ -238,6 +238,31 @@
   "shoppingSentOrderItemCount": "{count, plural, =1{1 item} other{{count} items}}",
   "@shoppingSentOrderItemCount": {
     "placeholders": { "count": { "type": "int" } }
+  },
+
+  "shoppingSummaryTotal": "{count, plural, =1{1 ingredient} other{{count} ingredients}}",
+  "@shoppingSummaryTotal": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "shoppingStateToOrder": "To order",
+  "@shoppingStateToOrder": {},
+  "shoppingStateOrdered": "Ordered",
+  "@shoppingStateOrdered": {},
+  "shoppingStateReceived": "Received",
+  "@shoppingStateReceived": {},
+  "shoppingStateMissing": "Missing",
+  "@shoppingStateMissing": {},
+  "shoppingStateAtHome": "At home",
+  "@shoppingStateAtHome": {},
+  "shoppingStateDelayed": "Delayed",
+  "@shoppingStateDelayed": {
+    "description": "Derived 'Retrassat' state: an ordered line past its needed-by date (Fixes round 2 §2.2)."
+  },
+  "shoppingMarkAllReceivedAction": "Mark all as received",
+  "@shoppingMarkAllReceivedAction": {},
+  "shoppingStateChangeSubtitle": "Now: {state}",
+  "@shoppingStateChangeSubtitle": {
+    "placeholders": { "state": { "type": "String" } }
   },
 
   "supplierMessageSendAction": "Send",
@@ -281,7 +306,11 @@
   "@channelWhatsApp": {},
   "channelEmail": "Email",
   "@channelEmail": {},
-  "channelNone": "None (choose when sending)",
+  "channelShare": "Share",
+  "@channelShare": {
+    "description": "Preferred channel that dispatches through the OS share sheet, no stored address needed (Fixes round 2 §2.3)."
+  },
+  "channelNone": "None",
   "@channelNone": {},
   "addressWhatsAppLabel": "WhatsApp number",
   "@addressWhatsAppLabel": {},
@@ -291,6 +320,26 @@
   "@addressEmailLabel": {},
   "addressEmailHint": "name@example.com",
   "@addressEmailHint": {},
+  "supplierPhoneLabel": "Phone",
+  "@supplierPhoneLabel": {
+    "description": "Label for the phone-number field on a supplier category (Fixes §2.1)."
+  },
+  "supplierEmailLabel": "Email",
+  "@supplierEmailLabel": {
+    "description": "Label for the email-address field on a supplier category (Fixes §2.1)."
+  },
+  "supplierPreferredChannelLabel": "Preferred channel",
+  "@supplierPreferredChannelLabel": {
+    "description": "Selector marking which stored address (phone/email) is the default for outgoing messages (Fixes §2.1)."
+  },
+  "supplierShareNoAddressHint": "No address needed",
+  "@supplierShareNoAddressHint": {
+    "description": "Shown beside the Compartir option, which dispatches via the share sheet (Fixes round 2 §2.3 / §2.4)."
+  },
+  "supplierDefaultChannelTag": "Default",
+  "@supplierDefaultChannelTag": {
+    "description": "Tag appended to the phone/email field label that is the default outgoing channel (Fixes §2.1)."
+  },
   "destinationOverrideTitle": "Destination for this send",
   "@destinationOverrideTitle": {},
   "applyAction": "Apply",
@@ -321,5 +370,46 @@
   "settingsLoadError": "Couldn't load the settings.",
   "@settingsLoadError": {},
   "settingsSaveError": "Couldn't save the settings. Check your connection.",
-  "@settingsSaveError": {}
+  "@settingsSaveError": {},
+
+  "eventTabEvent": "Event",
+  "@eventTabEvent": {},
+
+  "settingsTabGeneral": "General",
+  "@settingsTabGeneral": {},
+  "settingsTabSuppliers": "Suppliers",
+  "@settingsTabSuppliers": {},
+  "settingsTabMessages": "Messages",
+  "@settingsTabMessages": {},
+  "settingsAboutVersion": "Version {version}",
+  "@settingsAboutVersion": {
+    "placeholders": { "version": { "type": "String" } }
+  },
+  "settingsAboutDescription": "Organize domestic events: menus, dishes, ingredients, and per-supplier shopping lists.",
+  "@settingsAboutDescription": {},
+
+  "supplierCategoryAddAction": "Add category",
+  "@supplierCategoryAddAction": {},
+  "supplierCategoryAddTitle": "New category",
+  "@supplierCategoryAddTitle": {},
+  "supplierCategoryNameLabel": "Name",
+  "@supplierCategoryNameLabel": {},
+  "supplierCategoryNameHint": "Name the category",
+  "@supplierCategoryNameHint": {},
+  "supplierCategoryNameRequired": "A name is required to save.",
+  "@supplierCategoryNameRequired": {},
+  "supplierCategorySystemNameHint": "Built-in categories can't be renamed. Create your own if you want a different name.",
+  "@supplierCategorySystemNameHint": {},
+  "supplierCategoryPantryHint": "The pantry is consultive — it has no channel or address and never sends messages.",
+  "@supplierCategoryPantryHint": {},
+  "deleteSupplierCategoryAction": "Delete category",
+  "@deleteSupplierCategoryAction": {},
+  "deleteSupplierCategoryConfirmTitle": "Delete this category?",
+  "@deleteSupplierCategoryConfirmTitle": {},
+  "deleteSupplierCategoryConfirmBody": "Ingredients assigned to it will move to \"Uncategorised\". This can't be undone.",
+  "@deleteSupplierCategoryConfirmBody": {},
+  "deleteSupplierCategoryConfirmButton": "Delete category",
+  "@deleteSupplierCategoryConfirmButton": {},
+  "deleteSupplierCategoryError": "Couldn't delete the category. It may have sent orders.",
+  "@deleteSupplierCategoryError": {}
 }

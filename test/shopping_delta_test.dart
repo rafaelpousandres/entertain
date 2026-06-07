@@ -1,15 +1,20 @@
+import 'package:entertain/features/shopping/data/ingredient_state.dart';
 import 'package:entertain/features/shopping/data/shopping_delta.dart';
 import 'package:entertain/features/shopping/data/shopping_models.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Tests the delta mechanism of Specification 005 §2.4 — the rule that drives
-/// successive sends so a category never re-sends already-sent items.
+/// Tests the delta mechanism after Specification 007 §3.4: the delta to send
+/// for a category is its lines still in state `to_order`. Sending moves those
+/// lines to `ordered`, so the next delta naturally excludes them — the
+/// multi-order behaviour of Spec 005 is preserved without content matching.
 
 ShoppingLine line(
   String id,
   String name,
   double qty, {
+  IngredientState state = IngredientState.toOrder,
   String unit = 'u-g',
+  String? category = 'cat-fish',
   String? ingredientId,
 }) {
   return ShoppingLine(
@@ -18,80 +23,190 @@ ShoppingLine line(
     ingredientName: name,
     quantity: qty,
     unitId: unit,
-    supplierCategoryId: 'cat-fish',
-  );
-}
-
-/// Builds an order whose frozen items mirror the given lines (the copy made
-/// at send time).
-SupplierOrder orderFrom(String id, List<ShoppingLine> lines) {
-  return SupplierOrder(
-    id: id,
-    supplierCategoryId: 'cat-fish',
-    sentAt: DateTime(2026, 6, 1),
-    items: [
-      for (final l in lines)
-        OrderItem(
-          id: 'oi-${l.id}',
-          ingredientId: l.ingredientId,
-          ingredientName: l.ingredientName,
-          quantity: l.quantity,
-          unitId: l.unitId,
-        ),
-    ],
+    state: state,
+    supplierCategoryId: category,
   );
 }
 
 void main() {
-  group('deltaForCategory', () {
-    test('with no orders, the delta is every line', () {
+  group('deltaForCategory (state-based)', () {
+    test('every to_order line is in the delta', () {
       final lines = [line('a', 'gambes', 2), line('b', 'cloïsses', 1)];
-      expect(deltaForCategory(lines, const []).map((l) => l.id), ['a', 'b']);
+      expect(deltaForCategory(lines).map((l) => l.id), ['a', 'b']);
     });
 
-    test('after sending everything, the delta is empty', () {
-      final lines = [line('a', 'gambes', 2), line('b', 'cloïsses', 1)];
-      final orders = [orderFrom('o1', lines)];
-      expect(deltaForCategory(lines, orders), isEmpty);
-    });
-
-    test('a line added after a send appears alone in the delta', () {
-      final firstBatch = [line('a', 'gambes', 2)];
-      final orders = [orderFrom('o1', firstBatch)];
-      final lines = [...firstBatch, line('b', 'cloïsses', 1)];
-      expect(deltaForCategory(lines, orders).map((l) => l.id), ['b']);
-    });
-
-    test('a second send freezes only the delta and leaves the first intact', () {
-      final firstBatch = [line('a', 'gambes', 2)];
-      final order1 = orderFrom('o1', firstBatch);
-
-      // Menu grows; the delta is just the new line, which gets sent.
-      final lines = [...firstBatch, line('b', 'cloïsses', 1)];
-      final delta1 = deltaForCategory(lines, [order1]);
-      expect(delta1.map((l) => l.id), ['b']);
-
-      final order2 = orderFrom('o2', delta1);
-      // After both sends, nothing remains; order1 still holds only line a.
-      expect(deltaForCategory(lines, [order1, order2]), isEmpty);
-      expect(order1.items.map((i) => i.ingredientName), ['gambes']);
-    });
-
-    test('duplicate identical lines are matched as a multiset', () {
-      // Two identical lines, only one already sent → one remains unsent.
-      final sent = [line('a', 'gambes', 2)];
-      final lines = [line('a', 'gambes', 2), line('b', 'gambes', 2)];
-      final delta = deltaForCategory(lines, [orderFrom('o1', sent)]);
-      expect(delta.length, 1);
-    });
-
-    test('adding more of an already-sent ingredient surfaces the extra line', () {
-      final sent = [line('a', 'gambes', 2)];
+    test('lines in other states are excluded', () {
       final lines = [
-        line('a', 'gambes', 2), // already sent
-        line('c', 'gambes', 2), // a second identical portion, not yet sent
+        line('a', 'gambes', 2, state: IngredientState.ordered),
+        line('b', 'cloïsses', 1, state: IngredientState.received),
+        line('c', 'sípia', 1, state: IngredientState.missing),
+        line('d', 'musclos', 1, state: IngredientState.atHome),
+        line('e', 'lluç', 1), // to_order
       ];
-      expect(deltaForCategory(lines, [orderFrom('o1', sent)]).length, 1);
+      expect(deltaForCategory(lines).map((l) => l.id), ['e']);
+    });
+
+    test('once everything is ordered the delta is empty', () {
+      final lines = [
+        line('a', 'gambes', 2, state: IngredientState.ordered),
+        line('b', 'cloïsses', 1, state: IngredientState.ordered),
+      ];
+      expect(deltaForCategory(lines), isEmpty);
+    });
+
+    test('a line added after a send (still to_order) appears alone', () {
+      final lines = [
+        line('a', 'gambes', 2, state: IngredientState.ordered), // sent
+        line('b', 'cloïsses', 1), // newly added, to_order
+      ];
+      expect(deltaForCategory(lines).map((l) => l.id), ['b']);
+    });
+  });
+
+  group('neededByByItem / lineIsDelayed (Fixes round 2 §2.2)', () {
+    OrderItem item(String name, {String? ingredientId}) => OrderItem(
+          id: 'oi-$name',
+          ingredientId: ingredientId,
+          ingredientName: name,
+          quantity: 1,
+          unitId: 'u-g',
+        );
+
+    SupplierOrder order(
+      String id, {
+      String category = 'cat-fish',
+      required DateTime sentAt,
+      DateTime? neededBy,
+      required List<OrderItem> items,
+    }) =>
+        SupplierOrder(
+          id: id,
+          supplierCategoryId: category,
+          sentAt: sentAt,
+          neededByDate: neededBy,
+          items: items,
+        );
+
+    final today = DateTime(2026, 6, 7);
+    final past = DateTime(2026, 6, 5);
+    final future = DateTime(2026, 6, 10);
+
+    test('an ordered line past its needed-by date is delayed', () {
+      final orders = [
+        order('o1',
+            sentAt: DateTime(2026, 6, 1),
+            neededBy: past,
+            items: [item('gambes', ingredientId: 'i-gambes')]),
+      ];
+      final l = line('a', 'gambes', 2, state: IngredientState.ordered, ingredientId: 'i-gambes');
+      expect(lineIsDelayed(l, neededByByItem(orders), today), isTrue);
+    });
+
+    test('needed-by today (not strictly past) is not delayed', () {
+      final orders = [
+        order('o1',
+            sentAt: DateTime(2026, 6, 1),
+            neededBy: today,
+            items: [item('gambes', ingredientId: 'i-gambes')]),
+      ];
+      final l = line('a', 'gambes', 2, state: IngredientState.ordered, ingredientId: 'i-gambes');
+      expect(lineIsDelayed(l, neededByByItem(orders), today), isFalse);
+    });
+
+    test('a future needed-by date is not delayed', () {
+      final orders = [
+        order('o1',
+            sentAt: DateTime(2026, 6, 1),
+            neededBy: future,
+            items: [item('gambes', ingredientId: 'i-gambes')]),
+      ];
+      final l = line('a', 'gambes', 2, state: IngredientState.ordered, ingredientId: 'i-gambes');
+      expect(lineIsDelayed(l, neededByByItem(orders), today), isFalse);
+    });
+
+    test('only ordered lines can be delayed', () {
+      final orders = [
+        order('o1',
+            sentAt: DateTime(2026, 6, 1),
+            neededBy: past,
+            items: [item('gambes', ingredientId: 'i-gambes')]),
+      ];
+      final neededBy = neededByByItem(orders);
+      for (final s in [
+        IngredientState.toOrder,
+        IngredientState.received,
+        IngredientState.missing,
+        IngredientState.atHome,
+      ]) {
+        final l = line('a', 'gambes', 2, state: s, ingredientId: 'i-gambes');
+        expect(lineIsDelayed(l, neededBy, today), isFalse, reason: '$s');
+      }
+    });
+
+    test('with multiple orders the latest send wins', () {
+      final orders = [
+        order('old',
+            sentAt: DateTime(2026, 6, 1),
+            neededBy: past, // would be delayed…
+            items: [item('gambes', ingredientId: 'i-gambes')]),
+        order('new',
+            sentAt: DateTime(2026, 6, 4),
+            neededBy: future, // …but the latest commitment is in the future
+            items: [item('gambes', ingredientId: 'i-gambes')]),
+      ];
+      final l = line('a', 'gambes', 2, state: IngredientState.ordered, ingredientId: 'i-gambes');
+      expect(lineIsDelayed(l, neededByByItem(orders), today), isFalse);
+    });
+
+    test('ad-hoc lines (no ingredient id) match by frozen name', () {
+      final orders = [
+        order('o1',
+            sentAt: DateTime(2026, 6, 1),
+            neededBy: past,
+            items: [item('allioli casolà')]),
+      ];
+      final l = line('a', 'allioli casolà', 1, state: IngredientState.ordered);
+      expect(lineIsDelayed(l, neededByByItem(orders), today), isTrue);
+    });
+
+    test('a different category never matches', () {
+      final orders = [
+        order('o1',
+            category: 'cat-meat',
+            sentAt: DateTime(2026, 6, 1),
+            neededBy: past,
+            items: [item('gambes', ingredientId: 'i-gambes')]),
+      ];
+      final l = line('a', 'gambes', 2,
+              state: IngredientState.ordered,
+              category: 'cat-fish',
+              ingredientId: 'i-gambes');
+      expect(lineIsDelayed(l, neededByByItem(orders), today), isFalse);
+    });
+
+    test('orders without a needed-by date do not contribute', () {
+      final orders = [
+        order('o1',
+            sentAt: DateTime(2026, 6, 1),
+            neededBy: null,
+            items: [item('gambes', ingredientId: 'i-gambes')]),
+      ];
+      expect(neededByByItem(orders), isEmpty);
+    });
+  });
+
+  group('linesByCategory', () {
+    test('groups by supplier category and drops null-category lines', () {
+      final lines = [
+        line('a', 'gambes', 2, category: 'cat-fish'),
+        line('b', 'pollastre', 1, category: 'cat-meat'),
+        line('c', 'sal', 1, category: null),
+        line('d', 'lluç', 1, category: 'cat-fish'),
+      ];
+      final byCat = linesByCategory(lines);
+      expect(byCat['cat-fish']!.map((l) => l.id), ['a', 'd']);
+      expect(byCat['cat-meat']!.map((l) => l.id), ['b']);
+      expect(byCat.containsKey(null), isFalse);
     });
   });
 }

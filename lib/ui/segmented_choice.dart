@@ -36,10 +36,15 @@ class SegmentedChoice<T> extends StatelessWidget {
 }
 
 class SegmentedChoiceOption<T> {
-  const SegmentedChoiceOption(this.value, this.label);
+  const SegmentedChoiceOption(this.value, this.label, {this.icon});
 
   final T value;
   final String label;
+
+  /// When set, the chip renders this icon instead of the [label] text, and the
+  /// [label] becomes the long-press tooltip (Fixes round 3 §2.2: icon chips for
+  /// the channel selector, which truncated as text on narrow widths).
+  final IconData? icon;
 }
 
 class _Chip<T> extends StatelessWidget {
@@ -71,13 +76,18 @@ class _Chip<T> extends StatelessWidget {
             borderRadius: BorderRadius.circular(999),
             border: Border.all(color: borderColor),
           ),
-          child: Text(
-            option.label,
-            style: AppTypography.label.copyWith(
-              color: fg,
-              fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
-            ),
-          ),
+          child: option.icon != null
+              ? Tooltip(
+                  message: option.label,
+                  child: Icon(option.icon, size: 20, color: fg),
+                )
+              : Text(
+                  option.label,
+                  style: AppTypography.label.copyWith(
+                    color: fg,
+                    fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
+                  ),
+                ),
         ),
       ),
     );
