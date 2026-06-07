@@ -111,9 +111,12 @@ class _GroupedEventListState extends State<_GroupedEventList> {
       final status = deriveEventStatus(event, widget.readiness[event.id], today);
       byStatus[status]!.add(event);
     }
-    // Within each section: by date ascending, dateless last (by created_at desc).
-    for (final list in byStatus.values) {
-      list.sort(_byDateAscending);
+    // Within each section, dateless events sink last (by created_at desc).
+    // Past is sorted date *descending* (most recent past first, closest to
+    // today at the top); in-preparation and ready ascending (soonest first).
+    for (final entry in byStatus.entries) {
+      final descending = entry.key == DerivedEventStatus.past;
+      entry.value.sort((a, b) => _byDate(a, b, descending: descending));
     }
 
     return ListView(
@@ -146,15 +149,17 @@ class _GroupedEventListState extends State<_GroupedEventList> {
     );
   }
 
-  int _byDateAscending(Event a, Event b) {
+  int _byDate(Event a, Event b, {required bool descending}) {
     final aDate = a.eventDate;
     final bDate = b.eventDate;
+    // Dateless events always sink to the bottom, newest-created first,
+    // regardless of the section's direction.
     if (aDate == null && bDate == null) {
       return b.createdAt.compareTo(a.createdAt);
     }
     if (aDate == null) return 1;
     if (bDate == null) return -1;
-    return aDate.compareTo(bDate);
+    return descending ? bDate.compareTo(aDate) : aDate.compareTo(bDate);
   }
 }
 
