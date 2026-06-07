@@ -285,8 +285,9 @@
   "settingsGreetingLabel": "Saludo",
   "settingsGreetingHint": "Se añade al principio de cada mensaje…",
   "settingsGreetingDefault": "Hola,",
-  "settingsSignatureLabel": "Firma de los mensajes",
+  "settingsSignatureLabel": "Firma",
   "settingsSignatureHint": "Se añade al final de cada mensaje…",
+  "settingsTextChannelLabel": "Canal de mensajes de texto",
   "settingsCategoriesSectionTitle": "Por categoría de proveedor",
   "settingsChannelLabel": "Canal",
   "settingsLoadError": "No se ha podido cargar la configuración.",
@@ -311,5 +312,14 @@
   "deleteSupplierCategoryConfirmTitle": "¿Eliminar esta categoría?",
   "deleteSupplierCategoryConfirmBody": "Los ingredientes asignados pasarán a «Sin categoría». No se puede deshacer.",
   "deleteSupplierCategoryConfirmButton": "Eliminar categoría",
-  "deleteSupplierCategoryError": "No se ha podido eliminar la categoría. Puede que tenga pedidos enviados."
+  "deleteSupplierCategoryError": "No se ha podido eliminar la categoría. Puede que tenga pedidos enviados.",
+
+  "supplierNameLabel": "Nombre",
+  "supplierNameHint": "P. ej. Peixos Samba",
+  "supplierCategoryCategoryLabel": "Categoría",
+  "lineSupplierCategoryPickIngredientFirst": "Elige primero un ingrediente",
+  "eventDishServingsLabel": "Raciones",
+  "eventStatusInPreparation": "En preparación",
+  "eventStatusReady": "Listo",
+  "eventStatusPast": "Pasado"
 }

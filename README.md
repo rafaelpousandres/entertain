@@ -1,4 +1,4 @@
-# entertain
+# Entertain
 
 Mobile app to organize domestic events (lunches and dinners): menus, dishes,
 ingredients, and per-supplier shopping lists. Single product, this repository

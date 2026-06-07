@@ -39,6 +39,7 @@ class SupplierCategoryDetailScreen extends ConsumerStatefulWidget {
 class _SupplierCategoryDetailScreenState
     extends ConsumerState<SupplierCategoryDetailScreen> {
   final _nameController = TextEditingController();
+  final _supplierNameController = TextEditingController();
   final _phoneController = TextEditingController();
   final _emailController = TextEditingController();
 
@@ -64,6 +65,7 @@ class _SupplierCategoryDetailScreenState
   @override
   void dispose() {
     _nameController.dispose();
+    _supplierNameController.dispose();
     _phoneController.dispose();
     _emailController.dispose();
     super.dispose();
@@ -73,6 +75,7 @@ class _SupplierCategoryDetailScreenState
     if (_seeded) return;
     final setting = settingsMap[widget.category.id];
     _channel = setting?.channel;
+    _supplierNameController.text = setting?.supplierName ?? '';
     _phoneController.text = setting?.phoneAddress ?? '';
     _emailController.text = setting?.emailAddress ?? '';
     _seeded = true;
@@ -103,12 +106,15 @@ class _SupplierCategoryDetailScreenState
         final groupId = await ref.read(currentGroupIdProvider.future);
         final phone = _phoneController.text.trim();
         final email = _emailController.text.trim();
+        final supplierName = _supplierNameController.text.trim();
         await ref.read(settingsRepositoryProvider).upsertSetting(
               groupId: groupId,
               supplierCategoryId: widget.category.id,
               channel: _channel,
               phoneAddress: phone.isEmpty ? null : phone,
               emailAddress: email.isEmpty ? null : email,
+              // Spec 008 §2.3: the concrete supplier name, per group.
+              supplierName: supplierName.isEmpty ? null : supplierName,
             );
       }
       ref.invalidate(supplierCategoriesProvider);
@@ -228,8 +234,21 @@ class _SupplierCategoryDetailScreenState
                   ],
                 ),
                 const SizedBox(height: 20),
+                // Spec 008 §2.3: the concrete supplier name ("Peixos Samba"),
+                // free text, at the top of the screen — but not for the Rebost
+                // pantry, which has no supplier behind it.
+                if (_showChannel) ...[
+                  FieldLabel(
+                    label: l10n.supplierNameLabel,
+                    child: AppTextField(
+                      controller: _supplierNameController,
+                      hintText: l10n.supplierNameHint,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
                 FieldLabel(
-                  label: l10n.supplierCategoryNameLabel,
+                  label: l10n.supplierCategoryCategoryLabel,
                   child: _isUser
                       ? AppTextField(
                           controller: _nameController,

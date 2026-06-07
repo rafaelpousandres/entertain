@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../events/data/serving_scale.dart';
 import 'ingredient_state.dart';
 import 'message_channel.dart';
 import 'shopping_models.dart';
@@ -23,14 +24,40 @@ class ShoppingRepository {
         .from('event_dish_ingredients')
         .select(
           'id, ingredient_id, ingredient_name, quantity, unit_id, prep_note, '
-          'supplier_category_id, state, sort_order, event_dishes!inner(event_id)',
+          'supplier_category_id, state, sort_order, reference_servings, '
+          'event_dishes!inner(event_id, servings), units!inner(magnitude)',
         )
         .eq('event_dishes.event_id', eventId)
         .order('sort_order', ascending: true);
     return [
       for (final r in rows as List)
-        ShoppingLine.fromRow(r as Map<String, dynamic>),
+        _shoppingLineFromRow(r as Map<String, dynamic>),
     ];
+  }
+
+  /// Builds a [ShoppingLine] with its quantity already scaled to the owning
+  /// event-dish's servings (Spec 008 §2.10), so every shopping surface (panel,
+  /// message, order snapshot) reads the effective amount without re-deriving it.
+  static ShoppingLine _shoppingLineFromRow(Map<String, dynamic> row) {
+    final eventDish = row['event_dishes'] as Map<String, dynamic>?;
+    final unit = row['units'] as Map<String, dynamic>?;
+    final base = (row['quantity'] as num).toDouble();
+    final scaled = scaleServingQuantity(
+      base: base,
+      referenceServings: (row['reference_servings'] as num?)?.toInt(),
+      targetServings: (eventDish?['servings'] as num?)?.toInt() ?? 0,
+      countable: (unit?['magnitude'] as String?) == 'count',
+    );
+    return ShoppingLine(
+      id: row['id'] as String,
+      ingredientId: row['ingredient_id'] as String?,
+      ingredientName: row['ingredient_name'] as String,
+      quantity: scaled,
+      unitId: row['unit_id'] as String,
+      prepNote: row['prep_note'] as String?,
+      supplierCategoryId: row['supplier_category_id'] as String?,
+      state: IngredientState.parse(row['state'] as String?),
+    );
   }
 
   /// Materialised orders for an event with their frozen items.

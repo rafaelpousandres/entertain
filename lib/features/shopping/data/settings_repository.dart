@@ -15,7 +15,10 @@ class SettingsRepository {
   Future<List<GroupSupplierSetting>> listSettings(String groupId) async {
     final rows = await _client
         .from('group_supplier_settings')
-        .select('supplier_category_id, channel, phone_address, email_address')
+        .select(
+          'supplier_category_id, channel, phone_address, email_address, '
+          'supplier_name',
+        )
         .eq('group_id', groupId);
     return [
       for (final r in rows as List)
@@ -35,6 +38,7 @@ class SettingsRepository {
     required MessageChannel? channel,
     required String? phoneAddress,
     required String? emailAddress,
+    required String? supplierName,
   }) async {
     await _client.from('group_supplier_settings').upsert({
       'group_id': groupId,
@@ -42,6 +46,8 @@ class SettingsRepository {
       'channel': channel?.wire,
       'phone_address': phoneAddress,
       'email_address': emailAddress,
+      // Spec 008 §2.3: the concrete supplier name, per group.
+      'supplier_name': supplierName,
     }, onConflict: 'group_id,supplier_category_id');
   }
 
@@ -83,6 +89,29 @@ class SettingsRepository {
     await _client
         .from('groups')
         .update({'greeting': greeting})
+        .eq('id', groupId);
+  }
+
+  /// The group's text-message channel (Spec 008 §2.9): which app a "text"
+  /// dispatch resolves to. Defaults to WhatsApp for a missing row / column.
+  Future<TextMessageChannel> fetchTextMessageChannel(String groupId) async {
+    final row = await _client
+        .from('groups')
+        .select('text_message_channel')
+        .eq('id', groupId)
+        .maybeSingle();
+    return TextMessageChannelWire.parse(
+      row?['text_message_channel'] as String?,
+    );
+  }
+
+  Future<void> updateTextMessageChannel(
+    String groupId,
+    TextMessageChannel channel,
+  ) async {
+    await _client
+        .from('groups')
+        .update({'text_message_channel': channel.wire})
         .eq('id', groupId);
   }
 

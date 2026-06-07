@@ -25,27 +25,35 @@ class DispatchOutcome {
 
 /// Dispatches a composed supplier message (Spec §2.4):
 ///
-///   * WhatsApp with a configured number → `https://wa.me/<digits>?text=…`.
+///   * The "text" channel ([MessageChannel.whatsapp]) with a configured number
+///     → WhatsApp `https://wa.me/<digits>?text=…` or, when [textChannel] is
+///     [TextMessageChannel.sms] (Spec 008 §2.9), the SMS app via
+///     `sms:<number>?body=…`.
 ///   * Email with a configured address → the default mail client via
 ///     `mailto:` with subject and body pre-filled.
 ///   * Otherwise (no channel, no address, or the launch failed) → the system
 ///     share sheet, letting the user pick a destination at that moment.
 ///
 /// Returns the channel / address effectively used so the caller can persist
-/// it on the order.
+/// it on the order. The persisted [DispatchOutcome.channel] stays the
+/// per-supplier [MessageChannel] (the SMS-vs-WhatsApp split is a group-level
+/// preference, not a per-order fact).
 Future<DispatchOutcome> dispatchMessage({
   required MessageChannel? channel,
   required String? address,
   required String subject,
   required String body,
+  TextMessageChannel textChannel = TextMessageChannel.whatsapp,
 }) async {
   final trimmedAddress = address?.trim() ?? '';
 
   if (channel == MessageChannel.whatsapp && trimmedAddress.isNotEmpty) {
     final digits = trimmedAddress.replaceAll(RegExp(r'[^0-9]'), '');
-    final uri = Uri.parse(
-      'https://wa.me/$digits?text=${Uri.encodeComponent(body)}',
-    );
+    // Spec 008 §2.9: the "text" channel resolves to SMS or WhatsApp per the
+    // group's preference. SMS uses the `sms:` scheme with the body pre-filled.
+    final uri = textChannel == TextMessageChannel.sms
+        ? Uri.parse('sms:$digits?body=${Uri.encodeComponent(body)}')
+        : Uri.parse('https://wa.me/$digits?text=${Uri.encodeComponent(body)}');
     if (await _tryLaunch(uri)) {
       return DispatchOutcome(
         opened: true,

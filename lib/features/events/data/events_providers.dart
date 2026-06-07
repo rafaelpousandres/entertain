@@ -29,6 +29,16 @@ final eventsListProvider = FutureProvider<List<Event>>((ref) async {
   return repo.listEventsForGroup(groupId);
 });
 
+/// Per-event ingredient readiness for the current group (Spec 008 §2.4), used
+/// to derive each event's status on the list and detail header. Invalidated by
+/// the same mutations that change ingredient states or the menu.
+final eventReadinessProvider =
+    FutureProvider<Map<String, ({int total, int notReady})>>((ref) async {
+  final repo = ref.watch(eventsRepositoryProvider);
+  final groupId = await ref.watch(currentGroupIdProvider.future);
+  return repo.eventReadiness(groupId);
+});
+
 final eventByIdProvider = FutureProvider.family<Event, String>((ref, id) async {
   final repo = ref.watch(eventsRepositoryProvider);
   return repo.fetchEvent(id);

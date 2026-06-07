@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../l10n/app_localizations.dart';
+import '../../../theme/app_colors.dart';
 import '../data/event.dart';
+import '../data/event_status.dart';
 
 /// Translates an [EventType] to its localised label.
 String eventTypeLabel(AppLocalizations l10n, EventType type) {
@@ -29,13 +31,36 @@ String eventStatusLabel(AppLocalizations l10n, EventStatus status) {
   };
 }
 
-/// Composes the "type · guests · status" line shown beneath an event card
-/// title on the list screen.
+/// Localised label for the derived event status (Spec 008 §2.4).
+String derivedEventStatusLabel(
+  AppLocalizations l10n,
+  DerivedEventStatus status,
+) {
+  return switch (status) {
+    DerivedEventStatus.inPreparation => l10n.eventStatusInPreparation,
+    DerivedEventStatus.ready => l10n.eventStatusReady,
+    DerivedEventStatus.past => l10n.eventStatusPast,
+  };
+}
+
+/// Indicator colour for the derived event status (Spec 008 §2.4): red while in
+/// preparation, green when ready, a calm muted brown once past.
+Color derivedEventStatusColor(DerivedEventStatus status) {
+  return switch (status) {
+    DerivedEventStatus.inPreparation => AppColors.danger,
+    DerivedEventStatus.ready => AppColors.success,
+    DerivedEventStatus.past => AppColors.textTertiary,
+  };
+}
+
+/// Composes the "type · guests" line shown beneath an event card title on the
+/// list screen. The event's status is conveyed by the coloured dot next to the
+/// title and by the section it sits under (Spec 008 §2.4), so it is no longer
+/// repeated as text here.
 String eventListMetadata(AppLocalizations l10n, Event event, Locale locale) {
   final parts = [
     eventTypeLabel(l10n, event.type),
     l10n.guestsCount(event.guestCount),
-    eventStatusLabel(l10n, event.status),
   ];
   return parts.join(l10n.metadataSeparator);
 }

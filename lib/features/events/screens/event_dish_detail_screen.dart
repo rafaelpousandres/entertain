@@ -5,7 +5,9 @@ import 'package:go_router/go_router.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_typography.dart';
+import '../../../ui/app_form_field.dart';
 import '../../../ui/secondary_button.dart';
+import '../../../ui/stepper_field.dart';
 import '../../catalog/data/catalog_providers.dart';
 import '../../catalog/data/dish.dart' show formatQuantity;
 import '../../catalog/data/dish_category.dart';
@@ -13,6 +15,7 @@ import '../../catalog/data/reference_data.dart';
 import '../../shopping/data/shopping_providers.dart';
 import '../data/event_dish_line.dart';
 import '../data/events_providers.dart';
+import '../data/serving_scale.dart';
 import 'event_dish_line_editor_screen.dart';
 
 /// Per-event dish detail (Specification 004 §3.8). Shows the snapshot fields
@@ -74,6 +77,9 @@ class EventDishDetailScreen extends ConsumerWidget {
       // Fixes §2.1: the removed dish's ingredients must disappear from the
       // shopping panel too, without a restart.
       ref.invalidate(eventShoppingProvider(eventId));
+      // Spec 008 §2.4: removing a dish removes its ingredients, affecting status.
+      ref.invalidate(eventReadinessProvider);
+      ref.invalidate(eventsListProvider);
       if (!context.mounted) return;
       context.pop();
     } catch (_) {
@@ -171,12 +177,18 @@ class EventDishDetailScreen extends ConsumerWidget {
                   const SizedBox(height: 6),
                 ],
                 Text(
-                  '${dishCategoryLabel(l10n, dish.category)}'
-                  '${l10n.metadataSeparator}'
-                  '${l10n.eventDishServings(dish.servings)}',
+                  dishCategoryLabel(l10n, dish.category),
                   style: AppTypography.body.copyWith(
                     color: AppColors.textSecondary,
                   ),
+                ),
+                const SizedBox(height: 16),
+                // §2.10: servings are editable here; ingredient quantities scale
+                // to this value on display.
+                _ServingsEditor(
+                  eventId: eventId,
+                  eventDishId: eventDishId,
+                  servings: dish.servings,
                 ),
                 const SizedBox(height: 20),
                 Text(
@@ -209,6 +221,7 @@ class EventDishDetailScreen extends ConsumerWidget {
                                 padding: const EdgeInsets.only(bottom: 8),
                                 child: _LineRow(
                                   line: line,
+                                  servings: dish.servings,
                                   unit: unitsById[line.unitId],
                                   supplierCategory:
                                       line.supplierCategoryId == null
@@ -271,12 +284,14 @@ class EventDishDetailScreen extends ConsumerWidget {
 class _LineRow extends StatelessWidget {
   const _LineRow({
     required this.line,
+    required this.servings,
     required this.unit,
     required this.supplierCategory,
     required this.onTap,
   });
 
   final EventDishLine line;
+  final int servings;
   final Unit? unit;
   final SupplierCategory? supplierCategory;
   final VoidCallback onTap;
@@ -284,7 +299,14 @@ class _LineRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final qty = formatQuantity(line.quantity);
+    // §2.10: show the quantity scaled to the event-dish servings.
+    final scaled = scaleServingQuantity(
+      base: line.quantity,
+      referenceServings: line.referenceServings,
+      targetServings: servings,
+      countable: unit?.magnitude == UnitMagnitude.count,
+    );
+    final qty = formatQuantity(scaled);
     final measure = unit == null ? qty : '$qty ${unit!.name}';
     final hasNote = line.prepNote != null && line.prepNote!.trim().isNotEmpty;
     final parts = <String>[
@@ -401,3 +423,56 @@ class _LoadError extends StatelessWidget {
 }
 
 enum _OverflowAction { remove }
+
+/// Editable servings for an event-dish (Spec 008 §2.10). A positive-integer
+/// stepper that persists each change and refreshes the lines (which rescale on
+/// display) and the shopping panel. Holds a local value so the stepper responds
+/// instantly while the write and re-fetch happen in the background.
+class _ServingsEditor extends ConsumerStatefulWidget {
+  const _ServingsEditor({
+    required this.eventId,
+    required this.eventDishId,
+    required this.servings,
+  });
+
+  final String eventId;
+  final String eventDishId;
+  final int servings;
+
+  @override
+  ConsumerState<_ServingsEditor> createState() => _ServingsEditorState();
+}
+
+class _ServingsEditorState extends ConsumerState<_ServingsEditor> {
+  late int _servings = widget.servings;
+
+  @override
+  void didUpdateWidget(_ServingsEditor old) {
+    super.didUpdateWidget(old);
+    // Keep in sync if the provider re-emits a different value (e.g. after the
+    // screen is revisited) — but never clobber an in-flight local edit.
+    if (old.servings != widget.servings && _servings != widget.servings) {
+      _servings = widget.servings;
+    }
+  }
+
+  Future<void> _change(int value) async {
+    if (value < 1) return;
+    setState(() => _servings = value);
+    await ref
+        .read(eventsRepositoryProvider)
+        .updateEventDishServings(widget.eventDishId, value);
+    ref.invalidate(eventDishByIdProvider(widget.eventDishId));
+    ref.invalidate(eventDishLinesProvider(widget.eventDishId));
+    ref.invalidate(eventShoppingProvider(widget.eventId));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return FieldLabel(
+      label: l10n.eventDishServingsLabel,
+      child: StepperField(value: _servings, onChanged: _change),
+    );
+  }
+}

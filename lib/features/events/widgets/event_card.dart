@@ -5,15 +5,23 @@ import '../../../l10n/app_localizations.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_typography.dart';
 import '../data/event.dart';
+import '../data/event_status.dart';
 import 'event_formatters.dart';
 
 /// Single row in the events list. Card per design system §5 (surface, 1 px
 /// border, radius 14, padding 11–13), with a date leading element, primary
-/// + secondary text and a trailing chevron.
+/// + secondary text and a trailing chevron. A coloured dot next to the title
+/// shows the derived status (Spec 008 §2.4).
 class EventCard extends StatelessWidget {
-  const EventCard({super.key, required this.event, required this.onTap});
+  const EventCard({
+    super.key,
+    required this.event,
+    required this.status,
+    required this.onTap,
+  });
 
   final Event event;
+  final DerivedEventStatus status;
   final VoidCallback onTap;
 
   @override
@@ -43,11 +51,26 @@ class EventCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      event.title,
-                      style: AppTypography.sectionTitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    Row(
+                      children: [
+                        Container(
+                          width: 9,
+                          height: 9,
+                          decoration: BoxDecoration(
+                            color: derivedEventStatusColor(status),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            event.title,
+                            style: AppTypography.sectionTitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 4),
                     Text(

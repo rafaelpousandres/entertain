@@ -285,8 +285,9 @@
   "settingsGreetingLabel": "Salutació",
   "settingsGreetingHint": "S'afegeix al començament de cada missatge…",
   "settingsGreetingDefault": "Hola,",
-  "settingsSignatureLabel": "Signatura dels missatges",
+  "settingsSignatureLabel": "Signatura",
   "settingsSignatureHint": "S'afegeix al final de cada missatge…",
+  "settingsTextChannelLabel": "Canal de missatges de text",
   "settingsCategoriesSectionTitle": "Per categoria de proveïdor",
   "settingsChannelLabel": "Canal",
   "settingsLoadError": "No s'ha pogut carregar la configuració.",
@@ -311,5 +312,14 @@
   "deleteSupplierCategoryConfirmTitle": "Vols esborrar aquesta categoria?",
   "deleteSupplierCategoryConfirmBody": "Els ingredients que hi estiguin assignats passaran a «Sense categoria». No es pot desfer.",
   "deleteSupplierCategoryConfirmButton": "Esborra categoria",
-  "deleteSupplierCategoryError": "No s'ha pogut esborrar la categoria. Potser té comandes enviades."
+  "deleteSupplierCategoryError": "No s'ha pogut esborrar la categoria. Potser té comandes enviades.",
+
+  "supplierNameLabel": "Nom",
+  "supplierNameHint": "P. ex. Peixos Samba",
+  "supplierCategoryCategoryLabel": "Categoria",
+  "lineSupplierCategoryPickIngredientFirst": "Tria primer un ingredient",
+  "eventDishServingsLabel": "Racions",
+  "eventStatusInPreparation": "En preparació",
+  "eventStatusReady": "Llest",
+  "eventStatusPast": "Passat"
 }

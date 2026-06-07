@@ -6,9 +6,12 @@ import '../../../l10n/app_localizations.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_typography.dart';
 import '../../../ui/primary_button.dart';
+import '../../../ui/section_header.dart';
 import '../data/event.dart';
+import '../data/event_status.dart';
 import '../data/events_providers.dart';
 import '../widgets/event_card.dart';
+import '../widgets/event_formatters.dart';
 
 /// App home (spec 003 §2.2). Lists the user's active events in the agreed
 /// order (upcoming first, past after, dateless at the end) and exposes a
@@ -20,6 +23,7 @@ class EventsListScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     final eventsAsync = ref.watch(eventsListProvider);
+    final readinessAsync = ref.watch(eventReadinessProvider);
 
     return Scaffold(
       backgroundColor: AppColors.bg,
@@ -36,8 +40,12 @@ class EventsListScreen extends ConsumerWidget {
             message: l10n.eventsLoadError,
             onRetry: () => ref.invalidate(eventsListProvider),
           ),
-          data: (events) =>
-              events.isEmpty ? const _EmptyState() : _EventList(events: events),
+          data: (events) => events.isEmpty
+              ? const _EmptyState()
+              : _GroupedEventList(
+                  events: events,
+                  readiness: readinessAsync.value ?? const {},
+                ),
         ),
       ),
       bottomNavigationBar: Container(
@@ -56,25 +64,97 @@ class EventsListScreen extends ConsumerWidget {
   }
 }
 
-class _EventList extends StatelessWidget {
-  const _EventList({required this.events});
+/// The events list grouped by derived status into three collapsible sections
+/// (Spec 008 §2.4): En preparació, Llest, Passat. In-preparation and ready are
+/// expanded by default, past collapsed; empty sections are omitted. Collapse
+/// state is per-session (not persisted).
+class _GroupedEventList extends StatefulWidget {
+  const _GroupedEventList({required this.events, required this.readiness});
 
   final List<Event> events;
+  final Map<String, EventReadiness> readiness;
+
+  @override
+  State<_GroupedEventList> createState() => _GroupedEventListState();
+}
+
+class _GroupedEventListState extends State<_GroupedEventList> {
+  final _expanded = <DerivedEventStatus, bool>{
+    DerivedEventStatus.inPreparation: true,
+    DerivedEventStatus.ready: true,
+    DerivedEventStatus.past: false,
+  };
+
+  // Section render order (Spec §2.4).
+  static const _order = [
+    DerivedEventStatus.inPreparation,
+    DerivedEventStatus.ready,
+    DerivedEventStatus.past,
+  ];
+
+  IconData _icon(DerivedEventStatus status) => switch (status) {
+    DerivedEventStatus.inPreparation => Icons.hourglass_empty,
+    DerivedEventStatus.ready => Icons.check_circle_outline,
+    DerivedEventStatus.past => Icons.history,
+  };
 
   @override
   Widget build(BuildContext context) {
-    return ListView.separated(
+    final l10n = AppLocalizations.of(context);
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    final byStatus = <DerivedEventStatus, List<Event>>{
+      for (final s in _order) s: [],
+    };
+    for (final event in widget.events) {
+      final status = deriveEventStatus(event, widget.readiness[event.id], today);
+      byStatus[status]!.add(event);
+    }
+    // Within each section: by date ascending, dateless last (by created_at desc).
+    for (final list in byStatus.values) {
+      list.sort(_byDateAscending);
+    }
+
+    return ListView(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-      itemCount: events.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 12),
-      itemBuilder: (context, index) {
-        final event = events[index];
-        return EventCard(
-          event: event,
-          onTap: () => GoRouter.of(context).push('/events/${event.id}'),
-        );
-      },
+      children: [
+        for (final status in _order)
+          if (byStatus[status]!.isNotEmpty) ...[
+            SectionHeader(
+              icon: _icon(status),
+              label: derivedEventStatusLabel(l10n, status),
+              count: byStatus[status]!.length,
+              expanded: _expanded[status]!,
+              onToggle: () =>
+                  setState(() => _expanded[status] = !_expanded[status]!),
+            ),
+            if (_expanded[status]!)
+              for (final event in byStatus[status]!)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: EventCard(
+                    event: event,
+                    status: status,
+                    onTap: () =>
+                        GoRouter.of(context).push('/events/${event.id}'),
+                  ),
+                ),
+            const SizedBox(height: 12),
+          ],
+      ],
     );
+  }
+
+  int _byDateAscending(Event a, Event b) {
+    final aDate = a.eventDate;
+    final bDate = b.eventDate;
+    if (aDate == null && bDate == null) {
+      return b.createdAt.compareTo(a.createdAt);
+    }
+    if (aDate == null) return 1;
+    if (bDate == null) return -1;
+    return aDate.compareTo(bDate);
   }
 }
 

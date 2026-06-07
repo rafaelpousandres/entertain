@@ -177,6 +177,21 @@ class CatalogRepository {
     return Ingredient.fromRow(row);
   }
 
+  /// Sets an ingredient's default supplier category (Spec 008 §2.5). The
+  /// catalog model holds the supplier category on the `ingredients` row, not per
+  /// dish line, so setting it from the line editor is catalog-wide: it affects
+  /// every dish and future event that uses this ingredient. Passing null clears
+  /// it ("Sense categoria").
+  Future<void> updateIngredientDefaultSupplierCategory(
+    String id,
+    String? supplierCategoryId,
+  ) async {
+    await _client
+        .from('ingredients')
+        .update({'default_supplier_category_id': supplierCategoryId})
+        .eq('id', id);
+  }
+
   /// Soft delete — `ingredients` is marked 🗑 in the data model, and catalog
   /// rows are referenced from event snapshots, so the row is kept.
   Future<void> deleteIngredient(String id) async {
