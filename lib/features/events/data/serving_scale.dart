@@ -46,6 +46,14 @@ double _ceilInteger(double value) {
 
 /// Rounds [value] up to 2 significant figures (measured items). Values that
 /// already have <= 2 significant figures are returned unchanged.
+///
+/// NOTE (future cleanup): these quantities are computed with [double], which is
+/// why `ceil * factor` needs the `toStringAsFixed`/parse snap below to shed
+/// binary-float noise. If similar precision errors keep cropping up across the
+/// quantity pipeline (scaling, shopping aggregation, persistence), consider
+/// moving quantities to `package:decimal` so exactness is the default rather
+/// than something each call site has to defend against. Not worth it for this
+/// single site alone.
 double _ceilToTwoSigFigs(double value) {
   if (value <= 0) return 0;
   // Exponent of the most significant digit (e.g. 375 → 2, 2.5 → 0).
