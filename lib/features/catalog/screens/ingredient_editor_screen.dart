@@ -6,7 +6,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_typography.dart';
 import '../../../ui/app_form_field.dart';
-import '../../../ui/primary_button.dart';
+import '../../../ui/edit_scaffold.dart';
 import '../../../ui/single_choice_sheet.dart';
 import '../../events/data/events_providers.dart' show currentGroupIdProvider;
 import '../data/catalog_providers.dart';
@@ -93,6 +93,8 @@ class _IngredientFormState extends ConsumerState<_IngredientForm> {
   bool _submitted = false;
   String? _nameError;
   String? _unitError;
+  // §2.3: tracks user edits so the unsaved-changes guard knows when to prompt.
+  bool _dirty = false;
 
   bool get _busy => _saving || _deleting;
 
@@ -142,6 +144,7 @@ class _IngredientFormState extends ConsumerState<_IngredientForm> {
           SingleChoiceOption(value: u.id, label: u.name),
       ],
       onSelected: (id) => setState(() {
+        _dirty = true;
         _draft.defaultUnitId = id;
         _unitError = null;
       }),
@@ -155,14 +158,18 @@ class _IngredientFormState extends ConsumerState<_IngredientForm> {
       title: l10n.supplierPickerTitle,
       selectedValue: _draft.defaultSupplierCategoryId,
       clearLabel: l10n.supplierNoneLabel,
-      onCleared: () =>
-          setState(() => _draft.defaultSupplierCategoryId = null),
+      onCleared: () => setState(() {
+        _dirty = true;
+        _draft.defaultSupplierCategoryId = null;
+      }),
       options: [
         for (final c in widget.categories)
           SingleChoiceOption(value: c.id, label: c.name),
       ],
-      onSelected: (id) =>
-          setState(() => _draft.defaultSupplierCategoryId = id),
+      onSelected: (id) => setState(() {
+        _dirty = true;
+        _draft.defaultSupplierCategoryId = id;
+      }),
     );
   }
 
@@ -275,119 +282,97 @@ class _IngredientFormState extends ConsumerState<_IngredientForm> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
 
-    return Scaffold(
-      backgroundColor: AppColors.bg,
-      appBar: AppBar(
-        title: Text(
-          widget.isEditing
-              ? l10n.ingredientEditScreenTitle
-              : l10n.ingredientNewScreenTitle,
-          style: AppTypography.sectionTitle,
-        ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          tooltip: l10n.backAction,
-          onPressed: _busy ? null : () => context.pop(),
-        ),
-        actions: [
-          if (widget.isEditing)
-            PopupMenuButton<_OverflowAction>(
-              icon: const Icon(Icons.more_vert),
-              tooltip: l10n.moreActionsLabel,
-              color: AppColors.surface,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              onSelected: (action) {
-                switch (action) {
-                  case _OverflowAction.delete:
-                    _confirmDelete();
-                }
-              },
-              itemBuilder: (context) => [
-                PopupMenuItem(
-                  value: _OverflowAction.delete,
-                  child: Text(
-                    l10n.deleteAction,
-                    style: AppTypography.body.copyWith(color: AppColors.danger),
-                  ),
-                ),
-              ],
+    return EditScaffold(
+      title: widget.isEditing
+          ? l10n.ingredientEditScreenTitle
+          : l10n.ingredientNewScreenTitle,
+      hasUnsavedChanges: _dirty,
+      busy: _busy,
+      onSave: _busy ? null : _save,
+      trailingActions: [
+        if (widget.isEditing)
+          PopupMenuButton<_OverflowAction>(
+            icon: const Icon(Icons.more_vert),
+            tooltip: l10n.moreActionsLabel,
+            color: AppColors.surface,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
             ),
-        ],
-      ),
-      body: SafeArea(
-        top: false,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-          children: [
-            FieldLabel(
-              label: l10n.ingredientNameLabel,
-              child: AppTextField(
-                controller: _nameController,
-                hintText: l10n.ingredientNameHint,
-                onChanged: (value) {
-                  if (!_submitted) return;
+            onSelected: (action) {
+              switch (action) {
+                case _OverflowAction.delete:
+                  _confirmDelete();
+              }
+            },
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: _OverflowAction.delete,
+                child: Text(
+                  l10n.deleteAction,
+                  style: AppTypography.body.copyWith(color: AppColors.danger),
+                ),
+              ),
+            ],
+          ),
+      ],
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+        children: [
+          FieldLabel(
+            label: l10n.ingredientNameLabel,
+            child: AppTextField(
+              controller: _nameController,
+              hintText: l10n.ingredientNameHint,
+              onChanged: (value) {
+                _dirty = true;
+                if (_submitted) {
                   setState(() {
                     _nameError = value.trim().isEmpty
                         ? l10n.ingredientNameRequired
                         : null;
                   });
-                },
-              ),
+                }
+              },
             ),
-            if (_nameError != null) _FieldError(message: _nameError!),
-            const SizedBox(height: 16),
-            FieldLabel(
-              label: l10n.ingredientUnitLabel,
-              child: FormFieldTile(
-                onTap: _pickUnit,
-                placeholder: l10n.ingredientUnitHint,
-                value: _selectedUnit?.name,
-              ),
-            ),
-            if (_unitError != null) _FieldError(message: _unitError!),
-            const SizedBox(height: 16),
-            FieldLabel(
-              label: l10n.ingredientSupplierLabel,
-              child: FormFieldTile(
-                onTap: _pickCategory,
-                placeholder: l10n.ingredientSupplierHint,
-                value: _selectedCategory?.name,
-                onClear: _draft.defaultSupplierCategoryId == null
-                    ? null
-                    : () => setState(
-                        () => _draft.defaultSupplierCategoryId = null,
-                      ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            FieldLabel(
-              label: l10n.ingredientPrepLabel,
-              child: AppTextField(
-                controller: _prepController,
-                hintText: l10n.ingredientPrepHint,
-                maxLines: 4,
-                textInputAction: TextInputAction.newline,
-              ),
-            ),
-          ],
-        ),
-      ),
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-          decoration: const BoxDecoration(
-            color: AppColors.bg,
-            border: Border(top: BorderSide(color: AppColors.border, width: 1)),
           ),
-          child: PrimaryButton(
-            label: l10n.saveAction,
-            icon: Icons.check,
-            onPressed: _busy ? null : _save,
+          if (_nameError != null) _FieldError(message: _nameError!),
+          const SizedBox(height: 16),
+          FieldLabel(
+            label: l10n.ingredientUnitLabel,
+            child: FormFieldTile(
+              onTap: _pickUnit,
+              placeholder: l10n.ingredientUnitHint,
+              value: _selectedUnit?.name,
+            ),
           ),
-        ),
+          if (_unitError != null) _FieldError(message: _unitError!),
+          const SizedBox(height: 16),
+          FieldLabel(
+            label: l10n.ingredientSupplierLabel,
+            child: FormFieldTile(
+              onTap: _pickCategory,
+              placeholder: l10n.ingredientSupplierHint,
+              value: _selectedCategory?.name,
+              onClear: _draft.defaultSupplierCategoryId == null
+                  ? null
+                  : () => setState(() {
+                      _dirty = true;
+                      _draft.defaultSupplierCategoryId = null;
+                    }),
+            ),
+          ),
+          const SizedBox(height: 16),
+          FieldLabel(
+            label: l10n.ingredientPrepLabel,
+            child: AppTextField(
+              controller: _prepController,
+              hintText: l10n.ingredientPrepHint,
+              maxLines: 4,
+              textInputAction: TextInputAction.newline,
+              onChanged: (_) => _dirty = true,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -453,7 +438,9 @@ class _Error extends StatelessWidget {
           children: [
             Text(
               message,
-              style: AppTypography.body.copyWith(color: AppColors.textSecondary),
+              style: AppTypography.body.copyWith(
+                color: AppColors.textSecondary,
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 16),

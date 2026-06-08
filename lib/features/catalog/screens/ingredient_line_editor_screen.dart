@@ -6,7 +6,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_typography.dart';
 import '../../../ui/app_form_field.dart';
-import '../../../ui/primary_button.dart';
+import '../../../ui/edit_scaffold.dart';
 import '../../../ui/single_choice_sheet.dart';
 import '../data/catalog_providers.dart';
 import '../data/dish.dart';
@@ -63,6 +63,13 @@ class _IngredientLineEditorScreenState
   bool _categoryResolved = false;
 
   bool _submitted = false;
+  // §2.3: tracks whether the form diverges from its initial state so the
+  // unsaved-changes guard knows when to prompt on exit.
+  bool _dirty = false;
+
+  void _markDirty() {
+    if (!_dirty) setState(() => _dirty = true);
+  }
 
   @override
   void initState() {
@@ -92,15 +99,21 @@ class _IngredientLineEditorScreenState
     return value;
   }
 
-  Future<void> _pickIngredient(List<Ingredient> ingredients, List<Unit> units) async {
+  Future<void> _pickIngredient(
+    List<Ingredient> ingredients,
+    List<Unit> units,
+    List<SupplierCategory> categories,
+  ) async {
     final picked = await showIngredientPicker(
       context: context,
       ref: ref,
       ingredients: ingredients,
       units: units,
+      categories: categories,
     );
     if (picked == null || !mounted) return;
     setState(() {
+      _dirty = true;
       _ingredientId = picked.id;
       _ingredientName = picked.name;
       // Reset the unit to the ingredient's default — its family may differ
@@ -133,7 +146,10 @@ class _IngredientLineEditorScreenState
       options: [
         for (final u in allowed) SingleChoiceOption(value: u.id, label: u.name),
       ],
-      onSelected: (id) => setState(() => _unitId = id),
+      onSelected: (id) => setState(() {
+        _dirty = true;
+        _unitId = id;
+      }),
     );
   }
 
@@ -173,10 +189,12 @@ class _IngredientLineEditorScreenState
           SingleChoiceOption(value: c.id, label: c.name),
       ],
       onSelected: (id) => setState(() {
+        _dirty = true;
         _supplierCategoryId = id;
         _categoryResolved = true;
       }),
       onCleared: () => setState(() {
+        _dirty = true;
         _supplierCategoryId = null;
         _categoryResolved = true;
       }),
@@ -240,8 +258,8 @@ class _IngredientLineEditorScreenState
 
     final unit = _unitOf(units ?? const [], _unitId);
     final quantityError = _submitted && _parseQuantity() == null;
-    final unitAllowsChoice = unit != null &&
-        unitsForFamily(units ?? const [], unit).length > 1;
+    final unitAllowsChoice =
+        unit != null && unitsForFamily(units ?? const [], unit).length > 1;
     final categoryId = _resolvedCategoryId(ingredients ?? const []);
     final supplierCategory = categoryId == null
         ? null
@@ -252,161 +270,132 @@ class _IngredientLineEditorScreenState
             return null;
           }();
 
-    return Scaffold(
-      backgroundColor: AppColors.bg,
-      appBar: AppBar(
-        title: Text(
-          widget.isEditing
-              ? l10n.lineEditorEditTitle
-              : l10n.lineEditorNewTitle,
-          style: AppTypography.sectionTitle,
-        ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          tooltip: l10n.backAction,
-          onPressed: () => context.pop(),
-        ),
-        actions: [
-          if (widget.isEditing)
-            PopupMenuButton<_OverflowAction>(
-              icon: const Icon(Icons.more_vert),
-              tooltip: l10n.moreActionsLabel,
-              color: AppColors.surface,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+    return EditScaffold(
+      title: widget.isEditing
+          ? l10n.lineEditorEditTitle
+          : l10n.lineEditorNewTitle,
+      hasUnsavedChanges: _dirty,
+      onSave: loading ? null : _save,
+      trailingActions: [
+        if (widget.isEditing)
+          PopupMenuButton<_OverflowAction>(
+            icon: const Icon(Icons.more_vert),
+            tooltip: l10n.moreActionsLabel,
+            color: AppColors.surface,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            onSelected: (action) {
+              switch (action) {
+                case _OverflowAction.remove:
+                  _remove();
+              }
+            },
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: _OverflowAction.remove,
+                child: Text(
+                  l10n.removeLineAction,
+                  style: AppTypography.body.copyWith(color: AppColors.danger),
+                ),
               ),
-              onSelected: (action) {
-                switch (action) {
-                  case _OverflowAction.remove:
-                    _remove();
-                }
-              },
-              itemBuilder: (context) => [
-                PopupMenuItem(
-                  value: _OverflowAction.remove,
-                  child: Text(
-                    l10n.removeLineAction,
-                    style: AppTypography.body.copyWith(color: AppColors.danger),
+            ],
+          ),
+      ],
+      body: loading
+          ? const Center(
+              child: CircularProgressIndicator(color: AppColors.accent),
+            )
+          : ListView(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+              children: [
+                FieldLabel(
+                  label: l10n.lineIngredientLabel,
+                  child: FormFieldTile(
+                    onTap: () =>
+                        _pickIngredient(ingredients, units, categories),
+                    placeholder: l10n.lineIngredientHint,
+                    value: _ingredientName,
+                  ),
+                ),
+                if (_submitted && _ingredientId == null)
+                  _FieldError(message: l10n.lineIngredientRequired),
+                const SizedBox(height: 16),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: FieldLabel(
+                        label: l10n.lineQuantityLabel,
+                        child: AppTextField(
+                          controller: _quantityController,
+                          hintText: l10n.lineQuantityHint,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          onChanged: (_) => setState(() => _dirty = true),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FieldLabel(
+                        label: l10n.lineUnitLabel,
+                        child: FormFieldTile(
+                          onTap: _ingredientId == null
+                              ? () {}
+                              : () => _pickUnit(units),
+                          placeholder: l10n.lineUnitHint,
+                          value: unit?.name,
+                          trailing: unitAllowsChoice
+                              ? const Icon(
+                                  Icons.expand_more,
+                                  color: AppColors.textTertiary,
+                                  size: 18,
+                                )
+                              : null,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (quantityError)
+                  _FieldError(message: l10n.lineQuantityInvalid),
+                const SizedBox(height: 16),
+                // §2.5: supplier category, set on the ingredient (catalog-wide)
+                // so a line built here lands in the right shopping group.
+                FieldLabel(
+                  label: l10n.lineSupplierCategoryLabel,
+                  child: FormFieldTile(
+                    onTap: _ingredientId == null
+                        ? () {}
+                        : () => _pickSupplierCategory(categories, categoryId),
+                    placeholder: _ingredientId == null
+                        ? l10n.lineSupplierCategoryPickIngredientFirst
+                        : l10n.lineSupplierCategoryHint,
+                    value: supplierCategory?.name,
+                    onClear: categoryId == null
+                        ? null
+                        : () => setState(() {
+                            _dirty = true;
+                            _supplierCategoryId = null;
+                            _categoryResolved = true;
+                          }),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                FieldLabel(
+                  label: l10n.linePrepNoteLabel,
+                  child: AppTextField(
+                    controller: _prepController,
+                    hintText: l10n.linePrepNoteHint,
+                    maxLines: 3,
+                    textInputAction: TextInputAction.newline,
+                    onChanged: (_) => _markDirty(),
                   ),
                 ),
               ],
             ),
-        ],
-      ),
-      body: SafeArea(
-        top: false,
-        child: loading
-            ? const Center(
-                child: CircularProgressIndicator(color: AppColors.accent),
-              )
-            : ListView(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-                children: [
-                  FieldLabel(
-                    label: l10n.lineIngredientLabel,
-                    child: FormFieldTile(
-                      onTap: () => _pickIngredient(ingredients, units),
-                      placeholder: l10n.lineIngredientHint,
-                      value: _ingredientName,
-                    ),
-                  ),
-                  if (_submitted && _ingredientId == null)
-                    _FieldError(message: l10n.lineIngredientRequired),
-                  const SizedBox(height: 16),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: FieldLabel(
-                          label: l10n.lineQuantityLabel,
-                          child: AppTextField(
-                            controller: _quantityController,
-                            hintText: l10n.lineQuantityHint,
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                            ),
-                            onChanged: (_) {
-                              if (_submitted) setState(() {});
-                            },
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: FieldLabel(
-                          label: l10n.lineUnitLabel,
-                          child: FormFieldTile(
-                            onTap: _ingredientId == null
-                                ? () {}
-                                : () => _pickUnit(units),
-                            placeholder: l10n.lineUnitHint,
-                            value: unit?.name,
-                            trailing: unitAllowsChoice
-                                ? const Icon(
-                                    Icons.expand_more,
-                                    color: AppColors.textTertiary,
-                                    size: 18,
-                                  )
-                                : null,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (quantityError)
-                    _FieldError(message: l10n.lineQuantityInvalid),
-                  const SizedBox(height: 16),
-                  // §2.5: supplier category, set on the ingredient (catalog-wide)
-                  // so a line built here lands in the right shopping group.
-                  FieldLabel(
-                    label: l10n.lineSupplierCategoryLabel,
-                    child: FormFieldTile(
-                      onTap: _ingredientId == null
-                          ? () {}
-                          : () => _pickSupplierCategory(
-                              categories,
-                              categoryId,
-                            ),
-                      placeholder: _ingredientId == null
-                          ? l10n.lineSupplierCategoryPickIngredientFirst
-                          : l10n.lineSupplierCategoryHint,
-                      value: supplierCategory?.name,
-                      onClear: categoryId == null
-                          ? null
-                          : () => setState(() {
-                              _supplierCategoryId = null;
-                              _categoryResolved = true;
-                            }),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  FieldLabel(
-                    label: l10n.linePrepNoteLabel,
-                    child: AppTextField(
-                      controller: _prepController,
-                      hintText: l10n.linePrepNoteHint,
-                      maxLines: 3,
-                      textInputAction: TextInputAction.newline,
-                    ),
-                  ),
-                ],
-              ),
-      ),
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-          decoration: const BoxDecoration(
-            color: AppColors.bg,
-            border: Border(top: BorderSide(color: AppColors.border, width: 1)),
-          ),
-          child: PrimaryButton(
-            label: l10n.saveAction,
-            icon: Icons.check,
-            onPressed: loading ? null : _save,
-          ),
-        ),
-      ),
     );
   }
 }

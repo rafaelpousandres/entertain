@@ -7,7 +7,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_typography.dart';
 import '../../../ui/app_form_field.dart';
-import '../../../ui/primary_button.dart';
+import '../../../ui/edit_scaffold.dart';
 import '../../../ui/segmented_choice.dart';
 import '../../../ui/stepper_field.dart';
 import '../data/event.dart';
@@ -80,6 +80,12 @@ class _EventFormState extends ConsumerState<_EventForm> {
   // Whether the user already attempted to save; used to gate re-validation
   // on subsequent edits without flashing red text on first keystroke.
   bool _submitted = false;
+  // §2.3: tracks user edits so the unsaved-changes guard knows when to prompt.
+  bool _dirty = false;
+
+  void _markDirty() {
+    if (!_dirty) setState(() => _dirty = true);
+  }
 
   @override
   void initState() {
@@ -120,7 +126,10 @@ class _EventFormState extends ConsumerState<_EventForm> {
       builder: _pickerTheme,
     );
     if (picked != null) {
-      setState(() => _draft.eventDate = picked);
+      setState(() {
+        _dirty = true;
+        _draft.eventDate = picked;
+      });
     }
   }
 
@@ -131,7 +140,10 @@ class _EventFormState extends ConsumerState<_EventForm> {
       builder: _pickerTheme,
     );
     if (picked != null) {
-      setState(() => _draft.eventTime = picked);
+      setState(() {
+        _dirty = true;
+        _draft.eventTime = picked;
+      });
     }
   }
 
@@ -264,186 +276,177 @@ class _EventFormState extends ConsumerState<_EventForm> {
     final l10n = AppLocalizations.of(context);
     final locale = Localizations.localeOf(context);
 
-    return Scaffold(
-      backgroundColor: AppColors.bg,
-      appBar: AppBar(
-        title: Text(
-          widget.isEditing
-              ? l10n.eventEditScreenTitle
-              : l10n.eventNewScreenTitle,
-          style: AppTypography.sectionTitle,
-        ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          tooltip: l10n.backAction,
-          onPressed: _busy ? null : () => context.pop(),
-        ),
-        actions: [
-          if (widget.isEditing)
-            PopupMenuButton<_OverflowAction>(
-              icon: const Icon(Icons.more_vert),
-              tooltip: l10n.moreActionsLabel,
-              color: AppColors.surface,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              onSelected: (action) {
-                switch (action) {
-                  case _OverflowAction.delete:
-                    _confirmDelete();
-                }
-              },
-              itemBuilder: (context) => [
-                PopupMenuItem(
-                  value: _OverflowAction.delete,
-                  child: Text(
-                    l10n.deleteAction,
-                    style: AppTypography.body.copyWith(color: AppColors.danger),
-                  ),
-                ),
-              ],
+    return EditScaffold(
+      title: widget.isEditing
+          ? l10n.eventEditScreenTitle
+          : l10n.eventNewScreenTitle,
+      hasUnsavedChanges: _dirty,
+      busy: _busy,
+      onSave: _busy ? null : _save,
+      trailingActions: [
+        if (widget.isEditing)
+          PopupMenuButton<_OverflowAction>(
+            icon: const Icon(Icons.more_vert),
+            tooltip: l10n.moreActionsLabel,
+            color: AppColors.surface,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
             ),
-        ],
-      ),
-      body: SafeArea(
-        top: false,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-          children: [
-            FieldLabel(
-              label: l10n.fieldTitleLabel,
-              child: AppTextField(
-                controller: _titleController,
-                hintText: l10n.fieldTitleHint,
-                onChanged: (value) {
-                  if (!_submitted) return;
+            onSelected: (action) {
+              switch (action) {
+                case _OverflowAction.delete:
+                  _confirmDelete();
+              }
+            },
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: _OverflowAction.delete,
+                child: Text(
+                  l10n.deleteAction,
+                  style: AppTypography.body.copyWith(color: AppColors.danger),
+                ),
+              ),
+            ],
+          ),
+      ],
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+        children: [
+          FieldLabel(
+            label: l10n.fieldTitleLabel,
+            child: AppTextField(
+              controller: _titleController,
+              hintText: l10n.fieldTitleHint,
+              onChanged: (value) {
+                _dirty = true;
+                if (_submitted) {
                   setState(() {
                     _titleError = _validateTitle(l10n, value);
                   });
-                },
+                }
+              },
+            ),
+          ),
+          if (_titleError != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                _titleError!,
+                style: AppTypography.caption.copyWith(color: AppColors.danger),
               ),
             ),
-            if (_titleError != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 6),
-                child: Text(
-                  _titleError!,
-                  style: AppTypography.caption.copyWith(
-                    color: AppColors.danger,
-                  ),
-                ),
-              ),
-            const SizedBox(height: 16),
-            FieldLabel(
-              label: l10n.fieldTypeLabel,
-              child: SegmentedChoice<EventType>(
-                value: _draft.type,
-                onChanged: (v) => setState(() => _draft.type = v),
-                options: [
-                  for (final t in EventType.values)
-                    SegmentedChoiceOption(t, eventTypeLabel(l10n, t)),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            FieldLabel(
-              label: l10n.fieldFormatLabel,
-              child: SegmentedChoice<EventFormat>(
-                value: _draft.format,
-                onChanged: (v) => setState(() => _draft.format = v),
-                options: [
-                  for (final f in EventFormat.values)
-                    SegmentedChoiceOption(f, eventFormatLabel(l10n, f)),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Fixes §2.1: the earlier fixed proportion overcorrected — at
-                // 3:1 the Date had excess space and the Time ("21:00") wrapped.
-                // Instead the Time field is sized intrinsically to its content
-                // (HH:MM plus the clear icon) and the Date takes the remaining
-                // width, so neither wraps regardless of the month name's length.
-                Expanded(
-                  child: FieldLabel(
-                    label: l10n.fieldDateLabel,
-                    child: FormFieldTile(
-                      onTap: _pickDate,
-                      placeholder: l10n.fieldDateHint,
-                      value: _draft.eventDate == null
-                          ? null
-                          : DateFormat.yMMMd(
-                              locale.toLanguageTag(),
-                            ).format(_draft.eventDate!),
-                      onClear: _draft.eventDate == null
-                          ? null
-                          : () => setState(() => _draft.eventDate = null),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                IntrinsicWidth(
-                  child: FieldLabel(
-                    label: l10n.fieldTimeLabel,
-                    child: FormFieldTile(
-                      onTap: _pickTime,
-                      placeholder: l10n.fieldTimeHint,
-                      value: _draft.eventTime == null
-                          ? null
-                          : _formatTime(_draft.eventTime!, locale),
-                      onClear: _draft.eventTime == null
-                          ? null
-                          : () => setState(() => _draft.eventTime = null),
-                    ),
-                  ),
-                ),
+          const SizedBox(height: 16),
+          FieldLabel(
+            label: l10n.fieldTypeLabel,
+            child: SegmentedChoice<EventType>(
+              value: _draft.type,
+              onChanged: (v) => setState(() {
+                _dirty = true;
+                _draft.type = v;
+              }),
+              options: [
+                for (final t in EventType.values)
+                  SegmentedChoiceOption(t, eventTypeLabel(l10n, t)),
               ],
             ),
-            const SizedBox(height: 16),
-            FieldLabel(
-              label: l10n.fieldGuestCountLabel,
-              child: StepperField(
-                value: _draft.guestCount,
-                onChanged: (v) => setState(() => _draft.guestCount = v),
-              ),
-            ),
-            const SizedBox(height: 16),
-            FieldLabel(
-              label: l10n.fieldLocationLabel,
-              child: AppTextField(
-                controller: _locationController,
-                hintText: l10n.fieldLocationHint,
-              ),
-            ),
-            const SizedBox(height: 16),
-            FieldLabel(
-              label: l10n.fieldNotesLabel,
-              child: AppTextField(
-                controller: _notesController,
-                hintText: l10n.fieldNotesHint,
-                maxLines: 4,
-                textInputAction: TextInputAction.newline,
-              ),
-            ),
-          ],
-        ),
-      ),
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-          decoration: const BoxDecoration(
-            color: AppColors.bg,
-            border: Border(top: BorderSide(color: AppColors.border, width: 1)),
           ),
-          child: PrimaryButton(
-            label: l10n.saveAction,
-            icon: Icons.check,
-            onPressed: _busy ? null : _save,
+          const SizedBox(height: 16),
+          FieldLabel(
+            label: l10n.fieldFormatLabel,
+            child: SegmentedChoice<EventFormat>(
+              value: _draft.format,
+              onChanged: (v) => setState(() {
+                _dirty = true;
+                _draft.format = v;
+              }),
+              options: [
+                for (final f in EventFormat.values)
+                  SegmentedChoiceOption(f, eventFormatLabel(l10n, f)),
+              ],
+            ),
           ),
-        ),
+          const SizedBox(height: 16),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Fixes §2.1: the earlier fixed proportion overcorrected — at
+              // 3:1 the Date had excess space and the Time ("21:00") wrapped.
+              // Instead the Time field is sized intrinsically to its content
+              // (HH:MM plus the clear icon) and the Date takes the remaining
+              // width, so neither wraps regardless of the month name's length.
+              Expanded(
+                child: FieldLabel(
+                  label: l10n.fieldDateLabel,
+                  child: FormFieldTile(
+                    onTap: _pickDate,
+                    placeholder: l10n.fieldDateHint,
+                    value: _draft.eventDate == null
+                        ? null
+                        : DateFormat.yMMMd(
+                            locale.toLanguageTag(),
+                          ).format(_draft.eventDate!),
+                    onClear: _draft.eventDate == null
+                        ? null
+                        : () => setState(() {
+                            _dirty = true;
+                            _draft.eventDate = null;
+                          }),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              IntrinsicWidth(
+                child: FieldLabel(
+                  label: l10n.fieldTimeLabel,
+                  child: FormFieldTile(
+                    onTap: _pickTime,
+                    placeholder: l10n.fieldTimeHint,
+                    value: _draft.eventTime == null
+                        ? null
+                        : _formatTime(_draft.eventTime!, locale),
+                    onClear: _draft.eventTime == null
+                        ? null
+                        : () => setState(() {
+                            _dirty = true;
+                            _draft.eventTime = null;
+                          }),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          FieldLabel(
+            label: l10n.fieldGuestCountLabel,
+            child: StepperField(
+              value: _draft.guestCount,
+              onChanged: (v) => setState(() {
+                _dirty = true;
+                _draft.guestCount = v;
+              }),
+            ),
+          ),
+          const SizedBox(height: 16),
+          FieldLabel(
+            label: l10n.fieldLocationLabel,
+            child: AppTextField(
+              controller: _locationController,
+              hintText: l10n.fieldLocationHint,
+              onChanged: (_) => _markDirty(),
+            ),
+          ),
+          const SizedBox(height: 16),
+          FieldLabel(
+            label: l10n.fieldNotesLabel,
+            child: AppTextField(
+              controller: _notesController,
+              hintText: l10n.fieldNotesHint,
+              maxLines: 4,
+              textInputAction: TextInputAction.newline,
+              onChanged: (_) => _markDirty(),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -410,7 +410,9 @@ class _LoadError extends StatelessWidget {
           children: [
             Text(
               message,
-              style: AppTypography.body.copyWith(color: AppColors.textSecondary),
+              style: AppTypography.body.copyWith(
+                color: AppColors.textSecondary,
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 16),
@@ -471,6 +473,10 @@ class _ServingsEditorState extends ConsumerState<_ServingsEditor> {
     ref.invalidate(eventDishByIdProvider(widget.eventDishId));
     ref.invalidate(eventDishLinesProvider(widget.eventDishId));
     ref.invalidate(eventShoppingProvider(widget.eventId));
+    // Fixes §2.1: the menu tab's dish card reads `servings` from the
+    // event-dishes list, so that provider must be invalidated too — otherwise
+    // the card keeps showing the old servings until the app is restarted.
+    ref.invalidate(eventDishesProvider(widget.eventId));
   }
 
   @override
