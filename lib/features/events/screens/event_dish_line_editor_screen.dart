@@ -6,7 +6,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_typography.dart';
 import '../../../ui/app_form_field.dart';
-import '../../../ui/primary_button.dart';
+import '../../../ui/edit_scaffold.dart';
 import '../../../ui/single_choice_sheet.dart';
 import '../../catalog/data/catalog_providers.dart';
 import '../../catalog/data/dish.dart' show formatQuantity;
@@ -77,6 +77,12 @@ class _EventDishLineEditorScreenState
 
   bool _submitted = false;
   bool _busy = false;
+  // §2.3: tracks user edits so the unsaved-changes guard knows when to prompt.
+  bool _dirty = false;
+
+  void _markDirty() {
+    if (!_dirty) setState(() => _dirty = true);
+  }
 
   /// Spec 008 §2.10: the quantity field shows the *scaled* value (what the user
   /// sees elsewhere), seeded once the event-dish servings and units are known.
@@ -131,15 +137,18 @@ class _EventDishLineEditorScreenState
   Future<void> _pickIngredient(
     List<Ingredient> ingredients,
     List<Unit> units,
+    List<SupplierCategory> categories,
   ) async {
     final picked = await showIngredientPicker(
       context: context,
       ref: ref,
       ingredients: ingredients,
       units: units,
+      categories: categories,
     );
     if (picked == null || !mounted) return;
     setState(() {
+      _dirty = true;
       _ingredientId = picked.id;
       _ingredientName = picked.name;
       // The new ingredient may belong to a different unit family; reset to its
@@ -176,7 +185,10 @@ class _EventDishLineEditorScreenState
       options: [
         for (final u in allowed) SingleChoiceOption(value: u.id, label: u.name),
       ],
-      onSelected: (id) => setState(() => _unitId = id),
+      onSelected: (id) => setState(() {
+        _dirty = true;
+        _unitId = id;
+      }),
     );
   }
 
@@ -190,8 +202,14 @@ class _EventDishLineEditorScreenState
         for (final c in categories)
           SingleChoiceOption(value: c.id, label: c.name),
       ],
-      onSelected: (id) => setState(() => _supplierCategoryId = id),
-      onCleared: () => setState(() => _supplierCategoryId = null),
+      onSelected: (id) => setState(() {
+        _dirty = true;
+        _supplierCategoryId = id;
+      }),
+      onCleared: () => setState(() {
+        _dirty = true;
+        _supplierCategoryId = null;
+      }),
       clearLabel: l10n.supplierCategoryNoneLabel,
     );
   }
@@ -212,7 +230,10 @@ class _EventDishLineEditorScreenState
     // current servings, so that becomes the line's scaling reference (a new
     // ad-hoc line, or a rebased edit).
     final referenceServings =
-        ref.read(eventDishByIdProvider(widget.args.eventDishId)).value?.servings ??
+        ref
+            .read(eventDishByIdProvider(widget.args.eventDishId))
+            .value
+            ?.servings ??
         widget.args.line?.referenceServings ??
         1;
     try {
@@ -343,7 +364,8 @@ class _EventDishLineEditorScreenState
     final eventDish = ref
         .watch(eventDishByIdProvider(widget.args.eventDishId))
         .value;
-    final loading = units == null ||
+    final loading =
+        units == null ||
         ingredients == null ||
         categories == null ||
         eventDish == null;
@@ -377,22 +399,15 @@ class _EventDishLineEditorScreenState
         ? null
         : categoriesById[_supplierCategoryId];
 
-    return Scaffold(
-      backgroundColor: AppColors.bg,
-      appBar: AppBar(
-        title: Text(
-          _isAdding ? l10n.lineEditorNewTitle : l10n.lineEditorEditTitle,
-          style: AppTypography.sectionTitle,
-        ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          tooltip: l10n.backAction,
-          onPressed: _busy ? null : () => context.pop(),
-        ),
-        actions: [
-          // Removing only applies to a line that already exists.
-          if (!_isAdding)
-            PopupMenuButton<_OverflowAction>(
+    return EditScaffold(
+      title: _isAdding ? l10n.lineEditorNewTitle : l10n.lineEditorEditTitle,
+      hasUnsavedChanges: _dirty,
+      busy: _busy,
+      onSave: (loading || _busy) ? null : _save,
+      trailingActions: [
+        // Removing only applies to a line that already exists.
+        if (!_isAdding)
+          PopupMenuButton<_OverflowAction>(
             icon: const Icon(Icons.more_vert),
             tooltip: l10n.moreActionsLabel,
             color: AppColors.surface,
@@ -415,117 +430,104 @@ class _EventDishLineEditorScreenState
               ),
             ],
           ),
-        ],
-      ),
-      body: SafeArea(
-        top: false,
-        child: loading
-            ? const Center(
-                child: CircularProgressIndicator(color: AppColors.accent),
-              )
-            : ListView(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-                children: [
-                  FieldLabel(
-                    label: l10n.lineIngredientLabel,
-                    child: FormFieldTile(
-                      onTap: () => _pickIngredient(ingredients, units),
-                      placeholder: l10n.lineIngredientHint,
-                      value: _ingredientName,
-                    ),
+      ],
+      body: loading
+          ? const Center(
+              child: CircularProgressIndicator(color: AppColors.accent),
+            )
+          : ListView(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+              children: [
+                FieldLabel(
+                  label: l10n.lineIngredientLabel,
+                  child: FormFieldTile(
+                    onTap: () =>
+                        _pickIngredient(ingredients, units, categories),
+                    placeholder: l10n.lineIngredientHint,
+                    value: _ingredientName,
                   ),
-                  if (_submitted && _ingredientId == null)
-                    _FieldError(message: l10n.lineIngredientRequired),
-                  const SizedBox(height: 16),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: FieldLabel(
-                          label: l10n.lineQuantityLabel,
-                          child: AppTextField(
-                            controller: _quantityController,
-                            hintText: l10n.lineQuantityHint,
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                            ),
-                            onChanged: (_) {
-                              if (_submitted) setState(() {});
-                            },
+                ),
+                if (_submitted && _ingredientId == null)
+                  _FieldError(message: l10n.lineIngredientRequired),
+                const SizedBox(height: 16),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: FieldLabel(
+                        label: l10n.lineQuantityLabel,
+                        child: AppTextField(
+                          controller: _quantityController,
+                          hintText: l10n.lineQuantityHint,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
                           ),
+                          onChanged: (_) => setState(() => _dirty = true),
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: FieldLabel(
-                          label: l10n.lineUnitLabel,
-                          child: FormFieldTile(
-                            onTap: _ingredientId == null
-                                ? () {}
-                                : () => _pickUnit(units),
-                            placeholder: l10n.lineUnitHint,
-                            value: unit?.name,
-                            trailing: unitAllowsChoice
-                                ? const Icon(
-                                    Icons.expand_more,
-                                    color: AppColors.textTertiary,
-                                    size: 18,
-                                  )
-                                : null,
-                          ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FieldLabel(
+                        label: l10n.lineUnitLabel,
+                        child: FormFieldTile(
+                          onTap: _ingredientId == null
+                              ? () {}
+                              : () => _pickUnit(units),
+                          placeholder: l10n.lineUnitHint,
+                          value: unit?.name,
+                          trailing: unitAllowsChoice
+                              ? const Icon(
+                                  Icons.expand_more,
+                                  color: AppColors.textTertiary,
+                                  size: 18,
+                                )
+                              : null,
                         ),
                       ),
-                    ],
-                  ),
-                  if (quantityError)
-                    _FieldError(message: l10n.lineQuantityInvalid),
-                  const SizedBox(height: 16),
-                  FieldLabel(
-                    label: l10n.lineSupplierCategoryLabel,
-                    child: FormFieldTile(
-                      onTap: () => _pickSupplierCategory(categories),
-                      placeholder: l10n.lineSupplierCategoryHint,
-                      value: supplierCategory?.name,
-                      onClear: _supplierCategoryId == null
-                          ? null
-                          : () => setState(() => _supplierCategoryId = null),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  FieldLabel(
-                    label: l10n.linePrepNoteLabel,
-                    child: AppTextField(
-                      controller: _prepController,
-                      hintText: l10n.linePrepNoteHint,
-                      maxLines: 3,
-                      textInputAction: TextInputAction.newline,
-                    ),
-                  ),
-                  if (_canPromote) ...[
-                    const SizedBox(height: 16),
-                    _PromoteToRecipeCheckbox(
-                      value: _promoteToRecipe,
-                      onChanged: (v) => setState(() => _promoteToRecipe = v),
                     ),
                   ],
+                ),
+                if (quantityError)
+                  _FieldError(message: l10n.lineQuantityInvalid),
+                const SizedBox(height: 16),
+                FieldLabel(
+                  label: l10n.lineSupplierCategoryLabel,
+                  child: FormFieldTile(
+                    onTap: () => _pickSupplierCategory(categories),
+                    placeholder: l10n.lineSupplierCategoryHint,
+                    value: supplierCategory?.name,
+                    onClear: _supplierCategoryId == null
+                        ? null
+                        : () => setState(() {
+                            _dirty = true;
+                            _supplierCategoryId = null;
+                          }),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                FieldLabel(
+                  label: l10n.linePrepNoteLabel,
+                  child: AppTextField(
+                    controller: _prepController,
+                    hintText: l10n.linePrepNoteHint,
+                    maxLines: 3,
+                    textInputAction: TextInputAction.newline,
+                    onChanged: (_) => _markDirty(),
+                  ),
+                ),
+                if (_canPromote) ...[
+                  const SizedBox(height: 16),
+                  _PromoteToRecipeCheckbox(
+                    value: _promoteToRecipe,
+                    onChanged: (v) => setState(() {
+                      _dirty = true;
+                      _promoteToRecipe = v;
+                    }),
+                  ),
                 ],
-              ),
-      ),
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-          decoration: const BoxDecoration(
-            color: AppColors.bg,
-            border: Border(top: BorderSide(color: AppColors.border, width: 1)),
-          ),
-          child: PrimaryButton(
-            label: l10n.saveAction,
-            icon: Icons.check,
-            onPressed: loading || _busy ? null : _save,
-          ),
-        ),
-      ),
+              ],
+            ),
     );
   }
 }
@@ -573,9 +575,7 @@ class _PromoteToRecipeCheckbox extends StatelessWidget {
                 height: 22,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: value
-                      ? AppColors.accentSecondary
-                      : Colors.transparent,
+                  color: value ? AppColors.accentSecondary : Colors.transparent,
                   border: Border.all(
                     color: value
                         ? AppColors.accentSecondary

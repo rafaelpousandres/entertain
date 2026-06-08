@@ -144,6 +144,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
       backgroundColor: AppColors.bg,
       appBar: AppBar(
         title: Text(l10n.settingsScreenTitle, style: AppTypography.display),
+        actions: [
+          // §2.3: the Missatges tab saves from an AppBar check (always visible
+          // above the keyboard) instead of a bottom button.
+          if (_tab.index == 2)
+            IconButton(
+              icon: const Icon(Icons.check),
+              color: AppColors.accentSecondary,
+              tooltip: l10n.saveAction,
+              onPressed: _saving ? null : _saveMessages,
+            ),
+        ],
         bottom: TabBar(
           controller: _tab,
           labelColor: AppColors.accentSecondary,
@@ -183,9 +194,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
   }
 
   Widget? _buildBottomBar(AppLocalizations l10n) {
-    // General has no action bar; Proveïdors adds a category; Missatges saves.
-    if (_tab.index == 0) return null;
-    final isMessages = _tab.index == 2;
+    // §2.3: Missatges saves from the AppBar check now; only Proveïdors keeps a
+    // bottom action ("Afegeix categoria"). General has none.
+    if (_tab.index != 1) return null;
     return SafeArea(
       top: false,
       child: Container(
@@ -195,13 +206,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
           border: Border(top: BorderSide(color: AppColors.border, width: 1)),
         ),
         child: PrimaryButton(
-          label: isMessages
-              ? l10n.saveAction
-              : l10n.supplierCategoryAddAction,
-          icon: isMessages ? Icons.check : Icons.add,
-          onPressed: isMessages
-              ? (_saving ? null : _saveMessages)
-              : _addCategory,
+          label: l10n.supplierCategoryAddAction,
+          icon: Icons.add,
+          onPressed: _addCategory,
         ),
       ),
     );
@@ -276,7 +283,8 @@ class _SuppliersTab extends ConsumerWidget {
     // their localised label, then the consultive Rebost (pantry) at the bottom —
     // mirroring the shopping panel's order. Rebost is a pantry section, not a
     // supplier relationship, so it belongs visually after the real suppliers.
-    final categories = [...categoriesAsync.value!]..sort((a, b) {
+    final categories = [...categoriesAsync.value!]
+      ..sort((a, b) {
         final aPantry = isPantryCategory(a.code);
         final bPantry = isPantryCategory(b.code);
         if (aPantry != bPantry) return aPantry ? 1 : -1;
@@ -290,10 +298,7 @@ class _SuppliersTab extends ConsumerWidget {
           _CategoryRow(
             category: category,
             setting: settingsMap[category.id],
-            onTap: () => context.push(
-              '/settings/category',
-              extra: category,
-            ),
+            onTap: () => context.push('/settings/category', extra: category),
           ),
           const SizedBox(height: 8),
         ],
@@ -413,7 +418,8 @@ class _MessagesTab extends StatelessWidget {
     String greeting,
     String signature,
     TextMessageChannel textChannel,
-  ) onSeed;
+  )
+  onSeed;
 
   @override
   Widget build(BuildContext context) {

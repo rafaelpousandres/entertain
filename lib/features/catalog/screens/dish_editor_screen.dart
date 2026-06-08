@@ -6,7 +6,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_typography.dart';
 import '../../../ui/app_form_field.dart';
-import '../../../ui/primary_button.dart';
+import '../../../ui/edit_scaffold.dart';
 import '../../../ui/secondary_button.dart';
 import '../../../ui/segmented_choice.dart';
 import '../../../ui/stepper_field.dart';
@@ -82,6 +82,8 @@ class _DishFormState extends ConsumerState<_DishForm> {
   bool _deleting = false;
   bool _submitted = false;
   String? _nameError;
+  // §2.3: tracks user edits so the unsaved-changes guard knows when to prompt.
+  bool _dirty = false;
 
   bool get _busy => _saving || _deleting;
 
@@ -109,7 +111,10 @@ class _DishFormState extends ConsumerState<_DishForm> {
   Future<void> _addLine() async {
     final result = await context.push<LineEditorResult>('/dish-line-editor');
     if (result?.line != null) {
-      setState(() => _draft.lines.add(result!.line!));
+      setState(() {
+        _dirty = true;
+        _draft.lines.add(result!.line!);
+      });
     }
   }
 
@@ -120,6 +125,7 @@ class _DishFormState extends ConsumerState<_DishForm> {
     );
     if (result == null) return;
     setState(() {
+      _dirty = true;
       if (result.removed) {
         _draft.lines.removeAt(index);
       } else if (result.line != null) {
@@ -230,154 +236,144 @@ class _DishFormState extends ConsumerState<_DishForm> {
     final units = ref.watch(unitsProvider(localeCode)).value;
     final unitsById = {for (final u in units ?? const <Unit>[]) u.id: u};
 
-    return Scaffold(
-      backgroundColor: AppColors.bg,
-      appBar: AppBar(
-        title: Text(
-          widget.isEditing ? l10n.dishEditScreenTitle : l10n.dishNewScreenTitle,
-          style: AppTypography.sectionTitle,
-        ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          tooltip: l10n.backAction,
-          onPressed: _busy ? null : () => context.pop(),
-        ),
-        actions: [
-          if (widget.isEditing)
-            PopupMenuButton<_OverflowAction>(
-              icon: const Icon(Icons.more_vert),
-              tooltip: l10n.moreActionsLabel,
-              color: AppColors.surface,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+    return EditScaffold(
+      title: widget.isEditing
+          ? l10n.dishEditScreenTitle
+          : l10n.dishNewScreenTitle,
+      hasUnsavedChanges: _dirty,
+      busy: _busy,
+      onSave: _busy ? null : _save,
+      trailingActions: [
+        if (widget.isEditing)
+          PopupMenuButton<_OverflowAction>(
+            icon: const Icon(Icons.more_vert),
+            tooltip: l10n.moreActionsLabel,
+            color: AppColors.surface,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            onSelected: (action) {
+              switch (action) {
+                case _OverflowAction.delete:
+                  _confirmDelete();
+              }
+            },
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: _OverflowAction.delete,
+                child: Text(
+                  l10n.deleteAction,
+                  style: AppTypography.body.copyWith(color: AppColors.danger),
+                ),
               ),
-              onSelected: (action) {
-                switch (action) {
-                  case _OverflowAction.delete:
-                    _confirmDelete();
+            ],
+          ),
+      ],
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+        children: [
+          FieldLabel(
+            label: l10n.dishNameLabel,
+            child: AppTextField(
+              controller: _nameController,
+              hintText: l10n.dishNameHint,
+              onChanged: (value) {
+                _dirty = true;
+                if (_submitted) {
+                  setState(() {
+                    _nameError = value.trim().isEmpty
+                        ? l10n.dishNameRequired
+                        : null;
+                  });
                 }
               },
-              itemBuilder: (context) => [
-                PopupMenuItem(
-                  value: _OverflowAction.delete,
-                  child: Text(
-                    l10n.deleteAction,
-                    style: AppTypography.body.copyWith(color: AppColors.danger),
-                  ),
-                ),
+            ),
+          ),
+          if (_nameError != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                _nameError!,
+                style: AppTypography.caption.copyWith(color: AppColors.danger),
+              ),
+            ),
+          // Fixes round 2 §2.1: the description is a one-line subtitle of the
+          // dish, so it sits immediately after the title, ahead of the
+          // metadata fields (Nom → Descripció → Categoria → Racions base).
+          const SizedBox(height: 16),
+          FieldLabel(
+            label: l10n.dishDescriptionLabel,
+            child: AppTextField(
+              controller: _descriptionController,
+              hintText: l10n.dishDescriptionHint,
+              onChanged: (_) => _dirty = true,
+            ),
+          ),
+          const SizedBox(height: 16),
+          FieldLabel(
+            label: l10n.dishCategoryLabel,
+            child: SegmentedChoice<DishCategory>(
+              value: _draft.category,
+              onChanged: (v) => setState(() {
+                _dirty = true;
+                _draft.category = v;
+              }),
+              options: [
+                for (final c in dishCategoryOrder)
+                  SegmentedChoiceOption(c, dishCategoryLabel(l10n, c)),
               ],
             ),
-        ],
-      ),
-      body: SafeArea(
-        top: false,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-          children: [
-            FieldLabel(
-              label: l10n.dishNameLabel,
-              child: AppTextField(
-                controller: _nameController,
-                hintText: l10n.dishNameHint,
-                onChanged: (value) {
-                  if (!_submitted) return;
-                  setState(() {
-                    _nameError =
-                        value.trim().isEmpty ? l10n.dishNameRequired : null;
-                  });
-                },
-              ),
+          ),
+          const SizedBox(height: 16),
+          FieldLabel(
+            label: l10n.dishBaseServingsLabel,
+            child: StepperField(
+              value: _draft.baseServings,
+              onChanged: (v) => setState(() {
+                _dirty = true;
+                _draft.baseServings = v;
+              }),
             ),
-            if (_nameError != null)
+          ),
+          const SizedBox(height: 24),
+          Text(
+            l10n.dishIngredientsSectionTitle,
+            style: AppTypography.sectionTitle,
+          ),
+          const SizedBox(height: 8),
+          if (_draft.lines.isEmpty)
+            _LinesEmpty()
+          else
+            for (var i = 0; i < _draft.lines.length; i++)
               Padding(
-                padding: const EdgeInsets.only(top: 6),
-                child: Text(
-                  _nameError!,
-                  style: AppTypography.caption.copyWith(color: AppColors.danger),
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _LineRow(
+                  line: _draft.lines[i],
+                  unit: unitsById[_draft.lines[i].unitId],
+                  onTap: () => _editLine(i),
                 ),
               ),
-            // Fixes round 2 §2.1: the description is a one-line subtitle of the
-            // dish, so it sits immediately after the title, ahead of the
-            // metadata fields (Nom → Descripció → Categoria → Racions base).
-            const SizedBox(height: 16),
-            FieldLabel(
-              label: l10n.dishDescriptionLabel,
-              child: AppTextField(
-                controller: _descriptionController,
-                hintText: l10n.dishDescriptionHint,
-              ),
-            ),
-            const SizedBox(height: 16),
-            FieldLabel(
-              label: l10n.dishCategoryLabel,
-              child: SegmentedChoice<DishCategory>(
-                value: _draft.category,
-                onChanged: (v) => setState(() => _draft.category = v),
-                options: [
-                  for (final c in dishCategoryOrder)
-                    SegmentedChoiceOption(c, dishCategoryLabel(l10n, c)),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            FieldLabel(
-              label: l10n.dishBaseServingsLabel,
-              child: StepperField(
-                value: _draft.baseServings,
-                onChanged: (v) => setState(() => _draft.baseServings = v),
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(l10n.dishIngredientsSectionTitle, style: AppTypography.sectionTitle),
-            const SizedBox(height: 8),
-            if (_draft.lines.isEmpty)
-              _LinesEmpty()
-            else
-              for (var i = 0; i < _draft.lines.length; i++)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: _LineRow(
-                    line: _draft.lines[i],
-                    unit: unitsById[_draft.lines[i].unitId],
-                    onTap: () => _editLine(i),
-                  ),
-                ),
-            const SizedBox(height: 12),
-            SecondaryButton(
-              label: l10n.addIngredientLineAction,
-              icon: Icons.add,
-              onPressed: _busy ? null : _addLine,
-            ),
-            // Fixes §2.2: the preparation goes below the ingredient lines so the
-            // editor follows a recipe's natural reading order (title →
-            // description → metadata → ingredients → preparation).
-            const SizedBox(height: 24),
-            FieldLabel(
-              label: l10n.dishPreparationLabel,
-              child: AppTextField(
-                controller: _preparationController,
-                hintText: l10n.dishPreparationHint,
-                maxLines: 8,
-                textInputAction: TextInputAction.newline,
-              ),
-            ),
-          ],
-        ),
-      ),
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-          decoration: const BoxDecoration(
-            color: AppColors.bg,
-            border: Border(top: BorderSide(color: AppColors.border, width: 1)),
+          const SizedBox(height: 12),
+          SecondaryButton(
+            label: l10n.addIngredientLineAction,
+            icon: Icons.add,
+            onPressed: _busy ? null : _addLine,
           ),
-          child: PrimaryButton(
-            label: l10n.saveAction,
-            icon: Icons.check,
-            onPressed: _busy ? null : _save,
+          // Fixes §2.2: the preparation goes below the ingredient lines so the
+          // editor follows a recipe's natural reading order (title →
+          // description → metadata → ingredients → preparation).
+          const SizedBox(height: 24),
+          FieldLabel(
+            label: l10n.dishPreparationLabel,
+            child: AppTextField(
+              controller: _preparationController,
+              hintText: l10n.dishPreparationHint,
+              maxLines: 8,
+              textInputAction: TextInputAction.newline,
+              onChanged: (_) => _dirty = true,
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -517,7 +513,9 @@ class _Error extends StatelessWidget {
           children: [
             Text(
               message,
-              style: AppTypography.body.copyWith(color: AppColors.textSecondary),
+              style: AppTypography.body.copyWith(
+                color: AppColors.textSecondary,
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 16),

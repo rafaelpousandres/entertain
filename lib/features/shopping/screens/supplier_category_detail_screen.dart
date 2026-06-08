@@ -6,7 +6,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_typography.dart';
 import '../../../ui/app_form_field.dart';
-import '../../../ui/primary_button.dart';
+import '../../../ui/edit_scaffold.dart';
 import '../../catalog/data/catalog_providers.dart';
 import '../../catalog/data/reference_data.dart';
 import '../../events/data/events_providers.dart' show currentGroupIdProvider;
@@ -51,6 +51,12 @@ class _SupplierCategoryDetailScreenState
   bool _saving = false;
   bool _deleting = false;
   String? _nameError;
+  // §2.3: tracks user edits so the unsaved-changes guard knows when to prompt.
+  bool _dirty = false;
+
+  void _markDirty() {
+    if (!_dirty) setState(() => _dirty = true);
+  }
 
   bool get _isPantry => isPantryCategory(widget.category.code);
   bool get _isUser => widget.category.isUserCategory;
@@ -107,7 +113,9 @@ class _SupplierCategoryDetailScreenState
         final phone = _phoneController.text.trim();
         final email = _emailController.text.trim();
         final supplierName = _supplierNameController.text.trim();
-        await ref.read(settingsRepositoryProvider).upsertSetting(
+        await ref
+            .read(settingsRepositoryProvider)
+            .upsertSetting(
               groupId: groupId,
               supplierCategoryId: widget.category.id,
               channel: _channel,
@@ -195,192 +203,182 @@ class _SupplierCategoryDetailScreenState
     final settingsAsync = ref.watch(groupSupplierSettingsProvider);
     final busy = _saving || _deleting;
 
-    return Scaffold(
-      backgroundColor: AppColors.bg,
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          tooltip: l10n.backAction,
-          onPressed: busy ? null : () => context.pop(),
+    return EditScaffold(
+      title: widget.category.name,
+      hasUnsavedChanges: _dirty,
+      busy: busy,
+      onSave: busy ? null : _save,
+      body: settingsAsync.when(
+        loading: () => const Center(
+          child: CircularProgressIndicator(color: AppColors.accent),
         ),
-        title: Text(widget.category.name, style: AppTypography.sectionTitle),
-      ),
-      body: SafeArea(
-        top: false,
-        child: settingsAsync.when(
-          loading: () => const Center(
-            child: CircularProgressIndicator(color: AppColors.accent),
-          ),
-          error: (_, _) => _Message(text: l10n.settingsLoadError),
-          data: (settingsMap) {
-            _seed(settingsMap);
-            return ListView(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      supplierCategoryIcon(widget.category.code),
-                      size: 22,
-                      color: AppColors.accentSecondary,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        widget.category.name,
-                        style: AppTypography.sectionTitle,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                // Spec 008 §2.3: the concrete supplier name ("Peixos Samba"),
-                // free text, at the top of the screen — but not for the Rebost
-                // pantry, which has no supplier behind it.
-                if (_showChannel) ...[
-                  FieldLabel(
-                    label: l10n.supplierNameLabel,
-                    child: AppTextField(
-                      controller: _supplierNameController,
-                      hintText: l10n.supplierNameHint,
-                    ),
+        error: (_, _) => _Message(text: l10n.settingsLoadError),
+        data: (settingsMap) {
+          _seed(settingsMap);
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    supplierCategoryIcon(widget.category.code),
+                    size: 22,
+                    color: AppColors.accentSecondary,
                   ),
-                  const SizedBox(height: 16),
-                ],
-                FieldLabel(
-                  label: l10n.supplierCategoryCategoryLabel,
-                  child: _isUser
-                      ? AppTextField(
-                          controller: _nameController,
-                          hintText: l10n.supplierCategoryNameHint,
-                          onChanged: (_) {
-                            if (_nameError != null) {
-                              setState(() => _nameError = null);
-                            }
-                          },
-                        )
-                      : _ReadOnlyField(value: widget.category.name),
-                ),
-                if (_nameError != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 6),
+                  const SizedBox(width: 8),
+                  Expanded(
                     child: Text(
-                      _nameError!,
-                      style: AppTypography.caption.copyWith(
-                        color: AppColors.danger,
-                      ),
-                    ),
-                  ),
-                if (!_isUser) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    l10n.supplierCategorySystemNameHint,
-                    style: AppTypography.caption,
-                  ),
-                ],
-                if (_showChannel) ...[
-                  // Fixes round 2 §2.4: pair each preferred-channel option with
-                  // its address on the same row, so the link between a channel
-                  // and the address it sends to is immediate. Both addresses
-                  // stay stored and editable (Fixes §2.1); the non-selected rows
-                  // read as visually secondary. Compartir (round 2 §2.3) and Cap
-                  // need no address.
-                  const SizedBox(height: 24),
-                  Text(
-                    l10n.supplierPreferredChannelLabel,
-                    style: AppTypography.label.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  _ChannelRow(
-                    icon: channelIcon(MessageChannel.whatsapp),
-                    label: l10n.channelWhatsApp,
-                    selected: _channel == MessageChannel.whatsapp,
-                    onSelect: () =>
-                        setState(() => _channel = MessageChannel.whatsapp),
-                    field: AppTextField(
-                      controller: _phoneController,
-                      hintText: l10n.addressWhatsAppHint,
-                      keyboardType: TextInputType.phone,
-                      textCapitalization: TextCapitalization.none,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  _ChannelRow(
-                    icon: channelIcon(MessageChannel.email),
-                    label: l10n.channelEmail,
-                    selected: _channel == MessageChannel.email,
-                    onSelect: () =>
-                        setState(() => _channel = MessageChannel.email),
-                    field: AppTextField(
-                      controller: _emailController,
-                      hintText: l10n.addressEmailHint,
-                      keyboardType: TextInputType.emailAddress,
-                      textCapitalization: TextCapitalization.none,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  _ChannelRow(
-                    icon: channelIcon(MessageChannel.share),
-                    label: l10n.channelShare,
-                    selected: _channel == MessageChannel.share,
-                    onSelect: () =>
-                        setState(() => _channel = MessageChannel.share),
-                    hint: l10n.supplierShareNoAddressHint,
-                  ),
-                  const SizedBox(height: 10),
-                  _ChannelRow(
-                    icon: channelIcon(null),
-                    label: l10n.channelNone,
-                    selected: _channel == null,
-                    onSelect: () => setState(() => _channel = null),
-                  ),
-                ] else ...[
-                  const SizedBox(height: 16),
-                  Text(
-                    l10n.supplierCategoryPantryHint,
-                    style: AppTypography.caption,
-                  ),
-                ],
-                if (_isUser) ...[
-                  const SizedBox(height: 32),
-                  Center(
-                    child: TextButton.icon(
-                      onPressed: busy ? null : _confirmDelete,
-                      icon: const Icon(
-                        Icons.delete_outline,
-                        size: 18,
-                        color: AppColors.danger,
-                      ),
-                      label: Text(
-                        l10n.deleteSupplierCategoryAction,
-                        style: AppTypography.button.copyWith(
-                          color: AppColors.danger,
-                        ),
-                      ),
+                      widget.category.name,
+                      style: AppTypography.sectionTitle,
                     ),
                   ),
                 ],
+              ),
+              const SizedBox(height: 20),
+              // Spec 008 §2.3: the concrete supplier name ("Peixos Samba"),
+              // free text, at the top of the screen — but not for the Rebost
+              // pantry, which has no supplier behind it.
+              if (_showChannel) ...[
+                FieldLabel(
+                  label: l10n.supplierNameLabel,
+                  child: AppTextField(
+                    controller: _supplierNameController,
+                    hintText: l10n.supplierNameHint,
+                    onChanged: (_) => _markDirty(),
+                  ),
+                ),
+                const SizedBox(height: 16),
               ],
-            );
-          },
-        ),
-      ),
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-          decoration: const BoxDecoration(
-            color: AppColors.bg,
-            border: Border(top: BorderSide(color: AppColors.border, width: 1)),
-          ),
-          child: PrimaryButton(
-            label: l10n.saveAction,
-            icon: Icons.check,
-            onPressed: busy ? null : _save,
-          ),
-        ),
+              FieldLabel(
+                label: l10n.supplierCategoryCategoryLabel,
+                child: _isUser
+                    ? AppTextField(
+                        controller: _nameController,
+                        hintText: l10n.supplierCategoryNameHint,
+                        onChanged: (_) {
+                          _dirty = true;
+                          if (_nameError != null) {
+                            setState(() => _nameError = null);
+                          }
+                        },
+                      )
+                    : _ReadOnlyField(value: widget.category.name),
+              ),
+              if (_nameError != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text(
+                    _nameError!,
+                    style: AppTypography.caption.copyWith(
+                      color: AppColors.danger,
+                    ),
+                  ),
+                ),
+              if (!_isUser) ...[
+                const SizedBox(height: 6),
+                Text(
+                  l10n.supplierCategorySystemNameHint,
+                  style: AppTypography.caption,
+                ),
+              ],
+              if (_showChannel) ...[
+                // Fixes round 2 §2.4: pair each preferred-channel option with
+                // its address on the same row, so the link between a channel
+                // and the address it sends to is immediate. Both addresses
+                // stay stored and editable (Fixes §2.1); the non-selected rows
+                // read as visually secondary. Compartir (round 2 §2.3) and Cap
+                // need no address.
+                const SizedBox(height: 24),
+                Text(
+                  l10n.supplierPreferredChannelLabel,
+                  style: AppTypography.label.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _ChannelRow(
+                  icon: channelIcon(MessageChannel.whatsapp),
+                  label: l10n.channelWhatsApp,
+                  selected: _channel == MessageChannel.whatsapp,
+                  onSelect: () => setState(() {
+                    _dirty = true;
+                    _channel = MessageChannel.whatsapp;
+                  }),
+                  field: AppTextField(
+                    controller: _phoneController,
+                    hintText: l10n.addressWhatsAppHint,
+                    keyboardType: TextInputType.phone,
+                    textCapitalization: TextCapitalization.none,
+                    onChanged: (_) => _markDirty(),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                _ChannelRow(
+                  icon: channelIcon(MessageChannel.email),
+                  label: l10n.channelEmail,
+                  selected: _channel == MessageChannel.email,
+                  onSelect: () => setState(() {
+                    _dirty = true;
+                    _channel = MessageChannel.email;
+                  }),
+                  field: AppTextField(
+                    controller: _emailController,
+                    hintText: l10n.addressEmailHint,
+                    keyboardType: TextInputType.emailAddress,
+                    textCapitalization: TextCapitalization.none,
+                    onChanged: (_) => _markDirty(),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                _ChannelRow(
+                  icon: channelIcon(MessageChannel.share),
+                  label: l10n.channelShare,
+                  selected: _channel == MessageChannel.share,
+                  onSelect: () => setState(() {
+                    _dirty = true;
+                    _channel = MessageChannel.share;
+                  }),
+                  hint: l10n.supplierShareNoAddressHint,
+                ),
+                const SizedBox(height: 10),
+                _ChannelRow(
+                  icon: channelIcon(null),
+                  label: l10n.channelNone,
+                  selected: _channel == null,
+                  onSelect: () => setState(() {
+                    _dirty = true;
+                    _channel = null;
+                  }),
+                ),
+              ] else ...[
+                const SizedBox(height: 16),
+                Text(
+                  l10n.supplierCategoryPantryHint,
+                  style: AppTypography.caption,
+                ),
+              ],
+              if (_isUser) ...[
+                const SizedBox(height: 32),
+                Center(
+                  child: TextButton.icon(
+                    onPressed: busy ? null : _confirmDelete,
+                    icon: const Icon(
+                      Icons.delete_outline,
+                      size: 18,
+                      color: AppColors.danger,
+                    ),
+                    label: Text(
+                      l10n.deleteSupplierCategoryAction,
+                      style: AppTypography.button.copyWith(
+                        color: AppColors.danger,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          );
+        },
       ),
     );
   }
@@ -412,8 +410,7 @@ class _ChannelRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tint =
-        selected ? AppColors.accentSecondary : AppColors.textSecondary;
+    final tint = selected ? AppColors.accentSecondary : AppColors.textSecondary;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -441,7 +438,10 @@ class _ChannelRow extends StatelessWidget {
         const SizedBox(width: 8),
         Expanded(
           child: switch ((field, hint)) {
-            (final Widget f, _) => Opacity(opacity: selected ? 1 : 0.5, child: f),
+            (final Widget f, _) => Opacity(
+              opacity: selected ? 1 : 0.5,
+              child: f,
+            ),
             (null, final String h) => Text(h, style: AppTypography.caption),
             _ => const SizedBox.shrink(),
           },

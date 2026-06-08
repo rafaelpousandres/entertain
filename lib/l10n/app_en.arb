@@ -16,6 +16,9 @@
   "eventEditScreenTitle": "Edit event",
   "saveAction": "Save",
   "deleteAction": "Delete",
+  "discardChangesAction": "Discard and exit",
+  "unsavedChangesTitle": "Unsaved changes",
+  "unsavedChangesBody": "You have unsaved changes. Leave without saving?",
 
   "fieldTitleLabel": "Title",
   "fieldTitleHint": "Name the event",

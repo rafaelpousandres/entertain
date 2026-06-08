@@ -16,6 +16,9 @@
   "eventEditScreenTitle": "Editar esdeveniment",
   "saveAction": "Desa",
   "deleteAction": "Esborra",
+  "discardChangesAction": "Sortir sense desar",
+  "unsavedChangesTitle": "Canvis sense desar",
+  "unsavedChangesBody": "Hi ha canvis sense desar. Vols sortir sense desar-los?",
 
   "fieldTitleLabel": "Títol",
   "fieldTitleHint": "Anomena l'esdeveniment",

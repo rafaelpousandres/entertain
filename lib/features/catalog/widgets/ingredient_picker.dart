@@ -23,6 +23,7 @@ Future<Ingredient?> showIngredientPicker({
   required WidgetRef ref,
   required List<Ingredient> ingredients,
   required List<Unit> units,
+  required List<SupplierCategory> categories,
 }) {
   return showModalBottomSheet<Ingredient>(
     context: context,
@@ -35,6 +36,7 @@ Future<Ingredient?> showIngredientPicker({
       ref: ref,
       ingredients: ingredients,
       units: units,
+      categories: categories,
     ),
   );
 }
@@ -44,11 +46,13 @@ class _IngredientPickerSheet extends StatefulWidget {
     required this.ref,
     required this.ingredients,
     required this.units,
+    required this.categories,
   });
 
   final WidgetRef ref;
   final List<Ingredient> ingredients;
   final List<Unit> units;
+  final List<SupplierCategory> categories;
 
   @override
   State<_IngredientPickerSheet> createState() => _IngredientPickerSheetState();
@@ -77,6 +81,7 @@ class _IngredientPickerSheetState extends State<_IngredientPickerSheet> {
       context: context,
       ref: widget.ref,
       units: widget.units,
+      categories: widget.categories,
       initialName: _query.trim(),
     );
     if (created != null && mounted) {
@@ -141,8 +146,7 @@ class _IngredientPickerSheetState extends State<_IngredientPickerSheet> {
                           final ingredient = filtered[index];
                           return _IngredientPickerRow(
                             name: ingredient.name,
-                            onTap: () =>
-                                Navigator.of(context).pop(ingredient),
+                            onTap: () => Navigator.of(context).pop(ingredient),
                           );
                         },
                       ),
@@ -223,15 +227,17 @@ class _IngredientPickerRow extends StatelessWidget {
   }
 }
 
-/// Minimal "create ingredient on the fly" flow: name + default unit only,
-/// the two required fields, so 60–80 ingredients can be entered with the
-/// least friction. Supplier category and preparation are enriched later in
-/// the ingredient catalog. Persists a real catalog ingredient immediately
-/// and resolves with it.
+/// Minimal "create ingredient on the fly" flow. Spec 008 Fixes §2.2: the three
+/// *structural* attributes of an ingredient — name, unit, and supplier category
+/// — are all collected here, so a freshly created ingredient already lands in
+/// the right shopping group (quantity and prep note are contextual to the line
+/// and stay on the line editor). Supplier category defaults to "no category".
+/// Persists a real catalog ingredient immediately and resolves with it.
 Future<Ingredient?> showIngredientQuickCreate({
   required BuildContext context,
   required WidgetRef ref,
   required List<Unit> units,
+  required List<SupplierCategory> categories,
   String? initialName,
 }) {
   return showModalBottomSheet<Ingredient>(
@@ -244,6 +250,7 @@ Future<Ingredient?> showIngredientQuickCreate({
     builder: (sheetContext) => _QuickCreateSheet(
       ref: ref,
       units: units,
+      categories: categories,
       initialName: initialName,
     ),
   );
@@ -253,11 +260,13 @@ class _QuickCreateSheet extends StatefulWidget {
   const _QuickCreateSheet({
     required this.ref,
     required this.units,
+    required this.categories,
     this.initialName,
   });
 
   final WidgetRef ref;
   final List<Unit> units;
+  final List<SupplierCategory> categories;
   final String? initialName;
 
   @override
@@ -267,6 +276,7 @@ class _QuickCreateSheet extends StatefulWidget {
 class _QuickCreateSheetState extends State<_QuickCreateSheet> {
   late final TextEditingController _nameController;
   String? _unitId;
+  String? _categoryId;
   bool _saving = false;
   bool _submitted = false;
 
@@ -290,6 +300,14 @@ class _QuickCreateSheetState extends State<_QuickCreateSheet> {
     return null;
   }
 
+  SupplierCategory? get _selectedCategory {
+    if (_categoryId == null) return null;
+    for (final c in widget.categories) {
+      if (c.id == _categoryId) return c;
+    }
+    return null;
+  }
+
   void _pickUnit() {
     final l10n = AppLocalizations.of(context);
     showSingleChoiceSheet<String>(
@@ -301,6 +319,22 @@ class _QuickCreateSheetState extends State<_QuickCreateSheet> {
           SingleChoiceOption(value: u.id, label: u.name),
       ],
       onSelected: (id) => setState(() => _unitId = id),
+    );
+  }
+
+  void _pickCategory() {
+    final l10n = AppLocalizations.of(context);
+    showSingleChoiceSheet<String>(
+      context: context,
+      title: l10n.supplierPickerTitle,
+      selectedValue: _categoryId,
+      clearLabel: l10n.supplierNoneLabel,
+      onCleared: () => setState(() => _categoryId = null),
+      options: [
+        for (final c in widget.categories)
+          SingleChoiceOption(value: c.id, label: c.name),
+      ],
+      onSelected: (id) => setState(() => _categoryId = id),
     );
   }
 
@@ -319,7 +353,13 @@ class _QuickCreateSheetState extends State<_QuickCreateSheet> {
       final created = await widget.ref
           .read(catalogRepositoryProvider)
           .createIngredient(
-            IngredientDraft(name: name, defaultUnitId: _unitId),
+            IngredientDraft(
+              name: name,
+              defaultUnitId: _unitId,
+              // §2.2: persist the chosen supplier category at creation time so
+              // the ingredient lands in the right shopping group from the start.
+              defaultSupplierCategoryId: _categoryId,
+            ),
             groupId: groupId,
           );
       widget.ref.invalidate(ingredientsListProvider);
@@ -359,8 +399,8 @@ class _QuickCreateSheetState extends State<_QuickCreateSheet> {
                 child: AppTextField(
                   controller: _nameController,
                   hintText: l10n.ingredientNameHint,
-                  autofocus: widget.initialName == null ||
-                      widget.initialName!.isEmpty,
+                  autofocus:
+                      widget.initialName == null || widget.initialName!.isEmpty,
                   onChanged: (_) => setState(() {}),
                 ),
               ),
@@ -392,6 +432,23 @@ class _QuickCreateSheetState extends State<_QuickCreateSheet> {
                   ),
                 ),
               ),
+            const SizedBox(height: 16),
+            // §2.2: supplier category is the third structural attribute, so it
+            // sits here below the unit — defaulting to "no category".
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+              child: FieldLabel(
+                label: l10n.ingredientSupplierLabel,
+                child: FormFieldTile(
+                  onTap: _pickCategory,
+                  placeholder: l10n.ingredientSupplierHint,
+                  value: _selectedCategory?.name,
+                  onClear: _categoryId == null
+                      ? null
+                      : () => setState(() => _categoryId = null),
+                ),
+              ),
+            ),
             const SizedBox(height: 20),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),

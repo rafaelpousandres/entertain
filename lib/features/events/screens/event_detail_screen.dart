@@ -7,6 +7,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_typography.dart';
 import '../../../ui/app_form_field.dart';
+import '../../../ui/edit_scaffold.dart';
 import '../../../ui/primary_button.dart';
 import '../../../ui/section_header.dart';
 import '../../../ui/segmented_choice.dart';
@@ -123,10 +124,9 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
       _saving = true;
     });
     try {
-      await ref.read(eventsRepositoryProvider).updateEvent(
-            widget.eventId,
-            _draft,
-          );
+      await ref
+          .read(eventsRepositoryProvider)
+          .updateEvent(widget.eventId, _draft);
       ref.invalidate(eventsListProvider);
       ref.invalidate(eventByIdProvider(widget.eventId));
       // Spec 008 §2.4: a date change can flip the event to / from "past".
@@ -205,127 +205,148 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
     final eventAsync = ref.watch(eventByIdProvider(widget.eventId));
     final readinessAsync = ref.watch(eventReadinessProvider);
 
-    return Scaffold(
-      backgroundColor: AppColors.bg,
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          tooltip: l10n.backAction,
-          onPressed: _deleting ? null : () => context.pop(),
-        ),
-        title: eventAsync.maybeWhen(
-          data: (event) {
-            final now = DateTime.now();
-            final status = deriveEventStatus(
-              event,
-              readinessAsync.value?[event.id],
-              DateTime(now.year, now.month, now.day),
-            );
-            return Row(
-              children: [
-                Flexible(
-                  child: Text(
-                    event.title,
-                    style: AppTypography.sectionTitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+    // §2.3: guard the Esdeveniment tab form against losing unsaved edits.
+    // `dirty` is derived from the live event so the guard and the AppBar save
+    // action stay in sync even across tab switches.
+    final event = eventAsync.value;
+    final dirty = event != null && _isDirty(event);
+
+    return PopScope(
+      canPop: !dirty && !_deleting,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop || _deleting) return;
+        final navigator = Navigator.of(context);
+        final discard = await showUnsavedChangesDialog(context);
+        if (discard && navigator.mounted) navigator.pop();
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.bg,
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            tooltip: l10n.backAction,
+            // maybePop runs the PopScope guard above instead of popping blindly.
+            onPressed: _deleting
+                ? null
+                : () => Navigator.of(context).maybePop(),
+          ),
+          title: eventAsync.maybeWhen(
+            data: (event) {
+              final now = DateTime.now();
+              final status = deriveEventStatus(
+                event,
+                readinessAsync.value?[event.id],
+                DateTime(now.year, now.month, now.day),
+              );
+              return Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      event.title,
+                      style: AppTypography.sectionTitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                _EventStatusChip(status: status),
-              ],
-            );
-          },
-          orElse: () => const SizedBox.shrink(),
-        ),
-        actions: [
-          eventAsync.maybeWhen(
-            data: (_) => PopupMenuButton<_OverflowAction>(
-              icon: const Icon(Icons.more_vert),
-              tooltip: l10n.moreActionsLabel,
-              color: AppColors.surface,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+                  const SizedBox(width: 8),
+                  _EventStatusChip(status: status),
+                ],
+              );
+            },
+            orElse: () => const SizedBox.shrink(),
+          ),
+          actions: [
+            // §2.3: the Esdeveniment tab's save moves into the AppBar (always
+            // visible above the keyboard), shown only when there are unsaved
+            // edits. Other tabs keep their own bottom actions.
+            if (_tab.index == 0 && dirty)
+              IconButton(
+                icon: const Icon(Icons.check),
+                color: AppColors.accentSecondary,
+                tooltip: l10n.saveAction,
+                onPressed: _saving ? null : _save,
               ),
-              onSelected: (action) {
-                switch (action) {
-                  case _OverflowAction.delete:
-                    _confirmDelete();
-                }
-              },
-              itemBuilder: (context) => [
-                PopupMenuItem(
-                  value: _OverflowAction.delete,
-                  child: Text(
-                    l10n.deleteAction,
-                    style: AppTypography.body.copyWith(color: AppColors.danger),
-                  ),
+            eventAsync.maybeWhen(
+              data: (_) => PopupMenuButton<_OverflowAction>(
+                icon: const Icon(Icons.more_vert),
+                tooltip: l10n.moreActionsLabel,
+                color: AppColors.surface,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
-              ],
+                onSelected: (action) {
+                  switch (action) {
+                    case _OverflowAction.delete:
+                      _confirmDelete();
+                  }
+                },
+                itemBuilder: (context) => [
+                  PopupMenuItem(
+                    value: _OverflowAction.delete,
+                    child: Text(
+                      l10n.deleteAction,
+                      style: AppTypography.body.copyWith(
+                        color: AppColors.danger,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              orElse: () => const SizedBox(width: 48),
             ),
-            orElse: () => const SizedBox(width: 48),
-          ),
-        ],
-        bottom: TabBar(
-          controller: _tab,
-          labelColor: AppColors.accentSecondary,
-          unselectedLabelColor: AppColors.textTertiary,
-          indicatorColor: AppColors.accentSecondary,
-          labelStyle: AppTypography.label,
-          unselectedLabelStyle: AppTypography.label,
-          tabs: [
-            Tab(text: l10n.eventTabEvent),
-            Tab(text: l10n.eventTabMenu),
-            Tab(text: l10n.eventTabShopping),
           ],
+          bottom: TabBar(
+            controller: _tab,
+            labelColor: AppColors.accentSecondary,
+            unselectedLabelColor: AppColors.textTertiary,
+            indicatorColor: AppColors.accentSecondary,
+            labelStyle: AppTypography.label,
+            unselectedLabelStyle: AppTypography.label,
+            tabs: [
+              Tab(text: l10n.eventTabEvent),
+              Tab(text: l10n.eventTabMenu),
+              Tab(text: l10n.eventTabShopping),
+            ],
+          ),
         ),
-      ),
-      body: SafeArea(
-        top: false,
-        child: eventAsync.when(
-          loading: () => const Center(
-            child: CircularProgressIndicator(color: AppColors.accent),
+        body: SafeArea(
+          top: false,
+          child: eventAsync.when(
+            loading: () => const Center(
+              child: CircularProgressIndicator(color: AppColors.accent),
+            ),
+            error: (_, _) => _LoadError(
+              message: l10n.eventsLoadError,
+              onRetry: () => ref.invalidate(eventByIdProvider(widget.eventId)),
+            ),
+            data: (event) {
+              _seed(event);
+              return TabBarView(
+                controller: _tab,
+                children: [
+                  _buildEventTab(event, locale),
+                  _MenuView(event: event),
+                  EventShoppingPanel(eventId: event.id),
+                ],
+              );
+            },
           ),
-          error: (_, _) => _LoadError(
-            message: l10n.eventsLoadError,
-            onRetry: () => ref.invalidate(eventByIdProvider(widget.eventId)),
-          ),
+        ),
+        bottomNavigationBar: eventAsync.maybeWhen(
           data: (event) {
             _seed(event);
-            return TabBarView(
-              controller: _tab,
-              children: [
-                _buildEventTab(event, locale),
-                _MenuView(event: event),
-                EventShoppingPanel(eventId: event.id),
-              ],
-            );
+            return _buildBottomBar(event, l10n);
           },
+          orElse: () => null,
         ),
-      ),
-      bottomNavigationBar: eventAsync.maybeWhen(
-        data: (event) {
-          _seed(event);
-          return _buildBottomBar(event, l10n);
-        },
-        orElse: () => null,
       ),
     );
   }
 
   Widget? _buildBottomBar(Event event, AppLocalizations l10n) {
-    // Esdeveniment → Desa when there are unsaved changes; Menú → Afegeix plat;
-    // Compra → no global action (the panel owns its per-section actions).
-    if (_tab.index == 0) {
-      if (!_isDirty(event)) return null;
-      return _ActionBar(
-        child: PrimaryButton(
-          label: l10n.saveAction,
-          icon: Icons.check,
-          onPressed: _saving ? null : _save,
-        ),
-      );
-    }
+    // §2.3: the Esdeveniment save now lives in the AppBar (always visible above
+    // the keyboard); Menú keeps its "Afegeix plat" action; Compra has none (the
+    // panel owns its per-section actions).
     if (_tab.index == 1) {
       return _ActionBar(
         child: PrimaryButton(
@@ -536,7 +557,9 @@ class _EventStatusChip extends StatelessWidget {
           const SizedBox(width: 6),
           Text(
             derivedEventStatusLabel(l10n, status),
-            style: AppTypography.caption.copyWith(color: AppColors.textSecondary),
+            style: AppTypography.caption.copyWith(
+              color: AppColors.textSecondary,
+            ),
           ),
         ],
       ),

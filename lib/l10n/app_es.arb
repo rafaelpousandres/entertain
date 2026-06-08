@@ -16,6 +16,9 @@
   "eventEditScreenTitle": "Editar evento",
   "saveAction": "Guardar",
   "deleteAction": "Eliminar",
+  "discardChangesAction": "Salir sin guardar",
+  "unsavedChangesTitle": "Cambios sin guardar",
+  "unsavedChangesBody": "Hay cambios sin guardar. ¿Quieres salir sin guardarlos?",
 
   "fieldTitleLabel": "Título",
   "fieldTitleHint": "Nombra el evento",
