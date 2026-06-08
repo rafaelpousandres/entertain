@@ -40,8 +40,8 @@ void main() {
       );
     });
 
-    test('small decimal quantities keep 2 sig figs', () {
-      // 2.5 @ 4 → 6 = 3.75 → 3.8
+    test('small decimal quantities keep 2 sig figs, no float noise', () {
+      // 2.5 @ 4 → 6 = 3.75 → 3.8 (exactly, not 3.8000000000000004).
       expect(
         scaleServingQuantity(
           base: 2.5,
@@ -49,7 +49,22 @@ void main() {
           targetServings: 6,
           countable: false,
         ),
-        closeTo(3.8, 1e-9),
+        3.8,
+      );
+    });
+
+    test('round-up result is returned without float noise', () {
+      // Real-use bug (Spec 008 PR #22): 4.7 @ 2 → 1 = 2.35, which rounds up to
+      // 2.4, surfaced in the UI as "2.4000000000000004" because `24 * 0.1`
+      // carries binary-float noise. The result must be exactly 2.4.
+      expect(
+        scaleServingQuantity(
+          base: 4.7,
+          referenceServings: 2,
+          targetServings: 1,
+          countable: false,
+        ),
+        2.4,
       );
     });
   });

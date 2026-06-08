@@ -52,5 +52,11 @@ double _ceilToTwoSigFigs(double value) {
   final exponent = (math.log(value) / math.ln10).floor();
   // Scale so that two significant figures sit in the integer part, then ceil.
   final factor = math.pow(10, exponent - 1).toDouble();
-  return (value / factor).ceil() * factor;
+  final rounded = (value / factor).ceil() * factor;
+  // When `factor` is a fractional power of ten (0.1, 0.01, …) the `ceil * factor`
+  // multiplication reintroduces binary-float noise (e.g. 24 * 0.1 →
+  // 2.4000000000000004), which would surface verbatim in the UI. The result is
+  // exact to at most `1 - exponent` decimals, so snap it back to that precision.
+  final decimals = math.max(0, 1 - exponent);
+  return double.parse(rounded.toStringAsFixed(decimals));
 }
