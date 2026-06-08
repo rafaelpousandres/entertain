@@ -393,7 +393,12 @@ class _LineRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final qty = formatQuantity(line.quantity);
+    final qty = formatQuantity(
+      line.quantity,
+      decimalSeparator: quantityDecimalSeparator(
+        Localizations.localeOf(context).languageCode,
+      ),
+    );
     final measure = unit == null ? qty : '$qty ${unit!.name}';
     final hasNote = line.prepNote != null && line.prepNote!.trim().isNotEmpty;
 

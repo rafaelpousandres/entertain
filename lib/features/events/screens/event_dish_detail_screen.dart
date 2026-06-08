@@ -9,7 +9,8 @@ import '../../../ui/app_form_field.dart';
 import '../../../ui/secondary_button.dart';
 import '../../../ui/stepper_field.dart';
 import '../../catalog/data/catalog_providers.dart';
-import '../../catalog/data/dish.dart' show formatQuantity;
+import '../../catalog/data/dish.dart'
+    show formatQuantity, quantityDecimalSeparator;
 import '../../catalog/data/dish_category.dart';
 import '../../catalog/data/reference_data.dart';
 import '../../shopping/data/shopping_providers.dart';
@@ -306,7 +307,12 @@ class _LineRow extends StatelessWidget {
       targetServings: servings,
       countable: unit?.magnitude == UnitMagnitude.count,
     );
-    final qty = formatQuantity(scaled);
+    final qty = formatQuantity(
+      scaled,
+      decimalSeparator: quantityDecimalSeparator(
+        Localizations.localeOf(context).languageCode,
+      ),
+    );
     final measure = unit == null ? qty : '$qty ${unit!.name}';
     final hasNote = line.prepNote != null && line.prepNote!.trim().isNotEmpty;
     final parts = <String>[

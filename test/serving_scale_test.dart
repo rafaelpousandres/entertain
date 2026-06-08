@@ -67,6 +67,22 @@ void main() {
         2.4,
       );
     });
+
+    test('reported case: 2 kg roast beef @ 6 → 7 = 2.333… → exactly 2.4', () {
+      // Exact reproduction (Spec 008 PR #22, real-use round): a 2 kg line for 6
+      // base servings, shown for an event of 7, is 2 / 6 * 7 = 2.333… which
+      // rounds up to 2 sig figs as 2.4 — and must be the exact double 2.4, not
+      // 2.4000000000000004. Comparing the string form fails if a binary-float
+      // tail survives even where == would still pass.
+      final scaled = scaleServingQuantity(
+        base: 2,
+        referenceServings: 6,
+        targetServings: 7,
+        countable: false,
+      );
+      expect(scaled, 2.4);
+      expect(scaled.toString(), '2.4');
+    });
   });
 
   group('scaleServingQuantity countable (round up to next integer)', () {

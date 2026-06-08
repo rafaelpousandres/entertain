@@ -9,7 +9,8 @@ import '../../../ui/app_form_field.dart';
 import '../../../ui/primary_button.dart';
 import '../../../ui/segmented_choice.dart';
 import '../../catalog/data/catalog_providers.dart';
-import '../../catalog/data/dish.dart' show formatQuantity;
+import '../../catalog/data/dish.dart'
+    show formatQuantity, quantityDecimalSeparator;
 import '../../catalog/data/reference_data.dart';
 import '../../events/data/event.dart';
 import '../../events/data/events_providers.dart';
@@ -253,7 +254,10 @@ class _SupplierMessageScreenState
       itemLines: [
         for (final line in delta)
           composeItemLine(
-            quantity: formatQuantity(line.quantity),
+            quantity: formatQuantity(
+              line.quantity,
+              decimalSeparator: quantityDecimalSeparator(locale.languageCode),
+            ),
             // Fixes §2.3: a unit flagged omit_in_display drops out (and the
             // connector with it) by reusing the no-unit path → "3 ous".
             unit: _displayUnit(unitsById[line.unitId]),
@@ -797,7 +801,11 @@ class SentOrderCard extends StatelessWidget {
               padding: const EdgeInsets.only(top: 2),
               child: Text(
                 composeItemLine(
-                  quantity: formatQuantity(item.quantity),
+                  quantity: formatQuantity(
+                    item.quantity,
+                    decimalSeparator:
+                        quantityDecimalSeparator(locale.languageCode),
+                  ),
                   unit: _displayUnit(unitsById[item.unitId]),
                   connector: l10n.messageItemConnector,
                   ingredientName: item.ingredientName,

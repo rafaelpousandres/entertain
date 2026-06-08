@@ -9,7 +9,8 @@ import '../../../theme/app_typography.dart';
 import '../../../ui/secondary_button.dart';
 import '../../../ui/section_header.dart';
 import '../../catalog/data/catalog_providers.dart';
-import '../../catalog/data/dish.dart' show formatQuantity;
+import '../../catalog/data/dish.dart'
+    show formatQuantity, quantityDecimalSeparator;
 import '../../catalog/data/reference_data.dart';
 import '../../events/data/events_providers.dart'
     show eventReadinessProvider, eventsListProvider;
@@ -75,7 +76,10 @@ class _EventShoppingPanelState extends ConsumerState<EventShoppingPanel> {
     final text = [
       for (final line in toOrderLines)
         composeItemLine(
-          quantity: formatQuantity(line.quantity),
+          quantity: formatQuantity(
+            line.quantity,
+            decimalSeparator: quantityDecimalSeparator(locale.languageCode),
+          ),
           // A unit flagged omit_in_display drops out with its connector → "3 ous".
           unit: (unitsById[line.unitId]?.omitInDisplay ?? true)
               ? null
@@ -667,7 +671,12 @@ class _LineRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final qty = formatQuantity(line.quantity);
+    final qty = formatQuantity(
+      line.quantity,
+      decimalSeparator: quantityDecimalSeparator(
+        Localizations.localeOf(context).languageCode,
+      ),
+    );
     final measure = unit == null ? qty : '$qty ${unit!.name}';
     return Material(
       color: AppColors.surface,
