@@ -14,6 +14,25 @@ library;
 
 enum MessageChannel { whatsapp, email, share }
 
+/// Group-level text-message channel (Specification 008 §2.9) — which app a
+/// "text" dispatch resolves to. Mirrors the `groups.text_message_channel`
+/// column (CHECK-constrained to these two values). The per-supplier
+/// [MessageChannel.whatsapp] preference now means "use the group's configured
+/// text channel"; this enum says which one that is.
+enum TextMessageChannel { sms, whatsapp }
+
+extension TextMessageChannelWire on TextMessageChannel {
+  String get wire => switch (this) {
+    TextMessageChannel.sms => 'sms',
+    TextMessageChannel.whatsapp => 'whatsapp',
+  };
+
+  /// Parses the stored value, defaulting to [TextMessageChannel.whatsapp]
+  /// (the column default and the historical behaviour) for null / unknown.
+  static TextMessageChannel parse(String? value) =>
+      value == 'sms' ? TextMessageChannel.sms : TextMessageChannel.whatsapp;
+}
+
 extension MessageChannelWire on MessageChannel {
   String get wire => switch (this) {
     MessageChannel.whatsapp => 'whatsapp',

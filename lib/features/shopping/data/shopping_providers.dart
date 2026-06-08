@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../events/data/events_providers.dart' show currentGroupIdProvider;
 import 'group_supplier_setting.dart';
+import 'message_channel.dart';
 import 'settings_repository.dart';
 import 'shopping_models.dart';
 import 'shopping_repository.dart';
@@ -57,6 +58,16 @@ final groupSignatureProvider = FutureProvider<String>((ref) async {
   if (stored != null) return stored;
   final displayName = await repo.fetchProfileDisplayName();
   return displayName ?? '';
+});
+
+/// The group's text-message channel (Spec 008 §2.9): SMS or WhatsApp. Resolves
+/// what the per-supplier "text" channel dispatches to. Invalidated after a
+/// Settings edit.
+final groupTextMessageChannelProvider = FutureProvider<TextMessageChannel>((
+  ref,
+) async {
+  final groupId = await ref.watch(currentGroupIdProvider.future);
+  return ref.watch(settingsRepositoryProvider).fetchTextMessageChannel(groupId);
 });
 
 /// The group's outgoing-message greeting (Fixes round 2 §2.1), returned raw:

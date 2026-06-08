@@ -359,8 +359,10 @@
   "@settingsGreetingDefault": {
     "description": "Default greeting seeded the first time Settings is shown. Catalan: 'Hola,'."
   },
-  "settingsSignatureLabel": "Message signature",
+  "settingsSignatureLabel": "Signature",
   "@settingsSignatureLabel": {},
+  "settingsTextChannelLabel": "Text message channel",
+  "@settingsTextChannelLabel": {},
   "settingsSignatureHint": "Added to the end of every message…",
   "@settingsSignatureHint": {},
   "settingsCategoriesSectionTitle": "Per supplier category",
@@ -411,5 +413,22 @@
   "deleteSupplierCategoryConfirmButton": "Delete category",
   "@deleteSupplierCategoryConfirmButton": {},
   "deleteSupplierCategoryError": "Couldn't delete the category. It may have sent orders.",
-  "@deleteSupplierCategoryError": {}
+  "@deleteSupplierCategoryError": {},
+
+  "supplierNameLabel": "Name",
+  "@supplierNameLabel": {},
+  "supplierNameHint": "e.g. Peixos Samba",
+  "@supplierNameHint": {},
+  "supplierCategoryCategoryLabel": "Category",
+  "@supplierCategoryCategoryLabel": {},
+  "lineSupplierCategoryPickIngredientFirst": "Pick an ingredient first",
+  "@lineSupplierCategoryPickIngredientFirst": {},
+  "eventDishServingsLabel": "Servings",
+  "@eventDishServingsLabel": {},
+  "eventStatusInPreparation": "In preparation",
+  "@eventStatusInPreparation": {},
+  "eventStatusReady": "Ready",
+  "@eventStatusReady": {},
+  "eventStatusPast": "Past",
+  "@eventStatusPast": {}
 }

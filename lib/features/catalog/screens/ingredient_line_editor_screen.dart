@@ -55,6 +55,13 @@ class _IngredientLineEditorScreenState
   String? _ingredientName;
   String? _unitId;
 
+  /// Spec 008 §2.5: the chosen supplier category for the picked ingredient.
+  /// Resolved lazily — until the user picks an ingredient or touches the
+  /// selector, the displayed value comes from the ingredient's stored default,
+  /// so opening the editor reflects the current catalog-wide category.
+  String? _supplierCategoryId;
+  bool _categoryResolved = false;
+
   bool _submitted = false;
 
   @override
@@ -99,6 +106,9 @@ class _IngredientLineEditorScreenState
       // Reset the unit to the ingredient's default — its family may differ
       // from whatever was previously selected.
       _unitId = picked.defaultUnitId;
+      // §2.5: adopt the newly picked ingredient's current default category.
+      _supplierCategoryId = picked.defaultSupplierCategoryId;
+      _categoryResolved = true;
       // Spec 006 §2.4: a brand-new line pre-fills the prep note with the
       // ingredient's default preparation (the level above), as a convenience.
       // Only when the field is still empty, so an explicit value the user has
@@ -135,12 +145,71 @@ class _IngredientLineEditorScreenState
     return null;
   }
 
-  void _save() {
+  Ingredient? _ingredientOf(List<Ingredient> ingredients, String? id) {
+    if (id == null) return null;
+    for (final i in ingredients) {
+      if (i.id == id) return i;
+    }
+    return null;
+  }
+
+  /// The category to display / save: the user's choice once touched, otherwise
+  /// the picked ingredient's stored default (Spec 008 §2.5).
+  String? _resolvedCategoryId(List<Ingredient> ingredients) => _categoryResolved
+      ? _supplierCategoryId
+      : _ingredientOf(ingredients, _ingredientId)?.defaultSupplierCategoryId;
+
+  void _pickSupplierCategory(
+    List<SupplierCategory> categories,
+    String? current,
+  ) {
+    final l10n = AppLocalizations.of(context);
+    showSingleChoiceSheet<String>(
+      context: context,
+      title: l10n.supplierCategoryPickerTitle,
+      selectedValue: current,
+      options: [
+        for (final c in categories)
+          SingleChoiceOption(value: c.id, label: c.name),
+      ],
+      onSelected: (id) => setState(() {
+        _supplierCategoryId = id;
+        _categoryResolved = true;
+      }),
+      onCleared: () => setState(() {
+        _supplierCategoryId = null;
+        _categoryResolved = true;
+      }),
+      clearLabel: l10n.supplierCategoryNoneLabel,
+    );
+  }
+
+  Future<void> _save() async {
     setState(() => _submitted = true);
     final quantity = _parseQuantity();
     if (_ingredientId == null || quantity == null || _unitId == null) {
       return;
     }
+    // §2.5: persist a supplier-category change on the ingredient itself
+    // (catalog-wide) before handing the line back. The dish editor commits the
+    // line list on its own save; the category lives on `ingredients`, so it is
+    // written here, immediately, like a brand-new ingredient created on the fly.
+    final ingredients =
+        ref.read(ingredientsListProvider).value ?? const <Ingredient>[];
+    final ingredient = _ingredientOf(ingredients, _ingredientId);
+    final chosenCategory = _resolvedCategoryId(ingredients);
+    if (ingredient != null &&
+        chosenCategory != ingredient.defaultSupplierCategoryId) {
+      await ref
+          .read(catalogRepositoryProvider)
+          .updateIngredientDefaultSupplierCategory(
+            _ingredientId!,
+            chosenCategory,
+          );
+      ref.invalidate(ingredientsListProvider);
+      ref.invalidate(ingredientByIdProvider(_ingredientId!));
+    }
+    if (!mounted) return;
     context.pop(
       LineEditorResult(
         line: DishLineDraft(
@@ -162,15 +231,26 @@ class _IngredientLineEditorScreenState
     final localeCode = Localizations.localeOf(context).languageCode;
     final unitsAsync = ref.watch(unitsProvider(localeCode));
     final ingredientsAsync = ref.watch(ingredientsListProvider);
+    final categoriesAsync = ref.watch(supplierCategoriesProvider(localeCode));
 
     final units = unitsAsync.value;
     final ingredients = ingredientsAsync.value;
-    final loading = units == null || ingredients == null;
+    final categories = categoriesAsync.value;
+    final loading = units == null || ingredients == null || categories == null;
 
     final unit = _unitOf(units ?? const [], _unitId);
     final quantityError = _submitted && _parseQuantity() == null;
     final unitAllowsChoice = unit != null &&
         unitsForFamily(units ?? const [], unit).length > 1;
+    final categoryId = _resolvedCategoryId(ingredients ?? const []);
+    final supplierCategory = categoryId == null
+        ? null
+        : () {
+            for (final c in categories ?? const <SupplierCategory>[]) {
+              if (c.id == categoryId) return c;
+            }
+            return null;
+          }();
 
     return Scaffold(
       backgroundColor: AppColors.bg,
@@ -275,6 +355,30 @@ class _IngredientLineEditorScreenState
                   ),
                   if (quantityError)
                     _FieldError(message: l10n.lineQuantityInvalid),
+                  const SizedBox(height: 16),
+                  // §2.5: supplier category, set on the ingredient (catalog-wide)
+                  // so a line built here lands in the right shopping group.
+                  FieldLabel(
+                    label: l10n.lineSupplierCategoryLabel,
+                    child: FormFieldTile(
+                      onTap: _ingredientId == null
+                          ? () {}
+                          : () => _pickSupplierCategory(
+                              categories,
+                              categoryId,
+                            ),
+                      placeholder: _ingredientId == null
+                          ? l10n.lineSupplierCategoryPickIngredientFirst
+                          : l10n.lineSupplierCategoryHint,
+                      value: supplierCategory?.name,
+                      onClear: categoryId == null
+                          ? null
+                          : () => setState(() {
+                              _supplierCategoryId = null;
+                              _categoryResolved = true;
+                            }),
+                    ),
+                  ),
                   const SizedBox(height: 16),
                   FieldLabel(
                     label: l10n.linePrepNoteLabel,

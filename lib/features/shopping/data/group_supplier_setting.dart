@@ -11,9 +11,16 @@ class GroupSupplierSetting {
     this.channel,
     this.phoneAddress,
     this.emailAddress,
+    this.supplierName,
   });
 
   final String supplierCategoryId;
+
+  /// Free-text name of the concrete supplier behind this category (Spec 008
+  /// §2.3), e.g. "Peixos Samba". Per-group, optional (null when not set). Only
+  /// informational at the detail level — it never appears on the shopping panel
+  /// header, which keeps showing the category label.
+  final String? supplierName;
 
   /// Default outgoing channel for this category, or null for "none" (send via
   /// the share sheet). The composer picks the address matching this channel.
@@ -45,6 +52,7 @@ class GroupSupplierSetting {
       channel: MessageChannelWire.parse(row['channel'] as String?),
       phoneAddress: row['phone_address'] as String?,
       emailAddress: row['email_address'] as String?,
+      supplierName: row['supplier_name'] as String?,
     );
   }
 }

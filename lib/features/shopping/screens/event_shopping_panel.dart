@@ -9,8 +9,11 @@ import '../../../theme/app_typography.dart';
 import '../../../ui/secondary_button.dart';
 import '../../../ui/section_header.dart';
 import '../../catalog/data/catalog_providers.dart';
-import '../../catalog/data/dish.dart' show formatQuantity;
+import '../../catalog/data/dish.dart'
+    show formatQuantity, quantityDecimalSeparator;
 import '../../catalog/data/reference_data.dart';
+import '../../events/data/events_providers.dart'
+    show eventReadinessProvider, eventsListProvider;
 import '../data/ingredient_state.dart';
 import '../data/message_composer.dart';
 import '../data/shopping_delta.dart';
@@ -48,6 +51,13 @@ class _EventShoppingPanelState extends ConsumerState<EventShoppingPanel> {
   /// [_expanded]; it cannot collide with a real category id (a uuid).
   static const String _uncategorisedKey = '__uncategorised__';
 
+  /// Refreshes the event's derived status (Spec 008 §2.4) wherever it is shown
+  /// (the detail header chip, the list dots and grouping) after a state change.
+  void _refreshEventStatus() {
+    ref.invalidate(eventReadinessProvider);
+    ref.invalidate(eventsListProvider);
+  }
+
   /// "Usa com a llista de la compra" (Fixes round 3 §2.3): turns the section's
   /// `to_order` lines into a plain text shopping list — the same per-line format
   /// as the supplier message (quantity, unit suppression, Catalan elision,
@@ -66,7 +76,10 @@ class _EventShoppingPanelState extends ConsumerState<EventShoppingPanel> {
     final text = [
       for (final line in toOrderLines)
         composeItemLine(
-          quantity: formatQuantity(line.quantity),
+          quantity: formatQuantity(
+            line.quantity,
+            decimalSeparator: quantityDecimalSeparator(locale.languageCode),
+          ),
           // A unit flagged omit_in_display drops out with its connector → "3 ous".
           unit: (unitsById[line.unitId]?.omitInDisplay ?? true)
               ? null
@@ -85,6 +98,7 @@ class _EventShoppingPanelState extends ConsumerState<EventShoppingPanel> {
           IngredientState.ordered,
         );
     ref.invalidate(eventShoppingProvider(widget.eventId));
+    _refreshEventStatus();
     messenger.showSnackBar(
       SnackBar(content: Text(l10n.shoppingListCopiedToast)),
     );
@@ -105,6 +119,7 @@ class _EventShoppingPanelState extends ConsumerState<EventShoppingPanel> {
     if (picked == null || picked == line.state) return;
     await ref.read(shoppingRepositoryProvider).updateLineState(line.id, picked);
     ref.invalidate(eventShoppingProvider(widget.eventId));
+    _refreshEventStatus();
   }
 
   Future<void> _markAllReceived(List<String> orderedLineIds) async {
@@ -113,6 +128,7 @@ class _EventShoppingPanelState extends ConsumerState<EventShoppingPanel> {
         .read(shoppingRepositoryProvider)
         .updateLineStates(orderedLineIds, IngredientState.received);
     ref.invalidate(eventShoppingProvider(widget.eventId));
+    _refreshEventStatus();
   }
 
   @override
@@ -655,7 +671,12 @@ class _LineRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final qty = formatQuantity(line.quantity);
+    final qty = formatQuantity(
+      line.quantity,
+      decimalSeparator: quantityDecimalSeparator(
+        Localizations.localeOf(context).languageCode,
+      ),
+    );
     final measure = unit == null ? qty : '$qty ${unit!.name}';
     return Material(
       color: AppColors.surface,

@@ -7,6 +7,7 @@ import '../../../theme/app_colors.dart';
 import '../../../theme/app_typography.dart';
 import '../../../ui/app_form_field.dart';
 import '../../../ui/primary_button.dart';
+import '../../../ui/segmented_choice.dart';
 import '../../catalog/data/catalog_providers.dart';
 import '../../catalog/data/reference_data.dart';
 import '../../events/data/events_providers.dart' show currentGroupIdProvider;
@@ -42,6 +43,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
 
   final _greetingController = TextEditingController();
   final _signatureController = TextEditingController();
+  // Spec 008 §2.9: the group's text-message channel, edited alongside the
+  // greeting and signature on the Missatges tab.
+  TextMessageChannel _textChannel = TextMessageChannel.whatsapp;
   bool _seeded = false;
   bool _saving = false;
 
@@ -60,10 +64,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
     super.dispose();
   }
 
-  void _seedMessages(String greeting, String signature) {
+  void _seedMessages(
+    String greeting,
+    String signature,
+    TextMessageChannel textChannel,
+  ) {
     if (_seeded) return;
     _greetingController.text = greeting;
     _signatureController.text = signature;
+    _textChannel = textChannel;
     _seeded = true;
   }
 
@@ -82,9 +91,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
       await repo.updateGreeting(groupId, _greetingController.text.trim());
       final signature = _signatureController.text.trim();
       await repo.updateSignature(groupId, signature.isEmpty ? null : signature);
+      // Spec 008 §2.9: persist the text-message channel together with the rest.
+      await repo.updateTextMessageChannel(groupId, _textChannel);
 
       ref.invalidate(groupGreetingProvider);
       ref.invalidate(groupSignatureProvider);
+      ref.invalidate(groupTextMessageChannelProvider);
       if (!mounted) return;
       messenger.showSnackBar(SnackBar(content: Text(l10n.saveAction)));
     } catch (_) {
@@ -126,6 +138,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
     final localeCode = Localizations.localeOf(context).languageCode;
     final greetingAsync = ref.watch(groupGreetingProvider);
     final signatureAsync = ref.watch(groupSignatureProvider);
+    final textChannelAsync = ref.watch(groupTextMessageChannelProvider);
 
     return Scaffold(
       backgroundColor: AppColors.bg,
@@ -155,8 +168,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
             _MessagesTab(
               greetingAsync: greetingAsync,
               signatureAsync: signatureAsync,
+              textChannelAsync: textChannelAsync,
               greetingController: _greetingController,
               signatureController: _signatureController,
+              textChannel: _textChannel,
+              onChannelChanged: (c) => setState(() => _textChannel = c),
               onSeed: _seedMessages,
             ),
           ],
@@ -256,12 +272,14 @@ class _SuppliersTab extends ConsumerWidget {
     }
 
     final settingsMap = settingsAsync.value!;
-    // User categories first (the manageable ones), then system, each sorted by
-    // name — a calm, predictable order for the admin list.
+    // Spec 008 §2.7: dispatch-capable categories first, sorted alphabetically by
+    // their localised label, then the consultive Rebost (pantry) at the bottom —
+    // mirroring the shopping panel's order. Rebost is a pantry section, not a
+    // supplier relationship, so it belongs visually after the real suppliers.
     final categories = [...categoriesAsync.value!]..sort((a, b) {
-        if (a.isUserCategory != b.isUserCategory) {
-          return a.isUserCategory ? -1 : 1;
-        }
+        final aPantry = isPantryCategory(a.code);
+        final bPantry = isPantryCategory(b.code);
+        if (aPantry != bPantry) return aPantry ? 1 : -1;
         return a.name.toLowerCase().compareTo(b.name.toLowerCase());
       });
 
@@ -376,24 +394,38 @@ class _MessagesTab extends StatelessWidget {
   const _MessagesTab({
     required this.greetingAsync,
     required this.signatureAsync,
+    required this.textChannelAsync,
     required this.greetingController,
     required this.signatureController,
+    required this.textChannel,
+    required this.onChannelChanged,
     required this.onSeed,
   });
 
   final AsyncValue<String?> greetingAsync;
   final AsyncValue<String> signatureAsync;
+  final AsyncValue<TextMessageChannel> textChannelAsync;
   final TextEditingController greetingController;
   final TextEditingController signatureController;
-  final void Function(String greeting, String signature) onSeed;
+  final TextMessageChannel textChannel;
+  final ValueChanged<TextMessageChannel> onChannelChanged;
+  final void Function(
+    String greeting,
+    String signature,
+    TextMessageChannel textChannel,
+  ) onSeed;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    if (greetingAsync.hasError || signatureAsync.hasError) {
+    if (greetingAsync.hasError ||
+        signatureAsync.hasError ||
+        textChannelAsync.hasError) {
       return _Message(text: l10n.settingsLoadError);
     }
-    if (greetingAsync.isLoading || signatureAsync.isLoading) {
+    if (greetingAsync.isLoading ||
+        signatureAsync.isLoading ||
+        textChannelAsync.isLoading) {
       return const Center(
         child: CircularProgressIndicator(color: AppColors.accent),
       );
@@ -402,16 +434,13 @@ class _MessagesTab extends StatelessWidget {
     // Null greeting means "never set" — seed the localised default ("Hola,").
     // An empty string means the user cleared it; keep it empty.
     final greeting = greetingAsync.value ?? l10n.settingsGreetingDefault;
-    onSeed(greeting, signatureAsync.value!);
+    onSeed(greeting, signatureAsync.value!, textChannelAsync.value!);
 
+    // Spec 008 §2.8: no section title — two top-level fields (Salutació,
+    // Signatura), then the §2.9 text-channel selector.
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
       children: [
-        Text(
-          l10n.settingsSignatureSectionTitle,
-          style: AppTypography.sectionTitle,
-        ),
-        const SizedBox(height: 12),
         FieldLabel(
           label: l10n.settingsGreetingLabel,
           child: AppTextField(
@@ -426,6 +455,18 @@ class _MessagesTab extends StatelessWidget {
             controller: signatureController,
             hintText: l10n.settingsSignatureHint,
             maxLines: 3,
+          ),
+        ),
+        const SizedBox(height: 16),
+        FieldLabel(
+          label: l10n.settingsTextChannelLabel,
+          child: SegmentedChoice<TextMessageChannel>(
+            value: textChannel,
+            onChanged: onChannelChanged,
+            options: const [
+              SegmentedChoiceOption(TextMessageChannel.sms, 'SMS'),
+              SegmentedChoiceOption(TextMessageChannel.whatsapp, 'WhatsApp'),
+            ],
           ),
         ),
       ],

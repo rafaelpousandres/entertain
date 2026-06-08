@@ -18,6 +18,7 @@ class EventDishLine {
     this.ingredientId,
     this.prepNote,
     this.supplierCategoryId,
+    this.referenceServings,
   });
 
   final String id;
@@ -39,6 +40,12 @@ class EventDishLine {
 
   final int sortOrder;
 
+  /// Servings the base [quantity] is expressed for (Spec 008 §2.10). The
+  /// effective quantity for the event-dish's current servings is derived from
+  /// this; null on legacy rows means "treat current servings as the reference"
+  /// (no scaling).
+  final int? referenceServings;
+
   factory EventDishLine.fromRow(Map<String, dynamic> row) {
     return EventDishLine(
       id: row['id'] as String,
@@ -49,10 +56,11 @@ class EventDishLine {
       prepNote: row['prep_note'] as String?,
       supplierCategoryId: row['supplier_category_id'] as String?,
       sortOrder: (row['sort_order'] as num?)?.toInt() ?? 0,
+      referenceServings: (row['reference_servings'] as num?)?.toInt(),
     );
   }
 
   static const String selectColumns =
       'id, ingredient_id, ingredient_name, quantity, unit_id, prep_note, '
-      'supplier_category_id, sort_order';
+      'supplier_category_id, sort_order, reference_servings';
 }

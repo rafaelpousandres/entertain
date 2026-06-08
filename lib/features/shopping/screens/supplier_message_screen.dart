@@ -9,7 +9,8 @@ import '../../../ui/app_form_field.dart';
 import '../../../ui/primary_button.dart';
 import '../../../ui/segmented_choice.dart';
 import '../../catalog/data/catalog_providers.dart';
-import '../../catalog/data/dish.dart' show formatQuantity;
+import '../../catalog/data/dish.dart'
+    show formatQuantity, quantityDecimalSeparator;
 import '../../catalog/data/reference_data.dart';
 import '../../events/data/event.dart';
 import '../../events/data/events_providers.dart';
@@ -116,6 +117,7 @@ class _SupplierMessageScreenState
     required GroupSupplierSetting? configured,
     required String greeting,
     required String signature,
+    required TextMessageChannel textChannel,
   }) async {
     final l10n = AppLocalizations.of(context);
     final locale = Localizations.localeOf(context);
@@ -144,6 +146,7 @@ class _SupplierMessageScreenState
         address: destination.address,
         subject: subject,
         body: body,
+        textChannel: textChannel,
       );
 
       // Fixes §2.7: opening the channel is not proof the message went out. If
@@ -183,6 +186,10 @@ class _SupplierMessageScreenState
         IngredientState.ordered,
       );
       ref.invalidate(eventShoppingProvider(widget.eventId));
+      // Spec 008 §2.4: sending moves lines to `ordered`, which can change the
+      // event's derived status shown on the list and detail header.
+      ref.invalidate(eventReadinessProvider);
+      ref.invalidate(eventsListProvider);
       if (!mounted) return;
       router.pop();
     } catch (_) {
@@ -247,7 +254,10 @@ class _SupplierMessageScreenState
       itemLines: [
         for (final line in delta)
           composeItemLine(
-            quantity: formatQuantity(line.quantity),
+            quantity: formatQuantity(
+              line.quantity,
+              decimalSeparator: quantityDecimalSeparator(locale.languageCode),
+            ),
             // Fixes §2.3: a unit flagged omit_in_display drops out (and the
             // connector with it) by reusing the no-unit path → "3 ous".
             unit: _displayUnit(unitsById[line.unitId]),
@@ -321,6 +331,7 @@ class _SupplierMessageScreenState
     final settingsAsync = ref.watch(groupSupplierSettingsProvider);
     final greetingAsync = ref.watch(groupGreetingProvider);
     final signatureAsync = ref.watch(groupSignatureProvider);
+    final textChannelAsync = ref.watch(groupTextMessageChannelProvider);
 
     final asyncs = [
       eventAsync,
@@ -330,6 +341,7 @@ class _SupplierMessageScreenState
       settingsAsync,
       greetingAsync,
       signatureAsync,
+      textChannelAsync,
     ];
     final loading = asyncs.any((a) => a.isLoading);
     final hasError = asyncs.any((a) => a.hasError);
@@ -436,6 +448,8 @@ class _SupplierMessageScreenState
                 final greeting =
                     greetingAsync.value ?? l10n.settingsGreetingDefault;
                 final signature = signatureAsync.value!;
+                final textChannel =
+                    textChannelAsync.value ?? TextMessageChannel.whatsapp;
                 final categoryLines =
                     linesByCategory(shopping.lines)[widget.categoryId] ??
                     const <ShoppingLine>[];
@@ -448,6 +462,7 @@ class _SupplierMessageScreenState
                   configured: configured,
                   greeting: greeting,
                   signature: signature,
+                  textChannel: textChannel,
                 );
               },
               sending: _sending,
@@ -786,7 +801,11 @@ class SentOrderCard extends StatelessWidget {
               padding: const EdgeInsets.only(top: 2),
               child: Text(
                 composeItemLine(
-                  quantity: formatQuantity(item.quantity),
+                  quantity: formatQuantity(
+                    item.quantity,
+                    decimalSeparator:
+                        quantityDecimalSeparator(locale.languageCode),
+                  ),
                   unit: _displayUnit(unitsById[item.unitId]),
                   connector: l10n.messageItemConnector,
                   ingredientName: item.ingredientName,

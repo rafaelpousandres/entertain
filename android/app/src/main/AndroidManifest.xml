@@ -1,7 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET"/>
     <application
-        android:label="entertain"
+        android:label="Entertain"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
@@ -52,6 +52,13 @@
         <intent>
             <action android:name="android.intent.action.VIEW"/>
             <data android:scheme="mailto"/>
+        </intent>
+        <!-- Spec 008 §2.9: open the SMS app via sms: links when the group's
+             text message channel is SMS. Required for package visibility on
+             Android 11+. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="sms"/>
         </intent>
     </queries>
 </manifest>

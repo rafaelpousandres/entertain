@@ -17,6 +17,7 @@ import '../../catalog/widgets/unit_ordering.dart';
 import '../../shopping/data/shopping_providers.dart';
 import '../data/event_dish_line.dart';
 import '../data/events_providers.dart';
+import '../data/serving_scale.dart';
 
 /// Arguments for the per-event line editor: the line being edited and the
 /// `event_dish` it belongs to (so the editor can invalidate the right list).
@@ -77,6 +78,10 @@ class _EventDishLineEditorScreenState
   bool _submitted = false;
   bool _busy = false;
 
+  /// Spec 008 §2.10: the quantity field shows the *scaled* value (what the user
+  /// sees elsewhere), seeded once the event-dish servings and units are known.
+  bool _quantitySeeded = false;
+
   /// Adding a brand-new ad-hoc line vs. editing an existing one (§2.2).
   bool get _isAdding => widget.args.line == null;
 
@@ -92,9 +97,11 @@ class _EventDishLineEditorScreenState
     _ingredientName = line?.ingredientName;
     _unitId = line?.unitId;
     _supplierCategoryId = line?.supplierCategoryId;
-    _quantityController = TextEditingController(
-      text: line == null ? '' : formatQuantity(line.quantity),
-    );
+    // The text is seeded in build once the event-dish servings are loaded, so
+    // the field shows the scaled quantity. Adding a new line has nothing to
+    // seed (the user types fresh for the current servings).
+    _quantityController = TextEditingController();
+    _quantitySeeded = line == null;
     _prepController = TextEditingController(text: line?.prepNote ?? '');
   }
 
@@ -201,6 +208,13 @@ class _EventDishLineEditorScreenState
 
     setState(() => _busy = true);
     final prepNote = _nullIfBlank(_prepController.text);
+    // Spec 008 §2.10: the entered quantity is the value for the event-dish's
+    // current servings, so that becomes the line's scaling reference (a new
+    // ad-hoc line, or a rebased edit).
+    final referenceServings =
+        ref.read(eventDishByIdProvider(widget.args.eventDishId)).value?.servings ??
+        widget.args.line?.referenceServings ??
+        1;
     try {
       final eventsRepo = ref.read(eventsRepositoryProvider);
       if (_isAdding) {
@@ -212,6 +226,7 @@ class _EventDishLineEditorScreenState
           unitId: _unitId!,
           prepNote: prepNote,
           supplierCategoryId: _supplierCategoryId,
+          referenceServings: referenceServings,
         );
         // §2.2: the catalog write happens only on save and only when the
         // checkbox is ticked — never as a pre-emptive side-effect.
@@ -237,10 +252,15 @@ class _EventDishLineEditorScreenState
           unitId: _unitId!,
           prepNote: prepNote,
           supplierCategoryId: _supplierCategoryId,
+          referenceServings: referenceServings,
         );
       }
       ref.invalidate(eventDishLinesProvider(widget.args.eventDishId));
       ref.invalidate(eventShoppingProvider(widget.args.eventId));
+      // Spec 008 §2.4: adding / editing / removing a line changes the menu's
+      // readiness, so the event's derived status may change.
+      ref.invalidate(eventReadinessProvider);
+      ref.invalidate(eventsListProvider);
       if (!mounted) return;
       context.pop();
     } catch (_) {
@@ -300,6 +320,10 @@ class _EventDishLineEditorScreenState
           .deleteEventDishLine(widget.args.line!.id);
       ref.invalidate(eventDishLinesProvider(widget.args.eventDishId));
       ref.invalidate(eventShoppingProvider(widget.args.eventId));
+      // Spec 008 §2.4: adding / editing / removing a line changes the menu's
+      // readiness, so the event's derived status may change.
+      ref.invalidate(eventReadinessProvider);
+      ref.invalidate(eventsListProvider);
       if (!mounted) return;
       context.pop();
     } catch (_) {
@@ -316,8 +340,31 @@ class _EventDishLineEditorScreenState
     final units = ref.watch(unitsProvider(localeCode)).value;
     final ingredients = ref.watch(ingredientsListProvider).value;
     final categories = ref.watch(supplierCategoriesProvider(localeCode)).value;
-    final loading =
-        units == null || ingredients == null || categories == null;
+    final eventDish = ref
+        .watch(eventDishByIdProvider(widget.args.eventDishId))
+        .value;
+    final loading = units == null ||
+        ingredients == null ||
+        categories == null ||
+        eventDish == null;
+
+    // §2.10: seed the quantity field once with the scaled value, so an existing
+    // line edits the amount the user sees on the detail / shopping surfaces.
+    if (!loading && !_quantitySeeded) {
+      final line = widget.args.line;
+      if (line != null) {
+        final unit = _unitOf(units, line.unitId);
+        _quantityController.text = formatQuantity(
+          scaleServingQuantity(
+            base: line.quantity,
+            referenceServings: line.referenceServings,
+            targetServings: eventDish.servings,
+            countable: unit?.magnitude == UnitMagnitude.count,
+          ),
+        );
+      }
+      _quantitySeeded = true;
+    }
 
     final unit = _unitOf(units ?? const [], _unitId);
     final quantityError = _submitted && _parseQuantity() == null;

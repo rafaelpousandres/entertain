@@ -80,6 +80,37 @@ class EventsRepository {
     return events;
   }
 
+  /// Per-event ingredient readiness for the group (Spec 008 §2.4), used to
+  /// derive each event's status without an N+1 of per-event queries. Returns a
+  /// map of event id → (total lines, lines not yet at_home/received). Events
+  /// with no lines are simply absent from the map. RLS already scopes the rows
+  /// to the caller; the explicit group filter keeps it consistent with
+  /// [listEventsForGroup].
+  Future<Map<String, ({int total, int notReady})>> eventReadiness(
+    String groupId,
+  ) async {
+    final rows = await _client
+        .from('event_dish_ingredients')
+        .select('state, event_dishes!inner(event_id, events!inner(group_id))')
+        .eq('event_dishes.events.group_id', groupId);
+
+    final result = <String, ({int total, int notReady})>{};
+    for (final r in rows as List) {
+      final row = r as Map<String, dynamic>;
+      final eventDish = row['event_dishes'] as Map<String, dynamic>?;
+      final eventId = eventDish?['event_id'] as String?;
+      if (eventId == null) continue;
+      final state = row['state'] as String?;
+      final ready = state == 'at_home' || state == 'received';
+      final current = result[eventId] ?? (total: 0, notReady: 0);
+      result[eventId] = (
+        total: current.total + 1,
+        notReady: current.notReady + (ready ? 0 : 1),
+      );
+    }
+    return result;
+  }
+
   Future<Event> fetchEvent(String id) async {
     final row = await _client
         .from('events')
@@ -177,12 +208,12 @@ class EventsRepository {
   }) async {
     final event = await _client
         .from('events')
-        .select('guest_count')
+        .select('guest_count, format')
         .eq('id', eventId)
         .single();
     final dish = await _client
         .from('dishes')
-        .select('name, category')
+        .select('name, category, base_servings')
         .eq('id', dishId)
         .single();
     final sourceLines = await _client
@@ -198,6 +229,15 @@ class EventsRepository {
         .select('id')
         .eq('event_id', eventId);
 
+    // Spec 008 §2.10: the default servings depend on the event format —
+    // seated events default to the guest count, buffet / other carry over the
+    // master dish's own servings.
+    final baseServings = (dish['base_servings'] as num?)?.toInt() ?? 4;
+    final guestCount = (event['guest_count'] as num).toInt();
+    final servings = (event['format'] as String?) == 'seated'
+        ? guestCount
+        : baseServings;
+
     final eventDish = await _client
         .from('event_dishes')
         .insert({
@@ -205,7 +245,7 @@ class EventsRepository {
           'source_dish_id': dishId,
           'dish_name': dish['name'],
           'category': dish['category'],
-          'servings': (event['guest_count'] as num).toInt(),
+          'servings': servings,
           'sort_order': (existing as List).length,
         })
         .select('id')
@@ -223,16 +263,33 @@ class EventsRepository {
             'event_dish_id': eventDishId,
             'ingredient_id': line['ingredient_id'],
             'ingredient_name': (ingredient?['name'] as String?) ?? '',
+            // Spec 008 §2.10: the copied quantity is the immutable base, valid
+            // for the master dish's base_servings; the effective quantity is
+            // scaled to the event-dish servings at read time.
             'quantity': line['quantity'],
             'unit_id': line['unit_id'],
             'prep_note': line['prep_note'],
             'supplier_category_id':
                 ingredient?['default_supplier_category_id'],
             'sort_order': line['sort_order'],
+            'reference_servings': baseServings,
           };
         }(),
     ];
     await _client.from('event_dish_ingredients').insert(payload);
+  }
+
+  /// Updates an event-dish's servings (Spec 008 §2.10). The per-line quantities
+  /// are not rewritten — they are immutable bases scaled to this value on read —
+  /// so a round-trip of the servings returns the exact original quantities.
+  Future<void> updateEventDishServings(
+    String eventDishId,
+    int servings,
+  ) async {
+    await _client
+        .from('event_dishes')
+        .update({'servings': servings})
+        .eq('id', eventDishId);
   }
 
   /// Adds a brand-new ad-hoc ingredient line to a per-event dish (Spec 006
@@ -248,6 +305,7 @@ class EventsRepository {
     required String unitId,
     String? prepNote,
     String? supplierCategoryId,
+    required int referenceServings,
   }) async {
     final existing = await _client
         .from('event_dish_ingredients')
@@ -262,11 +320,14 @@ class EventsRepository {
       'event_dish_id': eventDishId,
       'ingredient_id': ingredientId,
       'ingredient_name': ingredientName,
+      // Spec 008 §2.10: an ad-hoc line's base quantity is the value typed for
+      // the event-dish's servings at the time it is added — its own reference.
       'quantity': quantity,
       'unit_id': unitId,
       'prep_note': prepNote,
       'supplier_category_id': supplierCategoryId,
       'sort_order': nextOrder,
+      'reference_servings': referenceServings,
     });
   }
 
@@ -278,16 +339,20 @@ class EventsRepository {
     required String unitId,
     String? prepNote,
     String? supplierCategoryId,
+    required int referenceServings,
   }) async {
     await _client
         .from('event_dish_ingredients')
         .update({
           'ingredient_id': ingredientId,
           'ingredient_name': ingredientName,
+          // Spec 008 §2.10: a manual quantity edit rebases the line to the
+          // current servings, which become its new scaling reference.
           'quantity': quantity,
           'unit_id': unitId,
           'prep_note': prepNote,
           'supplier_category_id': supplierCategoryId,
+          'reference_servings': referenceServings,
         })
         .eq('id', lineId);
   }

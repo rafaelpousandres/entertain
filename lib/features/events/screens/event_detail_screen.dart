@@ -16,6 +16,7 @@ import '../../shopping/screens/event_shopping_panel.dart';
 import '../data/event.dart';
 import '../data/event_dish.dart';
 import '../data/event_draft.dart';
+import '../data/event_status.dart';
 import '../data/events_providers.dart';
 import '../widgets/event_formatters.dart';
 
@@ -128,6 +129,8 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
           );
       ref.invalidate(eventsListProvider);
       ref.invalidate(eventByIdProvider(widget.eventId));
+      // Spec 008 §2.4: a date change can flip the event to / from "past".
+      ref.invalidate(eventReadinessProvider);
       if (!mounted) return;
       setState(() => _saving = false);
       messenger.showSnackBar(SnackBar(content: Text(l10n.saveAction)));
@@ -200,6 +203,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
     final l10n = AppLocalizations.of(context);
     final locale = Localizations.localeOf(context);
     final eventAsync = ref.watch(eventByIdProvider(widget.eventId));
+    final readinessAsync = ref.watch(eventReadinessProvider);
 
     return Scaffold(
       backgroundColor: AppColors.bg,
@@ -210,12 +214,28 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
           onPressed: _deleting ? null : () => context.pop(),
         ),
         title: eventAsync.maybeWhen(
-          data: (event) => Text(
-            event.title,
-            style: AppTypography.sectionTitle,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
+          data: (event) {
+            final now = DateTime.now();
+            final status = deriveEventStatus(
+              event,
+              readinessAsync.value?[event.id],
+              DateTime(now.year, now.month, now.day),
+            );
+            return Row(
+              children: [
+                Flexible(
+                  child: Text(
+                    event.title,
+                    style: AppTypography.sectionTitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                _EventStatusChip(status: status),
+              ],
+            );
+          },
           orElse: () => const SizedBox.shrink(),
         ),
         actions: [
@@ -487,6 +507,42 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
 }
 
 enum _OverflowAction { delete }
+
+/// Small status pill for the detail header (Spec 008 §2.4): a coloured dot and
+/// the textual status label.
+class _EventStatusChip extends StatelessWidget {
+  const _EventStatusChip({required this.status});
+
+  final DerivedEventStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final color = derivedEventStatusColor(status);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceSoft,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            derivedEventStatusLabel(l10n, status),
+            style: AppTypography.caption.copyWith(color: AppColors.textSecondary),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class _ActionBar extends StatelessWidget {
   const _ActionBar({required this.child});

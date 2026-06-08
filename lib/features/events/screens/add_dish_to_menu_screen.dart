@@ -50,6 +50,9 @@ class _AddDishToMenuScreenState extends ConsumerState<AddDishToMenuScreen> {
       // re-added dish (with any catalog lines added since the first add) shows
       // up there without a restart.
       ref.invalidate(eventShoppingProvider(widget.eventId));
+      // Spec 008 §2.4: a new dish adds to-order ingredients, affecting status.
+      ref.invalidate(eventReadinessProvider);
+      ref.invalidate(eventsListProvider);
       if (!mounted) return;
       context.pop();
     } catch (_) {

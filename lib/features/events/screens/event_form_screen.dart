@@ -184,6 +184,7 @@ class _EventFormState extends ConsumerState<_EventForm> {
         await repo.createEvent(_draft, groupId: groupId);
       }
       ref.invalidate(eventsListProvider);
+      ref.invalidate(eventReadinessProvider);
       if (widget.eventId != null) {
         ref.invalidate(eventByIdProvider(widget.eventId!));
       }
