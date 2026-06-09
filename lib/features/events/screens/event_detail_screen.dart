@@ -566,6 +566,11 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
           ),
         ),
         const SizedBox(height: 16),
+        // Spec 009 §2.2 / §9: the event's photo album — a thumbnail row that
+        // opens the full-screen carousel, plus an add tile. Placed between Lloc
+        // and Notes so Notes stays the last section of the detail.
+        EventPhotosSection(eventId: event.id),
+        const SizedBox(height: 16),
         FieldLabel(
           label: l10n.fieldNotesLabel,
           child: AppTextField(
@@ -576,10 +581,6 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
             onChanged: (_) => setState(() {}),
           ),
         ),
-        const SizedBox(height: 24),
-        // Spec 009 §2.2: the event's photo album — a thumbnail row that opens
-        // the full-screen carousel, plus an add tile.
-        EventPhotosSection(eventId: event.id),
       ],
     );
   }

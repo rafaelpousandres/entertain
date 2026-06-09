@@ -52,6 +52,18 @@ class EventCard extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              // §8: the recall thumbnail leads the card when the event has a
+              // photo; otherwise nothing is shown there and the card collapses
+              // to the date badge. The date stays, now in second position.
+              if (photoPath != null) ...[
+                _CardPhotoThumb(
+                  photoRef: (
+                    bucket: PhotoStorage.eventBucket,
+                    path: photoPath!,
+                  ),
+                ),
+                const SizedBox(width: 12),
+              ],
               _DateBadge(date: event.eventDate, locale: locale, l10n: l10n),
               const SizedBox(width: 12),
               Expanded(
@@ -90,15 +102,6 @@ class EventCard extends StatelessWidget {
                   ],
                 ),
               ),
-              if (photoPath != null) ...[
-                const SizedBox(width: 10),
-                RowPhotoThumb(
-                  photoRef: (
-                    bucket: PhotoStorage.eventBucket,
-                    path: photoPath!,
-                  ),
-                ),
-              ],
               const SizedBox(width: 8),
               const Icon(
                 Icons.chevron_right,
@@ -108,6 +111,27 @@ class EventCard extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Leading recall thumbnail (Spec 009 §8): 52×52 with radius 12, sized to match
+/// the [_DateBadge] it sits beside so the two leading squares align.
+class _CardPhotoThumb extends StatelessWidget {
+  const _CardPhotoThumb({required this.photoRef});
+
+  final PhotoRef photoRef;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        width: 52,
+        height: 52,
+        color: AppColors.surfaceSoft,
+        child: PhotoBytesImage(photoRef: photoRef),
       ),
     );
   }
