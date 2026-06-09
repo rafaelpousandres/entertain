@@ -66,44 +66,118 @@ class EventPhotosSection extends ConsumerWidget {
 /// The horizontal album row: each photo as a tappable thumbnail, then a
 /// trailing add tile. With no photos it is just the add tile — the empty state
 /// (Spec 009 Fixes §6).
-class _PhotoRow extends ConsumerWidget {
+///
+/// §6.1: the thumbnails reorder by **long-press + drag** (a
+/// [ReorderableListView] with delayed drag handles). The trailing add tile is
+/// deliberately *not* draggable and stays pinned at the end. A drop persists
+/// the new `position` of every photo. Local optimistic state holds the order
+/// during and after the drag so the row doesn't snap back while the write and
+/// the album refetch settle; it only resyncs from the provider when the photo
+/// *set* changes (an add or a remove), never on an order-only refresh, which
+/// would otherwise revert the just-applied drag.
+class _PhotoRow extends ConsumerStatefulWidget {
   const _PhotoRow({required this.eventId, required this.photos});
 
   final String eventId;
   final List<EventPhoto> photos;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_PhotoRow> createState() => _PhotoRowState();
+}
+
+class _PhotoRowState extends ConsumerState<_PhotoRow> {
+  late List<EventPhoto> _photos;
+
+  @override
+  void initState() {
+    super.initState();
+    _photos = List.of(widget.photos);
+  }
+
+  @override
+  void didUpdateWidget(_PhotoRow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Resync only when the set of photos changed (add / remove); an order-only
+    // difference is the in-flight refresh of a drag we already applied, so we
+    // keep the local order to avoid reverting it.
+    final incomingIds = widget.photos.map((p) => p.id).toSet();
+    final localIds = _photos.map((p) => p.id).toSet();
+    if (incomingIds.length != localIds.length ||
+        !incomingIds.containsAll(localIds)) {
+      _photos = List.of(widget.photos);
+    }
+  }
+
+  void _onReorder(int oldIndex, int newIndex) {
+    // onReorderItem already adjusts newIndex for the removed item; we only
+    // clamp it so a photo can never land after the pinned add tile.
+    // The add tile (last slot) carries no drag listener, but guard anyway.
+    if (oldIndex >= _photos.length) return;
+    newIndex = newIndex.clamp(0, _photos.length - 1);
+    if (newIndex == oldIndex) return;
+    setState(() {
+      final moved = _photos.removeAt(oldIndex);
+      _photos.insert(newIndex, moved);
+    });
+    reorderEventPhotos(
+      ref: ref,
+      eventId: widget.eventId,
+      ordered: _photos,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return SizedBox(
       height: EventPhotosSection.tile,
-      child: ListView.separated(
+      child: ReorderableListView.builder(
         scrollDirection: Axis.horizontal,
-        itemCount: photos.length + 1,
-        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        buildDefaultDragHandles: false,
+        onReorderItem: _onReorder,
+        // Keep the dragged thumbnail clean (no default elevated rectangle
+        // behind the rounded image).
+        proxyDecorator: (child, _, _) =>
+            Material(color: Colors.transparent, child: child),
+        itemCount: _photos.length + 1,
         itemBuilder: (context, index) {
-          if (index == photos.length) {
-            return _AddPhotoTile(
-              size: EventPhotosSection.tile,
-              onTap: () => addEventPhoto(
-                ref: ref,
-                context: context,
-                eventId: eventId,
+          if (index == _photos.length) {
+            // Pinned, non-draggable add tile.
+            return Padding(
+              key: const ValueKey('add-photo-tile'),
+              padding: const EdgeInsets.only(left: 8),
+              child: _AddPhotoTile(
+                size: EventPhotosSection.tile,
+                onTap: () => addEventPhoto(
+                  ref: ref,
+                  context: context,
+                  eventId: widget.eventId,
+                ),
               ),
             );
           }
-          final photo = photos[index];
-          return GestureDetector(
-            onTap: () =>
-                EventPhotoCarouselScreen.open(context, eventId, index),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: SizedBox(
-                width: EventPhotosSection.tile,
-                height: EventPhotosSection.tile,
-                child: PhotoBytesImage(
-                  photoRef: (
-                    bucket: PhotoStorage.eventBucket,
-                    path: photo.photoPath,
+          final photo = _photos[index];
+          return ReorderableDelayedDragStartListener(
+            key: ValueKey(photo.id),
+            index: index,
+            child: Padding(
+              padding: EdgeInsets.only(right: index == _photos.length - 1 ? 0 : 8),
+              child: GestureDetector(
+                onTap: () => EventPhotoCarouselScreen.open(
+                  context,
+                  widget.eventId,
+                  index,
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: SizedBox(
+                    width: EventPhotosSection.tile,
+                    height: EventPhotosSection.tile,
+                    child: PhotoBytesImage(
+                      photoRef: (
+                        bucket: PhotoStorage.eventBucket,
+                        path: photo.photoPath,
+                      ),
+                    ),
                   ),
                 ),
               ),

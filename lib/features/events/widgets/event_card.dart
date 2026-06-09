@@ -4,6 +4,8 @@ import 'package:intl/intl.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_typography.dart';
+import '../../photos/data/photo_storage.dart';
+import '../../photos/widgets/photo_image.dart';
 import '../data/event.dart';
 import '../data/event_status.dart';
 import 'event_formatters.dart';
@@ -18,11 +20,17 @@ class EventCard extends StatelessWidget {
     required this.event,
     required this.status,
     required this.onTap,
+    this.photoPath,
   });
 
   final Event event;
   final DerivedEventStatus status;
   final VoidCallback onTap;
+
+  /// First album photo (object path in the event bucket), shown as a recall
+  /// thumbnail (Spec 009 §6.2). Null when the event has no photos — the card
+  /// then shows no thumbnail at all.
+  final String? photoPath;
 
   @override
   Widget build(BuildContext context) {
@@ -82,6 +90,15 @@ class EventCard extends StatelessWidget {
                   ],
                 ),
               ),
+              if (photoPath != null) ...[
+                const SizedBox(width: 10),
+                RowPhotoThumb(
+                  photoRef: (
+                    bucket: PhotoStorage.eventBucket,
+                    path: photoPath!,
+                  ),
+                ),
+              ],
               const SizedBox(width: 8),
               const Icon(
                 Icons.chevron_right,

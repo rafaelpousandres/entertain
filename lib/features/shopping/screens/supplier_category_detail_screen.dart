@@ -410,41 +410,41 @@ class _SupplierCategoryDetailScreenState
                 ],
               ),
               const SizedBox(height: 20),
-              // §3 reorder: the category comes first (read-only for system /
-              // pantry, editable for user categories), then the supplier name,
-              // then the preferred channel, with the contact picker last.
-              FieldLabel(
-                label: l10n.supplierCategoryCategoryLabel,
-                child: _isUser
-                    ? AppTextField(
-                        controller: _nameController,
-                        hintText: l10n.supplierCategoryNameHint,
-                        onChanged: (_) {
-                          _dirty = true;
-                          if (_nameError != null) {
-                            setState(() => _nameError = null);
-                          }
-                        },
-                      )
-                    : _ReadOnlyField(value: widget.category.name),
-              ),
-              if (_nameError != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 6),
-                  child: Text(
-                    _nameError!,
-                    style: AppTypography.caption.copyWith(
-                      color: AppColors.danger,
-                    ),
+              // §3.1: for a **user** category the Categoria field is where the
+              // name is edited, so it stays. For **system / pantry** categories
+              // the name is already shown in the header (AppBar + the title row
+              // above), so the read-only Categoria field merely repeated it —
+              // it is dropped, keeping only the informative hint that system
+              // categories can't be renamed (create your own instead).
+              if (_isUser) ...[
+                FieldLabel(
+                  label: l10n.supplierCategoryCategoryLabel,
+                  child: AppTextField(
+                    controller: _nameController,
+                    hintText: l10n.supplierCategoryNameHint,
+                    onChanged: (_) {
+                      _dirty = true;
+                      if (_nameError != null) {
+                        setState(() => _nameError = null);
+                      }
+                    },
                   ),
                 ),
-              if (!_isUser) ...[
-                const SizedBox(height: 6),
+                if (_nameError != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(
+                      _nameError!,
+                      style: AppTypography.caption.copyWith(
+                        color: AppColors.danger,
+                      ),
+                    ),
+                  ),
+              ] else
                 Text(
                   l10n.supplierCategorySystemNameHint,
                   style: AppTypography.caption,
                 ),
-              ],
               if (_showChannel) ...[
                 const SizedBox(height: 16),
                 // Spec 008 §2.3: the concrete supplier name ("Peixos Samba"),
@@ -670,29 +670,6 @@ class _FieldError extends StatelessWidget {
       child: Text(
         message,
         style: AppTypography.caption.copyWith(color: AppColors.danger),
-      ),
-    );
-  }
-}
-
-class _ReadOnlyField extends StatelessWidget {
-  const _ReadOnlyField({required this.value});
-
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceSoft,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Text(
-        value,
-        style: AppTypography.body.copyWith(color: AppColors.textSecondary),
       ),
     );
   }

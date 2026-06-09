@@ -155,7 +155,25 @@ Future<bool> addEventPhoto({
         position: existing.length,
       );
   ref.invalidate(eventPhotosProvider(eventId));
+  // The list-screen thumbnail (§6.2) is the first photo; a first-ever add
+  // changes it from nothing to this photo.
+  ref.invalidate(eventFirstPhotosProvider);
   return true;
+}
+
+/// Persists a drag-reordered album (Spec 009 §6.1): writes each photo's new
+/// `position` from its index in [ordered], then refreshes the album so the
+/// thumbnail row and the carousel pick up the new order. The list-screen
+/// thumbnails (first photo per event) are refreshed too, since the first photo
+/// may have changed.
+Future<void> reorderEventPhotos({
+  required WidgetRef ref,
+  required String eventId,
+  required List<EventPhoto> ordered,
+}) async {
+  await ref.read(eventsRepositoryProvider).reorderEventPhotos(ordered);
+  ref.invalidate(eventPhotosProvider(eventId));
+  ref.invalidate(eventFirstPhotosProvider);
 }
 
 /// Removes one event photo: deletes the row, then the blob (non-fatal on
@@ -173,6 +191,9 @@ Future<void> deleteEventPhoto({
     // Non-fatal — orphan blob swept later.
   }
   ref.invalidate(eventPhotosProvider(photo.eventId));
+  // Removing the current first photo promotes the next one (or none) on the
+  // list-screen thumbnail (§6.2).
+  ref.invalidate(eventFirstPhotosProvider);
   ref.invalidate(
     photoBytesProvider((bucket: PhotoStorage.eventBucket, path: photo.photoPath)),
   );

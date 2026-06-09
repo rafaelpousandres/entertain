@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Spec 009 §7 — per-app language (Android 13+ "App language").
+     Declares the locales the app ships translations for (CLAUDE.md: Catalan,
+     Spanish, English). With android:localeConfig on <application>, Settings >
+     Apps > Entertain > App language lists these three so the user can pick the
+     app's language independently of the system locale. -->
+<locale-config xmlns:android="http://schemas.android.com/apk/res/android">
+    <locale android:name="ca"/>
+    <locale android:name="es"/>
+    <locale android:name="en"/>
+</locale-config>

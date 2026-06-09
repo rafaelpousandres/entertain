@@ -78,3 +78,15 @@ final eventPhotosProvider = FutureProvider.family<List<EventPhoto>, String>((
 ) async {
   return ref.watch(eventsRepositoryProvider).listEventPhotos(eventId);
 });
+
+/// The first photo (object path) of every event in the current group that has
+/// one (Spec 009 §6.2), for the recall thumbnail on the events-list cards.
+/// Fetched in a single query (no N+1) and invalidated whenever an album changes
+/// (add / remove / reorder), since the first photo may have changed.
+final eventFirstPhotosProvider = FutureProvider<Map<String, String>>((
+  ref,
+) async {
+  final repo = ref.watch(eventsRepositoryProvider);
+  final groupId = await ref.watch(currentGroupIdProvider.future);
+  return repo.firstPhotoPathByEvent(groupId);
+});

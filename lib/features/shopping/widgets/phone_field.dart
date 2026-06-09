@@ -1,65 +1,64 @@
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:intl_phone_field/countries.dart';
+import 'package:intl_phone_field/intl_phone_field.dart';
 
-import '../../../l10n/app_localizations.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_typography.dart';
-import '../../../ui/app_form_field.dart';
-import '../../../ui/single_choice_sheet.dart';
 
-/// One selectable international dialling prefix (Spec 009 Fixes §3).
-class PhoneCountry {
-  const PhoneCountry(this.iso, this.name, this.dialCode);
+/// International dial-code prefix handling for the supplier phone (Spec 009
+/// §3.2). The hand-curated short country list of the first fixes round is
+/// replaced here by the `intl_phone_field` package, which carries the full
+/// worldwide set of dial codes and a searchable country picker — the standard
+/// mobile-app treatment. The default country follows the device locale.
+///
+/// The screen still owns the dial code and the local-number controller and
+/// composes / validates the stored E.164 value, so the helpers below convert
+/// between the package's country data and the `+NN` strings the rest of the
+/// code already speaks.
 
-  /// ISO 3166-1 alpha-2 code, used to derive the device-locale default.
-  final String iso;
+const String _fallbackIso = 'ES';
+const String _fallbackDialCode = '+34';
 
-  /// Human-readable country name shown in the picker.
-  final String name;
+/// The package's country record for an ISO alpha-2 code, or Spain as the
+/// fallback so callers always get a concrete country.
+Country _countryForIso(String iso) => countries.firstWhere(
+  (c) => c.code == iso,
+  orElse: () =>
+      countries.firstWhere((c) => c.code == _fallbackIso),
+);
 
-  /// E.164 dialling prefix, e.g. `+34`.
-  final String dialCode;
+/// The device locale's country if `intl_phone_field` knows it, else Spain —
+/// used as the default selection for a fresh field (§3.2).
+String defaultPhoneCountryIso() {
+  final code = ui.PlatformDispatcher.instance.locale.countryCode;
+  if (code != null && countries.any((c) => c.code == code)) return code;
+  return _fallbackIso;
 }
 
-/// A deliberately short, hand-curated list rather than a full country database
-/// (Spec 009 Fixes §3, lean-first): the app's users are Catalan/Spanish, so the
-/// near markets and the common diaspora destinations cover the realistic cases
-/// without pulling in a dependency. Ordered roughly by likelihood. The default
-/// is Spain (+34) unless the device locale points elsewhere.
-const List<PhoneCountry> phoneCountries = [
-  PhoneCountry('ES', 'Espanya / España / Spain', '+34'),
-  PhoneCountry('FR', 'França / Francia / France', '+33'),
-  PhoneCountry('PT', 'Portugal', '+351'),
-  PhoneCountry('IT', 'Itàlia / Italia / Italy', '+39'),
-  PhoneCountry('DE', 'Alemanya / Alemania / Germany', '+49'),
-  PhoneCountry('GB', 'Regne Unit / Reino Unido / UK', '+44'),
-  PhoneCountry('IE', 'Irlanda / Ireland', '+353'),
-  PhoneCountry('NL', 'Països Baixos / Países Bajos / Netherlands', '+31'),
-  PhoneCountry('BE', 'Bèlgica / Bélgica / Belgium', '+32'),
-  PhoneCountry('CH', 'Suïssa / Suiza / Switzerland', '+41'),
-  PhoneCountry('AD', 'Andorra', '+376'),
-  PhoneCountry('MA', 'Marroc / Marruecos / Morocco', '+212'),
-  PhoneCountry('US', 'EUA / EE. UU. / USA', '+1'),
-];
+/// The dial code (`+34`) to preselect for a fresh field: the device locale's
+/// country when known, otherwise Spain.
+String defaultPhoneDialCode() => '+${_countryForIso(defaultPhoneCountryIso()).dialCode}';
 
-const PhoneCountry _fallbackCountry = PhoneCountry('ES', 'Espanya', '+34');
-
-/// The dial code to preselect for a fresh field: the device locale's country
-/// when it is one we list, otherwise Spain (+34) per §3.
-String defaultPhoneDialCode() {
-  final country = ui.PlatformDispatcher.instance.locale.countryCode;
-  if (country != null) {
-    for (final c in phoneCountries) {
-      if (c.iso == country) return c.dialCode;
+/// ISO alpha-2 code for a stored `+NN` dial code, for
+/// [IntlPhoneField.initialCountryCode]. The longest matching dial code wins
+/// (`+351` over `+3…`); shared codes (e.g. `+1`) resolve to the first listed
+/// country, which is adequate for the local part round-trip.
+String isoForDialCode(String dialCode) {
+  final digits = dialCode.startsWith('+') ? dialCode.substring(1) : dialCode;
+  Country? best;
+  for (final c in countries) {
+    if (digits == c.dialCode) {
+      if (best == null || c.dialCode.length > best.dialCode.length) best = c;
     }
   }
-  return _fallbackCountry.dialCode;
+  return best?.code ?? defaultPhoneCountryIso();
 }
 
 /// Splits a stored E.164-ish phone (`+34600123456`) into its dial code and the
 /// local part for editing. Matches the **longest** known prefix so `+351…`
-/// wins over `+3…` style ambiguity. A value with no recognised prefix keeps the
+/// wins over `+3…` ambiguity. A value with no recognised prefix keeps the
 /// default dial code and treats the whole string as the local part, so legacy
 /// numbers typed before this field existed still load for editing.
 ({String dialCode, String local}) splitStoredPhone(String? stored) {
@@ -67,30 +66,32 @@ String defaultPhoneDialCode() {
   if (value.isEmpty) {
     return (dialCode: defaultPhoneDialCode(), local: '');
   }
-  PhoneCountry? best;
-  for (final c in phoneCountries) {
-    if (value.startsWith(c.dialCode)) {
-      if (best == null || c.dialCode.length > best.dialCode.length) best = c;
+  if (value.startsWith('+')) {
+    final rest = value.substring(1);
+    Country? best;
+    for (final c in countries) {
+      if (rest.startsWith(c.dialCode)) {
+        if (best == null || c.dialCode.length > best.dialCode.length) best = c;
+      }
     }
-  }
-  if (best != null) {
-    return (
-      dialCode: best.dialCode,
-      local: value.substring(best.dialCode.length).trim(),
-    );
+    if (best != null) {
+      return (
+        dialCode: '+${best.dialCode}',
+        local: rest.substring(best.dialCode.length).trim(),
+      );
+    }
   }
   return (dialCode: defaultPhoneDialCode(), local: value);
 }
 
 /// The digits of a local phone part, with spaces, dashes and parentheses
 /// stripped. Used both to validate and to compose the stored value.
-String _localDigits(String local) =>
-    local.replaceAll(RegExp(r'[^0-9]'), '');
+String _localDigits(String local) => local.replaceAll(RegExp(r'[^0-9]'), '');
 
 /// Whether [local] is a plausible subscriber number for storage: 6–15 digits
 /// once separators are stripped (E.164 caps the full number, including the
-/// country code, at 15). Deliberately lenient — exact per-country lengths would
-/// need a phone-metadata library, out of scope for this lean fix (§3).
+/// country code, at 15). Deliberately lenient — the package's own per-country
+/// length check is disabled so this stays the single source of validity (§3.2).
 bool isValidLocalPhone(String local) {
   final digits = _localDigits(local);
   return digits.length >= 6 && digits.length <= 15;
@@ -102,13 +103,16 @@ bool isValidLocalPhone(String local) {
 String composeStoredPhone(String dialCode, String local) {
   final digits = _localDigits(local);
   if (digits.isEmpty) return '';
-  return '$dialCode$digits';
+  final prefix = dialCode.isEmpty ? _fallbackDialCode : dialCode;
+  return '$prefix$digits';
 }
 
-/// Phone input with an international dial-code prefix (Spec 009 Fixes §3): a
-/// tappable prefix chip opens a country picker; the trailing field holds the
-/// local number. The parent owns both the [dialCode] and the [controller] so it
-/// can compose the stored E.164 value and run the channel validation.
+/// Phone input with a worldwide international dial-code prefix (Spec 009 §3.2),
+/// backed by `intl_phone_field`: the leading flag button opens a searchable
+/// country picker; the trailing field holds the local number. The parent owns
+/// both the [dialCode] and the [controller] so it can compose the stored E.164
+/// value and run the channel validation; [onDialCodeChanged] fires when the
+/// user picks a different country, [onChanged] when the local digits change.
 class PhoneField extends StatelessWidget {
   const PhoneField({
     super.key,
@@ -127,83 +131,50 @@ class PhoneField extends StatelessWidget {
   final bool enabled;
   final ValueChanged<String>? onChanged;
 
-  Future<void> _pickCountry(BuildContext context) async {
-    final l10n = AppLocalizations.of(context);
-    await showSingleChoiceSheet<String>(
-      context: context,
-      title: l10n.phoneCountryPickerTitle,
-      options: [
-        for (final c in phoneCountries)
-          SingleChoiceOption(
-            value: c.dialCode,
-            label: '${c.name}  (${c.dialCode})',
-          ),
-      ],
-      selectedValue: dialCode,
-      onSelected: onDialCodeChanged,
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        _DialCodeChip(
-          dialCode: dialCode,
-          onTap: enabled ? () => _pickCountry(context) : null,
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: AppTextField(
-            controller: controller,
-            hintText: hintText,
-            keyboardType: TextInputType.phone,
-            textCapitalization: TextCapitalization.none,
-            onChanged: onChanged,
-          ),
-        ),
-      ],
+    return IntlPhoneField(
+      // The selected country lives in the widget's own state and is seeded from
+      // initialCountryCode only at init; keying on the dial code rebuilds it
+      // when the parent reseeds the prefix externally (a contact pick), so the
+      // flag stays in sync with the stored number.
+      key: ValueKey(dialCode),
+      controller: controller,
+      enabled: enabled,
+      initialCountryCode: isoForDialCode(dialCode),
+      languageCode: Localizations.localeOf(context).languageCode,
+      // The screen keeps its own 6–15 digit rule (isValidLocalPhone) as the
+      // single source of validity; disabling the package's per-country length
+      // check avoids a second, conflicting error and its character counter.
+      disableLengthCheck: true,
+      showCountryFlag: true,
+      dropdownIconPosition: IconPosition.trailing,
+      style: AppTypography.body,
+      dropdownTextStyle: AppTypography.body,
+      cursorColor: AppColors.accent,
+      flagsButtonPadding: const EdgeInsets.only(left: 8),
+      decoration: _decoration(hintText),
+      onChanged: (phone) => onChanged?.call(phone.number),
+      onCountryChanged: (country) => onDialCodeChanged('+${country.dialCode}'),
     );
   }
-}
 
-/// The tappable prefix box, styled to match [AppTextField] so the prefix and
-/// the number read as one control.
-class _DialCodeChip extends StatelessWidget {
-  const _DialCodeChip({required this.dialCode, required this.onTap});
+  /// Matches [AppTextField]'s decoration so the prefix + number read as one
+  /// control consistent with the rest of the form.
+  InputDecoration _decoration(String? hintText) => InputDecoration(
+    hintText: hintText,
+    hintStyle: AppTypography.body.copyWith(color: AppColors.textTertiary),
+    filled: true,
+    fillColor: AppColors.surface,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+    border: _outline(AppColors.border),
+    enabledBorder: _outline(AppColors.border),
+    focusedBorder: _outline(AppColors.accentSecondary),
+    isDense: true,
+  );
 
-  final String dialCode;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.surface,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.border),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(dialCode, style: AppTypography.body),
-              const SizedBox(width: 4),
-              const Icon(
-                Icons.arrow_drop_down,
-                size: 20,
-                color: AppColors.textSecondary,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+  OutlineInputBorder _outline(Color color) => OutlineInputBorder(
+    borderRadius: BorderRadius.circular(12),
+    borderSide: BorderSide(color: color),
+  );
 }
