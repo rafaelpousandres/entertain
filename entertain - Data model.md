@@ -187,6 +187,7 @@ Each ingredient has **a single unit** or a convertible family (decision Q2).
 | prep_description | text | Nullable. Base preparation/handling ("cuttlefish with skin, cleaned, ink sac separate"). |
 | package_equiv_value | numeric | Nullable. Optional conversion: mass/volume equivalent of **one** package unit. |
 | package_equiv_unit_id | uuid | FK → units (mass or volume). Accompanies `package_equiv_value`. |
+| photo_path | text | Nullable. Object path of the ingredient's main photo in the `ingredient-photos` bucket (`{ingredient_id}.jpg`); Spec 009 §2.2. See the photos note in §3.9. |
 | is_system | boolean | Default `false`. |
 
 #### `dishes` — Dish · Phase 0 🗑
@@ -199,6 +200,7 @@ Reusable canonical recipe (decision Q1a).
 | category | enum(aperitif,starter,main,dessert,drink,other) | |
 | base_servings | integer | Servings of the canonical recipe. Default `4`. |
 | description | text | Nullable. |
+| photo_path | text | Nullable. Object path of the dish's main photo in the `dish-photos` bucket (`{dish_id}.jpg`); Spec 009 §2.2. See the photos note in §3.9. |
 
 #### `dish_ingredients` — Dish ingredient line (canonical) · Phase 0
 
@@ -402,6 +404,31 @@ Polymorphic association with multiple entities.
 | sort_order | integer | |
 | | | Index (`owner_type`, `owner_id`). |
 
+> **Photos (Spec 009 §2.2).** The first photo feature (one photo per dish, one
+> per ingredient, an album per event) is implemented **not** through the
+> polymorphic `media` table above but with a simpler per-entity design, chosen
+> deliberately for three entities with fixed cardinalities:
+> - `dishes.photo_path` and `ingredients.photo_path` — a single nullable column
+>   each (object `{id}.jpg`), so "has a photo" is just "column non-null".
+> - `event_photos` — a dedicated child table for the multi-photo event album
+>   (below).
+>
+> Bytes live in three private Supabase Storage buckets (`dish-photos`,
+> `ingredient-photos`, `event-photos`), EU region, gated by RLS on group
+> membership. `media` remains the model for richer/polymorphic media (videos,
+> receipts, captions, ordering across mixed owners) if a later phase needs it.
+
+#### `event_photos` — Event photo album · Phase 1
+Multiple photos per event, presented as a carousel (Spec 009 §2.2).
+
+| Field | Type | Notes |
+|---|---|---|
+| event_id | uuid | FK → events, `on delete cascade`. |
+| photo_path | text | Object path in the `event-photos` bucket (`{event_id}/{photo_id}.jpg`). |
+| position | integer | Ordering within the carousel; default `0`. New photos append at the current count. |
+| created_at | timestamptz | Secondary sort (tiebreaker for equal `position`). |
+| | | Index (`event_id`, `position`). |
+
 #### `translations` — Translation · Phase 0
 Translations of app-provided content (§5).
 
@@ -466,7 +493,7 @@ Single principle: **a row is accessible if the user is a member of its group.**
 |---|---|
 | **0 — Lean MVP** | groups, profiles, memberships, events, units, ingredients, dishes, dish_ingredients, event_dishes, event_dish_ingredients, supplier_categories, orders, order_items, translations, message_templates, media (structure) |
 | **0.x — Fast-follow** | use of `media` for photos; editable categories/suppliers |
-| **1 — Scale and convenience** | persons, suppliers, pantry_items, costs, material_items, event_materials, tasks, ratings; videos in `media`; `event_dishes.servings` and quantity verification |
+| **1 — Scale and convenience** | persons, suppliers, pantry_items, costs, material_items, event_materials, tasks, ratings; videos in `media`; `event_dishes.servings` and quantity verification; photos (`dishes.photo_path`, `ingredients.photo_path`, `event_photos`) — Spec 009 §2.2 |
 | **2 — Collaborative cloud** | event_participants, dietary_restrictions; `memberships.role`; `tasks.assignee_user_id` |
 | **3 — AI** | recipes |
 | **5 — Costs and payments** | cost_shares; `costs.source = receipt_ocr` and `receipt_media_id` |
