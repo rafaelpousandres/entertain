@@ -1,9 +1,17 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Spec 009 §2.2: capturing a dish / ingredient / event photo with the
+         camera (gallery picks go through the Android Photo Picker, which needs
+         no storage permission). -->
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <!-- Spec 009 §2.3: contact picker for supplier categories — read the
+         picked contact's name, phones and emails. -->
+    <uses-permission android:name="android.permission.READ_CONTACTS"/>
     <application
         android:label="Entertain"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:localeConfig="@xml/locales_config">
         <activity
             android:name=".MainActivity"
             android:exported="true"

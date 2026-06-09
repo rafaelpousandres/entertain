@@ -71,6 +71,7 @@
   "dishCategoryOther": "Otros",
 
   "saveError": "No se ha podido guardar el evento.",
+  "deleteEventError": "No se ha podido eliminar el evento.",
 
   "navEvents": "Eventos",
   "navDishes": "Platos",
@@ -271,9 +272,14 @@
   "channelShare": "Compartir",
   "channelNone": "Ninguno",
   "addressWhatsAppLabel": "Número de WhatsApp",
-  "addressWhatsAppHint": "Con prefijo internacional",
+  "addressWhatsAppHint": "600 123 456",
   "addressEmailLabel": "Dirección de correo",
   "addressEmailHint": "nombre@ejemplo.com",
+  "phoneCountryPickerTitle": "Prefijo del país",
+  "supplierPhoneInvalid": "Introduce un número de teléfono válido.",
+  "supplierEmailInvalid": "Introduce una dirección de correo válida.",
+  "channelNeedsValidPhone": "Añade un número de teléfono válido para usar este canal.",
+  "channelNeedsValidEmail": "Añade una dirección de correo válida para usar este canal.",
   "supplierPhoneLabel": "Teléfono",
   "supplierEmailLabel": "Correo electrónico",
   "supplierPreferredChannelLabel": "Canal preferente",
@@ -324,5 +330,28 @@
   "eventDishServingsLabel": "Raciones",
   "eventStatusInPreparation": "En preparación",
   "eventStatusReady": "Listo",
-  "eventStatusPast": "Pasado"
+  "eventStatusPast": "Pasado",
+
+  "duplicateEventAction": "Duplicar",
+  "duplicateEventNameTemplate": "{name} - Copia",
+  "duplicateEventConfirmTitle": "¿Quieres duplicar este evento?",
+  "duplicateEventConfirmBody": "La copia tendrá el mismo menú pero sin fecha ni ingredientes pedidos.",
+
+  "pickFromContactsAction": "Elegir de contactos",
+  "contactPickPhoneTitle": "Este contacto tiene varios teléfonos. ¿Cuál quieres usar?",
+  "contactPickEmailTitle": "Este contacto tiene varios correos electrónicos. ¿Cuál quieres usar?",
+  "contactsPermissionDeniedBody": "Para usar esta opción, debes autorizar el acceso a los contactos en la configuración del teléfono.",
+  "openSettingsAction": "Configuración",
+
+  "photoLabel": "Foto",
+  "eventPhotosLabel": "Fotos",
+  "addPhotoAction": "Añadir foto",
+  "photoTakePhoto": "Hacer una foto",
+  "photoPickGallery": "Elegir de galería",
+  "photoRemovePhoto": "Quitar foto",
+  "photoRemoveConfirmTitle": "¿Quitar la foto?",
+  "photoRemoveConfirmBody": "Esta foto se eliminará.",
+  "photoSaveError": "No se ha podido guardar la foto.",
+  "photoLoadError": "No se ha podido cargar la foto.",
+  "cameraPermissionDeniedBody": "Para hacer una foto, debes autorizar el acceso a la cámara en la configuración del teléfono."
 }

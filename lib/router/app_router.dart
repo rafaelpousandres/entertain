@@ -85,8 +85,13 @@ final GoRouter appRouter = GoRouter(
     ),
     GoRoute(
       path: '/events/:id',
-      builder: (context, state) =>
-          _gated(EventDetailScreen(eventId: state.pathParameters['id']!)),
+      builder: (context, state) => _gated(
+        EventDetailScreen(
+          eventId: state.pathParameters['id']!,
+          // §2.1: a freshly duplicated event opens on the Esdeveniment tab.
+          focusEventTab: state.uri.queryParameters['focus'] == 'event',
+        ),
+      ),
     ),
     GoRoute(
       path: '/events/:id/add-dish',

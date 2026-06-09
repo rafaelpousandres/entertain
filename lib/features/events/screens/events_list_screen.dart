@@ -24,6 +24,7 @@ class EventsListScreen extends ConsumerWidget {
     final l10n = AppLocalizations.of(context);
     final eventsAsync = ref.watch(eventsListProvider);
     final readinessAsync = ref.watch(eventReadinessProvider);
+    final photosAsync = ref.watch(eventFirstPhotosProvider);
 
     return Scaffold(
       backgroundColor: AppColors.bg,
@@ -45,6 +46,7 @@ class EventsListScreen extends ConsumerWidget {
               : _GroupedEventList(
                   events: events,
                   readiness: readinessAsync.value ?? const {},
+                  firstPhotos: photosAsync.value ?? const {},
                 ),
         ),
       ),
@@ -69,10 +71,17 @@ class EventsListScreen extends ConsumerWidget {
 /// expanded by default, past collapsed; empty sections are omitted. Collapse
 /// state is per-session (not persisted).
 class _GroupedEventList extends StatefulWidget {
-  const _GroupedEventList({required this.events, required this.readiness});
+  const _GroupedEventList({
+    required this.events,
+    required this.readiness,
+    required this.firstPhotos,
+  });
 
   final List<Event> events;
   final Map<String, EventReadiness> readiness;
+
+  /// Event id → first album photo path (Spec 009 §6.2), for the card thumbnail.
+  final Map<String, String> firstPhotos;
 
   @override
   State<_GroupedEventList> createState() => _GroupedEventListState();
@@ -139,6 +148,7 @@ class _GroupedEventListState extends State<_GroupedEventList> {
                   child: EventCard(
                     event: event,
                     status: status,
+                    photoPath: widget.firstPhotos[event.id],
                     onTap: () =>
                         GoRouter.of(context).push('/events/${event.id}'),
                   ),

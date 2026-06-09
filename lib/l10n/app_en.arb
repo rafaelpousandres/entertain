@@ -71,6 +71,8 @@
   "dishCategoryOther": "Other",
 
   "saveError": "Couldn't save the event.",
+  "deleteEventError": "Couldn't delete the event.",
+  "@deleteEventError": {},
 
   "navEvents": "Events",
   "navDishes": "Dishes",
@@ -317,12 +319,24 @@
   "@channelNone": {},
   "addressWhatsAppLabel": "WhatsApp number",
   "@addressWhatsAppLabel": {},
-  "addressWhatsAppHint": "With international prefix",
+  "addressWhatsAppHint": "600 123 456",
   "@addressWhatsAppHint": {},
   "addressEmailLabel": "Email address",
   "@addressEmailLabel": {},
   "addressEmailHint": "name@example.com",
   "@addressEmailHint": {},
+  "phoneCountryPickerTitle": "Country code",
+  "@phoneCountryPickerTitle": {
+    "description": "Title of the sheet that picks the phone international dialling prefix (Spec 009 Fixes §3)."
+  },
+  "supplierPhoneInvalid": "Enter a valid phone number.",
+  "@supplierPhoneInvalid": {},
+  "supplierEmailInvalid": "Enter a valid email address.",
+  "@supplierEmailInvalid": {},
+  "channelNeedsValidPhone": "Add a valid phone number to use this channel.",
+  "@channelNeedsValidPhone": {},
+  "channelNeedsValidEmail": "Add a valid email address to use this channel.",
+  "@channelNeedsValidEmail": {},
   "supplierPhoneLabel": "Phone",
   "@supplierPhoneLabel": {
     "description": "Label for the phone-number field on a supplier category (Fixes §2.1)."
@@ -433,5 +447,50 @@
   "eventStatusReady": "Ready",
   "@eventStatusReady": {},
   "eventStatusPast": "Past",
-  "@eventStatusPast": {}
+  "@eventStatusPast": {},
+
+  "duplicateEventAction": "Duplicate",
+  "@duplicateEventAction": {},
+  "duplicateEventNameTemplate": "{name} - Copy",
+  "@duplicateEventNameTemplate": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "duplicateEventConfirmTitle": "Duplicate this event?",
+  "@duplicateEventConfirmTitle": {},
+  "duplicateEventConfirmBody": "The copy will have the same menu but no date and no ordered ingredients.",
+  "@duplicateEventConfirmBody": {},
+
+  "pickFromContactsAction": "Pick from contacts",
+  "@pickFromContactsAction": {},
+  "contactPickPhoneTitle": "This contact has several phones. Which one do you want to use?",
+  "@contactPickPhoneTitle": {},
+  "contactPickEmailTitle": "This contact has several emails. Which one do you want to use?",
+  "@contactPickEmailTitle": {},
+  "contactsPermissionDeniedBody": "To use this option, you need to allow access to your contacts in the phone's settings.",
+  "@contactsPermissionDeniedBody": {},
+  "openSettingsAction": "Settings",
+  "@openSettingsAction": {},
+
+  "photoLabel": "Photo",
+  "@photoLabel": {},
+  "eventPhotosLabel": "Photos",
+  "@eventPhotosLabel": {},
+  "addPhotoAction": "Add photo",
+  "@addPhotoAction": {},
+  "photoTakePhoto": "Take a photo",
+  "@photoTakePhoto": {},
+  "photoPickGallery": "Pick from gallery",
+  "@photoPickGallery": {},
+  "photoRemovePhoto": "Remove photo",
+  "@photoRemovePhoto": {},
+  "photoRemoveConfirmTitle": "Remove photo?",
+  "@photoRemoveConfirmTitle": {},
+  "photoRemoveConfirmBody": "This photo will be deleted.",
+  "@photoRemoveConfirmBody": {},
+  "photoSaveError": "Couldn't save the photo.",
+  "@photoSaveError": {},
+  "photoLoadError": "Couldn't load the photo.",
+  "@photoLoadError": {},
+  "cameraPermissionDeniedBody": "To take a photo, you need to allow camera access in the phone's settings.",
+  "@cameraPermissionDeniedBody": {}
 }

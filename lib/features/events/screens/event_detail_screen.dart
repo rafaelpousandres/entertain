@@ -13,6 +13,7 @@ import '../../../ui/section_header.dart';
 import '../../../ui/segmented_choice.dart';
 import '../../../ui/stepper_field.dart';
 import '../../catalog/data/dish_category.dart';
+import '../../photos/data/photo_storage.dart';
 import '../../shopping/screens/event_shopping_panel.dart';
 import '../data/event.dart';
 import '../data/event_dish.dart';
@@ -20,6 +21,7 @@ import '../data/event_draft.dart';
 import '../data/event_status.dart';
 import '../data/events_providers.dart';
 import '../widgets/event_formatters.dart';
+import '../widgets/event_photos_section.dart';
 
 /// Event detail screen (Spec 007 §2.1).
 ///
@@ -35,9 +37,18 @@ import '../widgets/event_formatters.dart';
 /// planning. The event title sits in the app bar so it stays in view across
 /// tabs; delete lives in the app bar overflow menu.
 class EventDetailScreen extends ConsumerStatefulWidget {
-  const EventDetailScreen({super.key, required this.eventId});
+  const EventDetailScreen({
+    super.key,
+    required this.eventId,
+    this.focusEventTab = false,
+  });
 
   final String eventId;
+
+  /// When true the screen opens on the **Esdeveniment** tab instead of the
+  /// default Menú — used right after a duplication (Spec 009 §2.1) so the user
+  /// lands on the name and date fields to complete the copy's essentials.
+  final bool focusEventTab;
 
   @override
   ConsumerState<EventDetailScreen> createState() => _EventDetailScreenState();
@@ -54,13 +65,17 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
   bool _seeded = false;
   bool _saving = false;
   bool _deleting = false;
+  bool _duplicating = false;
   String? _titleError;
 
   @override
   void initState() {
     super.initState();
-    _tab = TabController(length: 3, vsync: this, initialIndex: 1)
-      ..addListener(() => setState(() {}));
+    _tab = TabController(
+      length: 3,
+      vsync: this,
+      initialIndex: widget.focusEventTab ? 0 : 1,
+    )..addListener(() => setState(() {}));
     _draft = EventDraft.empty();
   }
 
@@ -186,6 +201,13 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
     final messenger = ScaffoldMessenger.of(context);
     setState(() => _deleting = true);
     try {
+      // §2.2.7: purge the event's photo blobs before the row is soft-deleted
+      // (non-fatal on failure). deleteEvent removes the event_photos rows.
+      try {
+        final storage = ref.read(photoStorageProvider);
+        final paths = await storage.listEventObjectPaths(widget.eventId);
+        await storage.remove(PhotoStorage.eventBucket, paths);
+      } catch (_) {}
       await ref.read(eventsRepositoryProvider).deleteEvent(widget.eventId);
       ref.invalidate(eventsListProvider);
       ref.invalidate(eventByIdProvider(widget.eventId));
@@ -194,6 +216,74 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
     } catch (_) {
       if (!mounted) return;
       setState(() => _deleting = false);
+      messenger.showSnackBar(SnackBar(content: Text(l10n.deleteEventError)));
+    }
+  }
+
+  Future<void> _confirmDuplicate(Event event) async {
+    final l10n = AppLocalizations.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        title: Text(
+          l10n.duplicateEventConfirmTitle,
+          style: AppTypography.sectionTitle,
+        ),
+        content: Text(
+          l10n.duplicateEventConfirmBody,
+          style: AppTypography.body.copyWith(color: AppColors.textSecondary),
+        ),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(
+              l10n.cancelAction,
+              style: AppTypography.button.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(
+              l10n.duplicateEventAction,
+              style: AppTypography.button.copyWith(
+                color: AppColors.accentSecondary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await _duplicate(event);
+  }
+
+  Future<void> _duplicate(Event event) async {
+    final l10n = AppLocalizations.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _duplicating = true);
+    try {
+      final groupId = await ref.read(currentGroupIdProvider.future);
+      final newId = await ref
+          .read(eventsRepositoryProvider)
+          .duplicateEvent(
+            sourceEventId: widget.eventId,
+            newTitle: l10n.duplicateEventNameTemplate(event.title),
+            groupId: groupId,
+          );
+      ref.invalidate(eventsListProvider);
+      ref.invalidate(eventReadinessProvider);
+      if (!mounted) return;
+      // Replace the source detail so the back gesture returns to the list, and
+      // open on the Esdeveniment tab (§2.1) ready to fill in name and date.
+      context.pushReplacement('/events/$newId?focus=event');
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _duplicating = false);
       messenger.showSnackBar(SnackBar(content: Text(l10n.saveError)));
     }
   }
@@ -212,9 +302,9 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
     final dirty = event != null && _isDirty(event);
 
     return PopScope(
-      canPop: !dirty && !_deleting,
+      canPop: !dirty && !_deleting && !_duplicating,
       onPopInvokedWithResult: (didPop, result) async {
-        if (didPop || _deleting) return;
+        if (didPop || _deleting || _duplicating) return;
         final navigator = Navigator.of(context);
         final discard = await showUnsavedChangesDialog(context);
         if (discard && navigator.mounted) navigator.pop();
@@ -226,7 +316,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
             icon: const Icon(Icons.arrow_back),
             tooltip: l10n.backAction,
             // maybePop runs the PopScope guard above instead of popping blindly.
-            onPressed: _deleting
+            onPressed: _deleting || _duplicating
                 ? null
                 : () => Navigator.of(context).maybePop(),
           ),
@@ -267,20 +357,30 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
                 onPressed: _saving ? null : _save,
               ),
             eventAsync.maybeWhen(
-              data: (_) => PopupMenuButton<_OverflowAction>(
+              data: (event) => PopupMenuButton<_OverflowAction>(
                 icon: const Icon(Icons.more_vert),
                 tooltip: l10n.moreActionsLabel,
                 color: AppColors.surface,
+                enabled: !_duplicating && !_deleting,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
                 onSelected: (action) {
                   switch (action) {
+                    case _OverflowAction.duplicate:
+                      _confirmDuplicate(event);
                     case _OverflowAction.delete:
                       _confirmDelete();
                   }
                 },
                 itemBuilder: (context) => [
+                  PopupMenuItem(
+                    value: _OverflowAction.duplicate,
+                    child: Text(
+                      l10n.duplicateEventAction,
+                      style: AppTypography.body,
+                    ),
+                  ),
                   PopupMenuItem(
                     value: _OverflowAction.delete,
                     child: Text(
@@ -466,6 +566,11 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
           ),
         ),
         const SizedBox(height: 16),
+        // Spec 009 §2.2 / §9: the event's photo album — a thumbnail row that
+        // opens the full-screen carousel, plus an add tile. Placed between Lloc
+        // and Notes so Notes stays the last section of the detail.
+        EventPhotosSection(eventId: event.id),
+        const SizedBox(height: 16),
         FieldLabel(
           label: l10n.fieldNotesLabel,
           child: AppTextField(
@@ -527,7 +632,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
   }
 }
 
-enum _OverflowAction { delete }
+enum _OverflowAction { duplicate, delete }
 
 /// Small status pill for the detail header (Spec 008 §2.4): a coloured dot and
 /// the textual status label.

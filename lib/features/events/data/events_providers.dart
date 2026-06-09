@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../photos/data/event_photo.dart';
 import 'event.dart';
 import 'event_dish.dart';
 import 'event_dish_line.dart';
@@ -68,3 +69,24 @@ final eventDishLinesProvider =
           .watch(eventsRepositoryProvider)
           .listEventDishLines(eventDishId);
     });
+
+/// An event's photo album in carousel order (Spec 009 §2.2). Invalidated after
+/// adding or removing a photo.
+final eventPhotosProvider = FutureProvider.family<List<EventPhoto>, String>((
+  ref,
+  eventId,
+) async {
+  return ref.watch(eventsRepositoryProvider).listEventPhotos(eventId);
+});
+
+/// The first photo (object path) of every event in the current group that has
+/// one (Spec 009 §6.2), for the recall thumbnail on the events-list cards.
+/// Fetched in a single query (no N+1) and invalidated whenever an album changes
+/// (add / remove / reorder), since the first photo may have changed.
+final eventFirstPhotosProvider = FutureProvider<Map<String, String>>((
+  ref,
+) async {
+  final repo = ref.watch(eventsRepositoryProvider);
+  final groupId = await ref.watch(currentGroupIdProvider.future);
+  return repo.firstPhotoPathByEvent(groupId);
+});

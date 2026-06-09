@@ -4,6 +4,8 @@ import 'package:intl/intl.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_typography.dart';
+import '../../photos/data/photo_storage.dart';
+import '../../photos/widgets/photo_image.dart';
 import '../data/event.dart';
 import '../data/event_status.dart';
 import 'event_formatters.dart';
@@ -18,11 +20,17 @@ class EventCard extends StatelessWidget {
     required this.event,
     required this.status,
     required this.onTap,
+    this.photoPath,
   });
 
   final Event event;
   final DerivedEventStatus status;
   final VoidCallback onTap;
+
+  /// First album photo (object path in the event bucket), shown as a recall
+  /// thumbnail (Spec 009 §6.2). Null when the event has no photos — the card
+  /// then shows no thumbnail at all.
+  final String? photoPath;
 
   @override
   Widget build(BuildContext context) {
@@ -44,6 +52,18 @@ class EventCard extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              // §8: the recall thumbnail leads the card when the event has a
+              // photo; otherwise nothing is shown there and the card collapses
+              // to the date badge. The date stays, now in second position.
+              if (photoPath != null) ...[
+                _CardPhotoThumb(
+                  photoRef: (
+                    bucket: PhotoStorage.eventBucket,
+                    path: photoPath!,
+                  ),
+                ),
+                const SizedBox(width: 12),
+              ],
               _DateBadge(date: event.eventDate, locale: locale, l10n: l10n),
               const SizedBox(width: 12),
               Expanded(
@@ -91,6 +111,27 @@ class EventCard extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Leading recall thumbnail (Spec 009 §8): 52×52 with radius 12, sized to match
+/// the [_DateBadge] it sits beside so the two leading squares align.
+class _CardPhotoThumb extends StatelessWidget {
+  const _CardPhotoThumb({required this.photoRef});
+
+  final PhotoRef photoRef;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        width: 52,
+        height: 52,
+        color: AppColors.surfaceSoft,
+        child: PhotoBytesImage(photoRef: photoRef),
       ),
     );
   }

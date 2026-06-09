@@ -7,6 +7,8 @@ import '../../../theme/app_colors.dart';
 import '../../../theme/app_typography.dart';
 import '../../../ui/primary_button.dart';
 import '../../../ui/section_header.dart';
+import '../../photos/data/photo_storage.dart';
+import '../../photos/widgets/photo_image.dart';
 import '../data/dish.dart';
 import '../data/dish_category.dart';
 import '../data/catalog_providers.dart';
@@ -134,6 +136,16 @@ class _DishRow extends StatelessWidget {
           ),
           child: Row(
             children: [
+              // Spec 009 §2.2.3: inline photo thumbnail when the dish has one.
+              if (dish.photoPath != null) ...[
+                RowPhotoThumb(
+                  photoRef: (
+                    bucket: PhotoStorage.dishBucket,
+                    path: dish.photoPath!,
+                  ),
+                ),
+                const SizedBox(width: 12),
+              ],
               Expanded(
                 child: Text(
                   dish.name,
