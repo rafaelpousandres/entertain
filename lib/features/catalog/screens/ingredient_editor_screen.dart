@@ -9,6 +9,9 @@ import '../../../ui/app_form_field.dart';
 import '../../../ui/edit_scaffold.dart';
 import '../../../ui/single_choice_sheet.dart';
 import '../../events/data/events_providers.dart' show currentGroupIdProvider;
+import '../../photos/data/photo_actions.dart';
+import '../../photos/data/photo_storage.dart';
+import '../../photos/widgets/photo_image.dart';
 import '../data/catalog_providers.dart';
 import '../data/ingredient.dart';
 import '../data/reference_data.dart';
@@ -95,6 +98,9 @@ class _IngredientFormState extends ConsumerState<_IngredientForm> {
   String? _unitError;
   // §2.3: tracks user edits so the unsaved-changes guard knows when to prompt.
   bool _dirty = false;
+  // Spec 009 §2.2: the ingredient's photo path, kept here so photo changes
+  // (uploaded immediately, independent of the form's save) don't reset it.
+  String? _photoPath;
 
   bool get _busy => _saving || _deleting;
 
@@ -104,6 +110,7 @@ class _IngredientFormState extends ConsumerState<_IngredientForm> {
     _draft = widget.initial != null
         ? IngredientDraft.fromIngredient(widget.initial!)
         : IngredientDraft.empty();
+    _photoPath = widget.initial?.photoPath;
     _nameController = TextEditingController(text: _draft.name);
     _prepController = TextEditingController(text: _draft.prepDescription ?? '');
   }
@@ -170,6 +177,27 @@ class _IngredientFormState extends ConsumerState<_IngredientForm> {
         _dirty = true;
         _draft.defaultSupplierCategoryId = id;
       }),
+    );
+  }
+
+  /// Spec 009 §2.2: tap the photo avatar — add via the source sheet when
+  /// empty, or open the viewer (with remove) when set. Persisted immediately
+  /// and mirrored into [_photoPath].
+  Future<void> _onPhotoTap() async {
+    final ingredientId = widget.ingredientId!;
+    await handleSinglePhotoTap(
+      ref: ref,
+      context: context,
+      bucket: PhotoStorage.ingredientBucket,
+      entityId: ingredientId,
+      currentPath: _photoPath,
+      persistPath: (path) async {
+        await ref
+            .read(catalogRepositoryProvider)
+            .setIngredientPhotoPath(ingredientId, path);
+        if (mounted) setState(() => _photoPath = path);
+      },
+      onChanged: () => ref.invalidate(ingredientsListProvider),
     );
   }
 
@@ -267,6 +295,15 @@ class _IngredientFormState extends ConsumerState<_IngredientForm> {
       await ref
           .read(catalogRepositoryProvider)
           .deleteIngredient(widget.ingredientId!);
+      // §2.2.7: also delete the ingredient's photo blob (non-fatal on failure).
+      if (_photoPath != null) {
+        try {
+          await ref.read(photoStorageProvider).remove(
+            PhotoStorage.ingredientBucket,
+            [_photoPath!],
+          );
+        } catch (_) {}
+      }
       ref.invalidate(ingredientsListProvider);
       ref.invalidate(ingredientByIdProvider(widget.ingredientId!));
       if (!mounted) return;
@@ -318,6 +355,24 @@ class _IngredientFormState extends ConsumerState<_IngredientForm> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
         children: [
+          // Spec 009 §2.2: the ingredient's main photo. Available once the
+          // ingredient exists (a new one gets its photo after the first save).
+          if (widget.isEditing) ...[
+            Center(
+              child: PhotoAvatarButton(
+                photoRef: _photoPath == null
+                    ? null
+                    : (
+                        bucket: PhotoStorage.ingredientBucket,
+                        path: _photoPath!,
+                      ),
+                onTap: () {
+                  if (!_busy) _onPhotoTap();
+                },
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
           FieldLabel(
             label: l10n.ingredientNameLabel,
             child: AppTextField(

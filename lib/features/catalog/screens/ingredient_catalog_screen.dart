@@ -6,6 +6,8 @@ import '../../../l10n/app_localizations.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_typography.dart';
 import '../../../ui/primary_button.dart';
+import '../../photos/data/photo_storage.dart';
+import '../../photos/widgets/photo_image.dart';
 import '../data/catalog_providers.dart';
 import '../data/ingredient.dart';
 import '../data/reference_data.dart';
@@ -120,6 +122,17 @@ class _IngredientRow extends StatelessWidget {
           ),
           child: Row(
             children: [
+              // Spec 009 §2.2.3: inline photo thumbnail when the ingredient
+              // has one.
+              if (ingredient.photoPath != null) ...[
+                RowPhotoThumb(
+                  photoRef: (
+                    bucket: PhotoStorage.ingredientBucket,
+                    path: ingredient.photoPath!,
+                  ),
+                ),
+                const SizedBox(width: 12),
+              ],
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

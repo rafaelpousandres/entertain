@@ -324,5 +324,28 @@
   "eventDishServingsLabel": "Raciones",
   "eventStatusInPreparation": "En preparación",
   "eventStatusReady": "Listo",
-  "eventStatusPast": "Pasado"
+  "eventStatusPast": "Pasado",
+
+  "duplicateEventAction": "Duplicar",
+  "duplicateEventNameTemplate": "Copia de {name}",
+  "duplicateEventConfirmTitle": "¿Quieres duplicar este evento?",
+  "duplicateEventConfirmBody": "La copia tendrá el mismo menú pero sin fecha ni ingredientes pedidos.",
+
+  "pickFromContactsAction": "Elegir de contactos",
+  "contactPickPhoneTitle": "Este contacto tiene varios teléfonos. ¿Cuál quieres usar?",
+  "contactPickEmailTitle": "Este contacto tiene varios correos electrónicos. ¿Cuál quieres usar?",
+  "contactsPermissionDeniedBody": "Para usar esta opción, debes autorizar el acceso a los contactos en la configuración del teléfono.",
+  "openSettingsAction": "Configuración",
+
+  "photoLabel": "Foto",
+  "eventPhotosLabel": "Fotos",
+  "addPhotoAction": "Añadir foto",
+  "photoTakePhoto": "Hacer una foto",
+  "photoPickGallery": "Elegir de galería",
+  "photoRemovePhoto": "Quitar foto",
+  "photoRemoveConfirmTitle": "¿Quitar la foto?",
+  "photoRemoveConfirmBody": "Esta foto se eliminará.",
+  "photoSaveError": "No se ha podido guardar la foto.",
+  "photoLoadError": "No se ha podido cargar la foto.",
+  "cameraPermissionDeniedBody": "Para hacer una foto, debes autorizar el acceso a la cámara en la configuración del teléfono."
 }

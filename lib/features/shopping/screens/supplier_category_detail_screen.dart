@@ -1,15 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../../../l10n/app_localizations.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_typography.dart';
 import '../../../ui/app_form_field.dart';
 import '../../../ui/edit_scaffold.dart';
+import '../../../ui/secondary_button.dart';
+import '../../../ui/single_choice_sheet.dart';
 import '../../catalog/data/catalog_providers.dart';
 import '../../catalog/data/reference_data.dart';
 import '../../events/data/events_providers.dart' show currentGroupIdProvider;
+import '../data/contact_picker.dart';
 import '../data/message_channel.dart';
 import '../data/shopping_providers.dart';
 import '../supplier_category_format.dart';
@@ -136,6 +140,79 @@ class _SupplierCategoryDetailScreenState
     }
   }
 
+  /// Spec 009 §2.3: requests contacts permission, opens the device picker, and
+  /// autofills the supplier name, phone and email from the chosen contact. When
+  /// the contact has more than one phone or email, a selection sheet asks which
+  /// to use. The user can still edit every field afterwards before saving.
+  Future<void> _pickFromContacts() async {
+    final l10n = AppLocalizations.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final result = await pickContact();
+    if (!mounted) return;
+
+    switch (result.status) {
+      case ContactPickStatus.cancelled:
+        return;
+      case ContactPickStatus.denied:
+        messenger.showSnackBar(
+          SnackBar(content: Text(l10n.contactsPermissionDeniedBody)),
+        );
+        return;
+      case ContactPickStatus.permanentlyDenied:
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(l10n.contactsPermissionDeniedBody),
+            action: SnackBarAction(
+              label: l10n.openSettingsAction,
+              onPressed: () => openAppSettings(),
+            ),
+          ),
+        );
+        return;
+      case ContactPickStatus.picked:
+        break;
+    }
+
+    final contact = result.contact!;
+    if (contact.name != null && contact.name!.isNotEmpty) {
+      _supplierNameController.text = contact.name!;
+    }
+    final phone = await _chooseContactValue(
+      contact.phones,
+      l10n.contactPickPhoneTitle,
+    );
+    if (phone != null) _phoneController.text = phone;
+    if (!mounted) return;
+    final email = await _chooseContactValue(
+      contact.emails,
+      l10n.contactPickEmailTitle,
+    );
+    if (email != null) _emailController.text = email;
+    if (!mounted) return;
+    setState(() => _dirty = true);
+  }
+
+  /// Returns the single value, the user-picked one when there are several, or
+  /// null when the contact has none / the user dismisses the chooser.
+  Future<String?> _chooseContactValue(
+    List<String> options,
+    String title,
+  ) async {
+    if (options.isEmpty) return null;
+    if (options.length == 1) return options.first;
+    String? chosen;
+    await showSingleChoiceSheet<String>(
+      context: context,
+      title: title,
+      options: [
+        for (final o in options) SingleChoiceOption(value: o, label: o),
+      ],
+      selectedValue: null,
+      onSelected: (v) => chosen = v,
+    );
+    return chosen;
+  }
+
   Future<void> _confirmDelete() async {
     final l10n = AppLocalizations.of(context);
     final confirmed = await showDialog<bool>(
@@ -246,6 +323,13 @@ class _SupplierCategoryDetailScreenState
                     hintText: l10n.supplierNameHint,
                     onChanged: (_) => _markDirty(),
                   ),
+                ),
+                const SizedBox(height: 12),
+                // §2.3: fill name + phone + email from a device contact.
+                SecondaryButton(
+                  label: l10n.pickFromContactsAction,
+                  icon: Icons.contacts_outlined,
+                  onPressed: busy ? null : _pickFromContacts,
                 ),
                 const SizedBox(height: 16),
               ],

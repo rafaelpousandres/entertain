@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../photos/data/event_photo.dart';
 import 'event.dart';
 import 'event_dish.dart';
 import 'event_dish_line.dart';
@@ -68,3 +69,12 @@ final eventDishLinesProvider =
           .watch(eventsRepositoryProvider)
           .listEventDishLines(eventDishId);
     });
+
+/// An event's photo album in carousel order (Spec 009 §2.2). Invalidated after
+/// adding or removing a photo.
+final eventPhotosProvider = FutureProvider.family<List<EventPhoto>, String>((
+  ref,
+  eventId,
+) async {
+  return ref.watch(eventsRepositoryProvider).listEventPhotos(eventId);
+});

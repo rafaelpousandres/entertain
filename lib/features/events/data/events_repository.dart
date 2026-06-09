@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../photos/data/event_photo.dart';
 import 'event.dart';
 import 'event_dish.dart';
 import 'event_dish_line.dart';
@@ -145,11 +146,52 @@ class EventsRepository {
 
   /// Soft delete. The data model marks `events` with 🗑, so deletion sets
   /// `deleted_at` rather than removing the row.
+  ///
+  /// `event_photos` rows are removed explicitly here (Spec 009 §2.2.7): the FK
+  /// declares `on delete cascade`, but a soft delete leaves the parent row in
+  /// place so the cascade never fires — without this the album rows (and the
+  /// storage blobs the caller purges alongside) would be orphaned. The photo
+  /// rows are a physical child table with no soft-delete of their own.
   Future<void> deleteEvent(String id) async {
+    await _client.from('event_photos').delete().eq('event_id', id);
     await _client
         .from('events')
         .update({'deleted_at': DateTime.now().toUtc().toIso8601String()})
         .eq('id', id);
+  }
+
+  /// An event's photos, in carousel order (Spec 009 §2.2.6): ascending
+  /// `position`, then ascending `created_at` as the tiebreaker.
+  Future<List<EventPhoto>> listEventPhotos(String eventId) async {
+    final rows = await _client
+        .from('event_photos')
+        .select(EventPhoto.selectColumns)
+        .eq('event_id', eventId)
+        .order('position', ascending: true)
+        .order('created_at', ascending: true);
+    return (rows as List)
+        .map((r) => EventPhoto.fromRow(r as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// Inserts an `event_photos` row after the blob has been uploaded. The
+  /// caller computes [photoPath] (`{event_id}/{photo_id}.jpg`) and [position]
+  /// (the current photo count, so the new photo lands at the end — §2.2.6).
+  Future<void> insertEventPhoto({
+    required String eventId,
+    required String photoPath,
+    required int position,
+  }) async {
+    await _client.from('event_photos').insert({
+      'event_id': eventId,
+      'photo_path': photoPath,
+      'position': position,
+    });
+  }
+
+  /// Removes a single `event_photos` row (the blob is removed by the caller).
+  Future<void> deleteEventPhoto(String photoId) async {
+    await _client.from('event_photos').delete().eq('id', photoId);
   }
 
   /// Dishes attached to an event, ordered by `sort_order`.
@@ -277,6 +319,129 @@ class EventsRepository {
         }(),
     ];
     await _client.from('event_dish_ingredients').insert(payload);
+  }
+
+  /// Duplicates an event as a starting point for a new one (Spec 009 §2.1).
+  ///
+  /// Copies the **menu structure** — every `event_dishes` row (with its
+  /// `servings`, category and dish-name snapshot) and every
+  /// `event_dish_ingredients` line (ingredient reference and name snapshot,
+  /// `quantity`, the immutable `reference_servings` base per Spec 008 §2.10,
+  /// `prep_note`, per-line `supplier_category_id` override and `sort_order`) —
+  /// while **resetting** the fields that should start fresh:
+  ///
+  /// - the new event has **no date** and inherits only `type`, `format` and
+  ///   `guest_count`; `status` falls back to its column default;
+  /// - every line is reset to its **initial state**: `to_order` for ordinary
+  ///   categories, `missing` for the Rebost (pantry). The state is written
+  ///   explicitly so the copy never carries over a procured `received` /
+  ///   `at_home` / `ordered` value — the duplicate starts as if nothing had
+  ///   been procured yet. (The BEFORE INSERT default-state trigger only acts
+  ///   on the inserted default `to_order`, so the explicit values pass through
+  ///   untouched.)
+  /// - **no orders** and **no photos** are copied — orders belong to the source
+  ///   event and the new event generates its own.
+  ///
+  /// The localized name ("Copia de …") is built by the caller, which has the
+  /// l10n context, and passed in as [newTitle]. Returns the new event id so the
+  /// caller can navigate to it. The inserts mirror the non-transactional
+  /// client-side pattern used by [addDishToEvent].
+  Future<String> duplicateEvent({
+    required String sourceEventId,
+    required String newTitle,
+    required String groupId,
+  }) async {
+    final source = await _client
+        .from('events')
+        .select('type, format, guest_count')
+        .eq('id', sourceEventId)
+        .single();
+
+    final newEvent = await _client
+        .from('events')
+        .insert({
+          'group_id': groupId,
+          'title': newTitle,
+          'type': source['type'],
+          'format': source['format'],
+          'guest_count': source['guest_count'],
+          // event_date left null (§2.1): the user picks one on the copy.
+        })
+        .select('id')
+        .single();
+    final newEventId = newEvent['id'] as String;
+
+    // Pantry category ids, so the lines that resolve to the Rebost reset to
+    // `missing` rather than `to_order` (§2.1). `code = 'pantry'` is shared
+    // system content; a group could only ever resolve to the one system row,
+    // but a set keeps the membership test robust.
+    final pantryRows = await _client
+        .from('supplier_categories')
+        .select('id')
+        .eq('code', 'pantry');
+    final pantryIds = {
+      for (final r in pantryRows as List) (r as Map<String, dynamic>)['id'],
+    };
+
+    final dishes = await _client
+        .from('event_dishes')
+        .select('source_dish_id, dish_name, category, servings, sort_order, id')
+        .eq('event_id', sourceEventId)
+        .order('sort_order', ascending: true);
+
+    for (final raw in dishes as List) {
+      final dish = raw as Map<String, dynamic>;
+      final newDish = await _client
+          .from('event_dishes')
+          .insert({
+            'event_id': newEventId,
+            'source_dish_id': dish['source_dish_id'],
+            'dish_name': dish['dish_name'],
+            'category': dish['category'],
+            'servings': dish['servings'],
+            'sort_order': dish['sort_order'],
+          })
+          .select('id')
+          .single();
+      final newDishId = newDish['id'] as String;
+
+      final lines = await _client
+          .from('event_dish_ingredients')
+          .select(
+            'ingredient_id, ingredient_name, quantity, unit_id, prep_note, '
+            'supplier_category_id, sort_order, reference_servings',
+          )
+          .eq('event_dish_id', dish['id'])
+          .order('sort_order', ascending: true);
+
+      final list = lines as List;
+      if (list.isEmpty) continue;
+      final payload = [
+        for (final lineRaw in list)
+          () {
+            final line = lineRaw as Map<String, dynamic>;
+            final categoryId = line['supplier_category_id'];
+            final isPantry =
+                categoryId != null && pantryIds.contains(categoryId);
+            return {
+              'event_dish_id': newDishId,
+              'ingredient_id': line['ingredient_id'],
+              'ingredient_name': line['ingredient_name'],
+              'quantity': line['quantity'],
+              'unit_id': line['unit_id'],
+              'prep_note': line['prep_note'],
+              'supplier_category_id': categoryId,
+              'sort_order': line['sort_order'],
+              'reference_servings': line['reference_servings'],
+              // §2.1 reset: fresh procurement state regardless of the source.
+              'state': isPantry ? 'missing' : 'to_order',
+            };
+          }(),
+      ];
+      await _client.from('event_dish_ingredients').insert(payload);
+    }
+
+    return newEventId;
   }
 
   /// Updates an event-dish's servings (Spec 008 §2.10). The per-line quantities

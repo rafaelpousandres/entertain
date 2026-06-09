@@ -11,6 +11,9 @@ import '../../../ui/secondary_button.dart';
 import '../../../ui/segmented_choice.dart';
 import '../../../ui/stepper_field.dart';
 import '../../events/data/events_providers.dart' show currentGroupIdProvider;
+import '../../photos/data/photo_actions.dart';
+import '../../photos/data/photo_storage.dart';
+import '../../photos/widgets/photo_image.dart';
 import '../data/catalog_providers.dart';
 import '../data/dish.dart';
 import '../data/dish_category.dart';
@@ -56,15 +59,21 @@ class DishEditorScreen extends ConsumerWidget {
     return _DishForm(
       dishId: dishId,
       initial: DishDraft.fromDish(dishAsync.value!, lines),
+      initialPhotoPath: dishAsync.value!.photoPath,
     );
   }
 }
 
 class _DishForm extends ConsumerStatefulWidget {
-  const _DishForm({this.dishId, required this.initial});
+  const _DishForm({this.dishId, required this.initial, this.initialPhotoPath});
 
   final String? dishId;
   final DishDraft initial;
+
+  /// The dish's current photo path (Spec 009 §2.2), tracked in form state so a
+  /// photo change reflects without re-seeding the in-progress form. Null for a
+  /// new dish (photos are added after the dish exists).
+  final String? initialPhotoPath;
 
   bool get isEditing => dishId != null;
 
@@ -84,6 +93,9 @@ class _DishFormState extends ConsumerState<_DishForm> {
   String? _nameError;
   // §2.3: tracks user edits so the unsaved-changes guard knows when to prompt.
   bool _dirty = false;
+  // Spec 009 §2.2: the dish's photo path, kept here so photo changes (uploaded
+  // immediately, independent of the form's save) don't reset the form.
+  String? _photoPath;
 
   bool get _busy => _saving || _deleting;
 
@@ -91,6 +103,7 @@ class _DishFormState extends ConsumerState<_DishForm> {
   void initState() {
     super.initState();
     _draft = widget.initial;
+    _photoPath = widget.initialPhotoPath;
     _nameController = TextEditingController(text: _draft.name);
     _descriptionController = TextEditingController(
       text: _draft.description ?? '',
@@ -132,6 +145,25 @@ class _DishFormState extends ConsumerState<_DishForm> {
         _draft.lines[index] = result.line!;
       }
     });
+  }
+
+  /// Spec 009 §2.2: tap the photo avatar. With no photo, opens the source
+  /// sheet and uploads; with a photo, opens the viewer (remove lives there).
+  /// The path is persisted immediately and mirrored into [_photoPath].
+  Future<void> _onPhotoTap() async {
+    final dishId = widget.dishId!;
+    await handleSinglePhotoTap(
+      ref: ref,
+      context: context,
+      bucket: PhotoStorage.dishBucket,
+      entityId: dishId,
+      currentPath: _photoPath,
+      persistPath: (path) async {
+        await ref.read(catalogRepositoryProvider).setDishPhotoPath(dishId, path);
+        if (mounted) setState(() => _photoPath = path);
+      },
+      onChanged: () => ref.invalidate(dishesListProvider),
+    );
   }
 
   Future<void> _save() async {
@@ -218,6 +250,14 @@ class _DishFormState extends ConsumerState<_DishForm> {
     setState(() => _deleting = true);
     try {
       await ref.read(catalogRepositoryProvider).deleteDish(widget.dishId!);
+      // §2.2.7: also delete the dish's photo blob (non-fatal on failure).
+      if (_photoPath != null) {
+        try {
+          await ref.read(photoStorageProvider).remove(PhotoStorage.dishBucket, [
+            _photoPath!,
+          ]);
+        } catch (_) {}
+      }
       ref.invalidate(dishesListProvider);
       ref.invalidate(dishByIdProvider(widget.dishId!));
       if (!mounted) return;
@@ -272,6 +312,21 @@ class _DishFormState extends ConsumerState<_DishForm> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
         children: [
+          // Spec 009 §2.2: the dish's main photo. Available once the dish
+          // exists (a new dish gets its photo after the first save).
+          if (widget.isEditing) ...[
+            Center(
+              child: PhotoAvatarButton(
+                photoRef: _photoPath == null
+                    ? null
+                    : (bucket: PhotoStorage.dishBucket, path: _photoPath!),
+                onTap: () {
+                  if (!_busy) _onPhotoTap();
+                },
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
           FieldLabel(
             label: l10n.dishNameLabel,
             child: AppTextField(

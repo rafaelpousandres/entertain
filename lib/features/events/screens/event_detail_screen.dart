@@ -13,6 +13,10 @@ import '../../../ui/section_header.dart';
 import '../../../ui/segmented_choice.dart';
 import '../../../ui/stepper_field.dart';
 import '../../catalog/data/dish_category.dart';
+import '../../photos/data/photo_actions.dart';
+import '../../photos/data/photo_storage.dart';
+import '../../photos/screens/event_photo_carousel_screen.dart';
+import '../../photos/widgets/photo_image.dart';
 import '../../shopping/screens/event_shopping_panel.dart';
 import '../data/event.dart';
 import '../data/event_dish.dart';
@@ -35,9 +39,18 @@ import '../widgets/event_formatters.dart';
 /// planning. The event title sits in the app bar so it stays in view across
 /// tabs; delete lives in the app bar overflow menu.
 class EventDetailScreen extends ConsumerStatefulWidget {
-  const EventDetailScreen({super.key, required this.eventId});
+  const EventDetailScreen({
+    super.key,
+    required this.eventId,
+    this.focusEventTab = false,
+  });
 
   final String eventId;
+
+  /// When true the screen opens on the **Esdeveniment** tab instead of the
+  /// default Menú — used right after a duplication (Spec 009 §2.1) so the user
+  /// lands on the name and date fields to complete the copy's essentials.
+  final bool focusEventTab;
 
   @override
   ConsumerState<EventDetailScreen> createState() => _EventDetailScreenState();
@@ -54,13 +67,17 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
   bool _seeded = false;
   bool _saving = false;
   bool _deleting = false;
+  bool _duplicating = false;
   String? _titleError;
 
   @override
   void initState() {
     super.initState();
-    _tab = TabController(length: 3, vsync: this, initialIndex: 1)
-      ..addListener(() => setState(() {}));
+    _tab = TabController(
+      length: 3,
+      vsync: this,
+      initialIndex: widget.focusEventTab ? 0 : 1,
+    )..addListener(() => setState(() {}));
     _draft = EventDraft.empty();
   }
 
@@ -186,6 +203,13 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
     final messenger = ScaffoldMessenger.of(context);
     setState(() => _deleting = true);
     try {
+      // §2.2.7: purge the event's photo blobs before the row is soft-deleted
+      // (non-fatal on failure). deleteEvent removes the event_photos rows.
+      try {
+        final storage = ref.read(photoStorageProvider);
+        final paths = await storage.listEventObjectPaths(widget.eventId);
+        await storage.remove(PhotoStorage.eventBucket, paths);
+      } catch (_) {}
       await ref.read(eventsRepositoryProvider).deleteEvent(widget.eventId);
       ref.invalidate(eventsListProvider);
       ref.invalidate(eventByIdProvider(widget.eventId));
@@ -194,6 +218,74 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
     } catch (_) {
       if (!mounted) return;
       setState(() => _deleting = false);
+      messenger.showSnackBar(SnackBar(content: Text(l10n.saveError)));
+    }
+  }
+
+  Future<void> _confirmDuplicate(Event event) async {
+    final l10n = AppLocalizations.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        title: Text(
+          l10n.duplicateEventConfirmTitle,
+          style: AppTypography.sectionTitle,
+        ),
+        content: Text(
+          l10n.duplicateEventConfirmBody,
+          style: AppTypography.body.copyWith(color: AppColors.textSecondary),
+        ),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(
+              l10n.cancelAction,
+              style: AppTypography.button.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(
+              l10n.duplicateEventAction,
+              style: AppTypography.button.copyWith(
+                color: AppColors.accentSecondary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await _duplicate(event);
+  }
+
+  Future<void> _duplicate(Event event) async {
+    final l10n = AppLocalizations.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _duplicating = true);
+    try {
+      final groupId = await ref.read(currentGroupIdProvider.future);
+      final newId = await ref
+          .read(eventsRepositoryProvider)
+          .duplicateEvent(
+            sourceEventId: widget.eventId,
+            newTitle: l10n.duplicateEventNameTemplate(event.title),
+            groupId: groupId,
+          );
+      ref.invalidate(eventsListProvider);
+      ref.invalidate(eventReadinessProvider);
+      if (!mounted) return;
+      // Replace the source detail so the back gesture returns to the list, and
+      // open on the Esdeveniment tab (§2.1) ready to fill in name and date.
+      context.pushReplacement('/events/$newId?focus=event');
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _duplicating = false);
       messenger.showSnackBar(SnackBar(content: Text(l10n.saveError)));
     }
   }
@@ -212,9 +304,9 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
     final dirty = event != null && _isDirty(event);
 
     return PopScope(
-      canPop: !dirty && !_deleting,
+      canPop: !dirty && !_deleting && !_duplicating,
       onPopInvokedWithResult: (didPop, result) async {
-        if (didPop || _deleting) return;
+        if (didPop || _deleting || _duplicating) return;
         final navigator = Navigator.of(context);
         final discard = await showUnsavedChangesDialog(context);
         if (discard && navigator.mounted) navigator.pop();
@@ -226,7 +318,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
             icon: const Icon(Icons.arrow_back),
             tooltip: l10n.backAction,
             // maybePop runs the PopScope guard above instead of popping blindly.
-            onPressed: _deleting
+            onPressed: _deleting || _duplicating
                 ? null
                 : () => Navigator.of(context).maybePop(),
           ),
@@ -267,20 +359,30 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
                 onPressed: _saving ? null : _save,
               ),
             eventAsync.maybeWhen(
-              data: (_) => PopupMenuButton<_OverflowAction>(
+              data: (event) => PopupMenuButton<_OverflowAction>(
                 icon: const Icon(Icons.more_vert),
                 tooltip: l10n.moreActionsLabel,
                 color: AppColors.surface,
+                enabled: !_duplicating && !_deleting,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
                 onSelected: (action) {
                   switch (action) {
+                    case _OverflowAction.duplicate:
+                      _confirmDuplicate(event);
                     case _OverflowAction.delete:
                       _confirmDelete();
                   }
                 },
                 itemBuilder: (context) => [
+                  PopupMenuItem(
+                    value: _OverflowAction.duplicate,
+                    child: Text(
+                      l10n.duplicateEventAction,
+                      style: AppTypography.body,
+                    ),
+                  ),
                   PopupMenuItem(
                     value: _OverflowAction.delete,
                     child: Text(
@@ -476,6 +578,10 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
             onChanged: (_) => setState(() {}),
           ),
         ),
+        const SizedBox(height: 24),
+        // Spec 009 §2.2: the event's photo album — a thumbnail row that opens
+        // the full-screen carousel, plus an add tile.
+        _EventPhotosSection(eventId: event.id),
       ],
     );
   }
@@ -527,7 +633,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
   }
 }
 
-enum _OverflowAction { delete }
+enum _OverflowAction { duplicate, delete }
 
 /// Small status pill for the detail header (Spec 008 §2.4): a coloured dot and
 /// the textual status label.
@@ -761,6 +867,117 @@ class _DishRow extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Spec 009 §2.2.5: the event's photo album on the Esdeveniment tab — a
+/// horizontal thumbnail row in `position` order plus a trailing add tile.
+/// Tapping a thumbnail opens the full-screen carousel at that photo; the add
+/// tile starts the camera/gallery flow. Watches [eventPhotosProvider] so it
+/// refreshes immediately after add / remove.
+class _EventPhotosSection extends ConsumerWidget {
+  const _EventPhotosSection({required this.eventId});
+
+  final String eventId;
+
+  static const double _tile = 80;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
+    final photosAsync = ref.watch(eventPhotosProvider(eventId));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          l10n.eventPhotosLabel,
+          style: AppTypography.label.copyWith(color: AppColors.textSecondary),
+        ),
+        const SizedBox(height: 8),
+        photosAsync.when(
+          loading: () => const SizedBox(
+            height: _tile,
+            child: Center(
+              child: CircularProgressIndicator(color: AppColors.accent),
+            ),
+          ),
+          error: (_, _) => Text(
+            l10n.photoLoadError,
+            style: AppTypography.caption.copyWith(color: AppColors.danger),
+          ),
+          data: (photos) => SizedBox(
+            height: _tile,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: photos.length + 1,
+              separatorBuilder: (_, _) => const SizedBox(width: 8),
+              itemBuilder: (context, index) {
+                if (index == photos.length) {
+                  return _AddPhotoTile(
+                    size: _tile,
+                    onTap: () => addEventPhoto(
+                      ref: ref,
+                      context: context,
+                      eventId: eventId,
+                    ),
+                  );
+                }
+                final photo = photos[index];
+                return GestureDetector(
+                  onTap: () => EventPhotoCarouselScreen.open(
+                    context,
+                    eventId,
+                    index,
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: SizedBox(
+                      width: _tile,
+                      height: _tile,
+                      child: PhotoBytesImage(
+                        photoRef: (
+                          bucket: PhotoStorage.eventBucket,
+                          path: photo.photoPath,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AddPhotoTile extends StatelessWidget {
+  const _AddPhotoTile({required this.size, required this.onTap});
+
+  final double size;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: onTap,
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          color: AppColors.surfaceSoft,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: const Icon(
+          Icons.add_a_photo_outlined,
+          color: AppColors.accentSecondary,
         ),
       ),
     );

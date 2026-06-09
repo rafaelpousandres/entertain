@@ -1,11 +1,13 @@
 import 'package:entertain/features/shopping/data/ingredient_state.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Locks the manual-transition matrix after Specification 007 Fixes §2.3 / §2.4:
+/// Locks the manual-transition matrix after Specification 007 Fixes §2.3 / §2.4
+/// and Specification 009 §2.4:
 ///
 /// - Outside the Rebost, a *free* matrix — any of the four work states
 ///   (to_order, ordered, received, missing) is reachable except the current
-///   one; `at_home` is never offered.
+///   one, plus `at_home` (Spec 009 §2.4: "I already have it at home", available
+///   from any category).
 /// - In the Rebost, a *binary* model — only the opposite of the current state
 ///   (at_home ↔ missing) is offered.
 
@@ -30,13 +32,14 @@ void main() {
       IngredientState.missing,
     ];
 
-    test('offers the three other work states, never self, never at_home', () {
+    test('offers the three other work states plus at_home, never self', () {
       for (final from in work) {
         final targets = allowedTransitions(from, isPantry: false);
-        expect(targets, [for (final s in work) if (s != from) s],
+        // Spec 009 §2.4: the three other work states, then at_home.
+        expect(targets, [...work.where((s) => s != from), IngredientState.atHome],
             reason: 'free matrix from $from');
         expect(targets, isNot(contains(from)));
-        expect(targets, isNot(contains(IngredientState.atHome)));
+        expect(targets, contains(IngredientState.atHome));
       }
     });
 
@@ -47,7 +50,7 @@ void main() {
       );
     });
 
-    test('a legacy at_home line is offered all four work states', () {
+    test('a legacy at_home line is offered the four work states, not itself', () {
       expect(
         allowedTransitions(IngredientState.atHome, isPantry: false),
         work,

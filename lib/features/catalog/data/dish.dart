@@ -19,6 +19,7 @@ class Dish {
     required this.baseServings,
     this.description,
     this.preparation,
+    this.photoPath,
   });
 
   final String id;
@@ -34,6 +35,10 @@ class Dish {
   /// the short [description].
   final String? preparation;
 
+  /// Object path of the dish's main photo in the `dish-photos` bucket
+  /// (`{dish_id}.jpg`), or null when it has none (Spec 009 §2.2).
+  final String? photoPath;
+
   factory Dish.fromRow(Map<String, dynamic> row) {
     return Dish(
       id: row['id'] as String,
@@ -43,11 +48,13 @@ class Dish {
       baseServings: (row['base_servings'] as num?)?.toInt() ?? 4,
       description: row['description'] as String?,
       preparation: row['preparation'] as String?,
+      photoPath: row['photo_path'] as String?,
     );
   }
 
   static const String selectColumns =
-      'id, group_id, name, category, base_servings, description, preparation';
+      'id, group_id, name, category, base_servings, description, preparation, '
+      'photo_path';
 }
 
 /// One in-memory recipe line being edited inside the dish editor. Maps to a

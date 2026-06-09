@@ -40,6 +40,21 @@ dependencies:
   supabase_flutter: ^2.12.4
   url_launcher: ^6.3.1
 
+  # Spec 009 §2.2 — photos: camera/gallery capture, native-backed JPEG
+  # compression (resize + quality), full-screen pinch-to-zoom viewer.
+  image_picker: ^1.1.2
+  flutter_image_compress: ^2.3.0
+  photo_view: ^0.15.0
+  # Spec 009 §2.3 — contact picker (Android READ_CONTACTS).
+  flutter_contacts: ^1.1.9
+  # Spec 009 §2.2/§2.3 — runtime permissions; its openAppSettings() also
+  # provides the deep link to the app's system settings page for the
+  # "denied permanently" recovery path.
+  permission_handler: ^11.3.1
+  # Spec 009 §2.2 — client-side ids for event-photo object names
+  # (`{event_id}/{photo_id}.jpg`).
+  uuid: ^4.5.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

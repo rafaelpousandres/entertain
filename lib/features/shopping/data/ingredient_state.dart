@@ -88,7 +88,12 @@ const List<IngredientState> _workStates = [
 ///   (`to_order`, `ordered`, `received`, `missing`) is reachable, so the user
 ///   can correct any classification error (including marking a line `ordered`
 ///   when the order was placed through a non-app channel). The current state is
-///   excluded from its own option list.
+///   excluded from its own option list. Spec 009 §2.4 adds `at_home` as an
+///   always-available destination from any non-Rebost state: "I already have
+///   this at home from another time", with no need to first move the line into
+///   the Rebost category. Like `received`, it counts as procured for the
+///   event's readiness (Spec 008 §2.4), so the user can settle a line without a
+///   shopping round.
 /// - **Rebost (pantry)** — a binary model: a staple is either `at_home` or
 ///   `missing`, so only the opposite of the current state is offered.
 ///
@@ -106,10 +111,12 @@ List<IngredientState> allowedTransitions(
         ? const [IngredientState.missing]
         : const [IngredientState.atHome];
   }
-  // Free matrix: every work state except the current one. A non-pantry line in
-  // `at_home` (legacy) is offered all four so it can re-enter the flow.
+  // Free matrix: every work state except the current one, plus `at_home`
+  // (Spec 009 §2.4) unless the line already sits there. A non-pantry line in
+  // `at_home` is offered all four work states so it can re-enter the flow.
   return [
     for (final s in _workStates)
       if (s != from) s,
+    if (from != IngredientState.atHome) IngredientState.atHome,
   ];
 }

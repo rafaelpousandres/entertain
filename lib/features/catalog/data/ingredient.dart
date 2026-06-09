@@ -13,6 +13,7 @@ class Ingredient {
     required this.defaultUnitId,
     this.defaultSupplierCategoryId,
     this.prepDescription,
+    this.photoPath,
   });
 
   final String id;
@@ -22,6 +23,10 @@ class Ingredient {
   final String? defaultSupplierCategoryId;
   final String? prepDescription;
 
+  /// Object path of the ingredient's main photo in the `ingredient-photos`
+  /// bucket (`{ingredient_id}.jpg`), or null when it has none (Spec 009 §2.2).
+  final String? photoPath;
+
   factory Ingredient.fromRow(Map<String, dynamic> row) {
     return Ingredient(
       id: row['id'] as String,
@@ -30,12 +35,13 @@ class Ingredient {
       defaultUnitId: row['default_unit_id'] as String,
       defaultSupplierCategoryId: row['default_supplier_category_id'] as String?,
       prepDescription: row['prep_description'] as String?,
+      photoPath: row['photo_path'] as String?,
     );
   }
 
   static const String selectColumns =
       'id, group_id, name, default_unit_id, '
-      'default_supplier_category_id, prep_description';
+      'default_supplier_category_id, prep_description, photo_path';
 }
 
 /// Mutable editor view of an ingredient. Converted to a row payload at save
