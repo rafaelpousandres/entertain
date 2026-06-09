@@ -65,11 +65,13 @@ class RowPhotoThumb extends StatelessWidget {
   }
 }
 
-/// Circular photo control for the single-photo entities (dish, ingredient —
-/// Spec 009 §2.2.4). With no photo it is a `surface-soft` circle with a camera
-/// glyph; with a photo it shows the image clipped to the circle. Tapping always
-/// invokes [onTap] — the caller opens the options sheet when empty, or the
-/// full-screen viewer when a photo is set.
+/// Rounded-square photo control for the single-photo entities (dish,
+/// ingredient — Spec 009 §2.2.4). With no photo it is a `surface-soft` square
+/// with a camera glyph; with a photo it shows the image clipped to the rounded
+/// square. The square shape (Spec 009 Fixes §4) matches how photos render in the
+/// catalog list rows and detail cards — the editor used to show a circle, which
+/// was the lone inconsistency. Tapping always invokes [onTap] — the caller opens
+/// the options sheet when empty, or the full-screen viewer when a photo is set.
 class PhotoAvatarButton extends StatelessWidget {
   const PhotoAvatarButton({
     super.key,
@@ -83,19 +85,23 @@ class PhotoAvatarButton extends StatelessWidget {
   final VoidCallback onTap;
   final double size;
 
+  /// Same corner radius as the 80×80 event-photo tiles, so the single-photo
+  /// editors and the event album read as one system.
+  static const double _radius = 12;
+
   @override
   Widget build(BuildContext context) {
     final ref = photoRef;
     return Semantics(
       button: true,
       child: InkWell(
-        customBorder: const CircleBorder(),
+        borderRadius: BorderRadius.circular(_radius),
         onTap: onTap,
         child: Container(
           width: size,
           height: size,
           decoration: BoxDecoration(
-            shape: BoxShape.circle,
+            borderRadius: BorderRadius.circular(_radius),
             color: AppColors.surfaceSoft,
             border: Border.all(color: AppColors.border),
           ),

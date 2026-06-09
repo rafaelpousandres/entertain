@@ -71,6 +71,7 @@
   "dishCategoryOther": "Otros",
 
   "saveError": "No se ha podido guardar el evento.",
+  "deleteEventError": "No se ha podido eliminar el evento.",
 
   "navEvents": "Eventos",
   "navDishes": "Platos",
@@ -271,9 +272,14 @@
   "channelShare": "Compartir",
   "channelNone": "Ninguno",
   "addressWhatsAppLabel": "Número de WhatsApp",
-  "addressWhatsAppHint": "Con prefijo internacional",
+  "addressWhatsAppHint": "600 123 456",
   "addressEmailLabel": "Dirección de correo",
   "addressEmailHint": "nombre@ejemplo.com",
+  "phoneCountryPickerTitle": "Prefijo del país",
+  "supplierPhoneInvalid": "Introduce un número de teléfono válido.",
+  "supplierEmailInvalid": "Introduce una dirección de correo válida.",
+  "channelNeedsValidPhone": "Añade un número de teléfono válido para usar este canal.",
+  "channelNeedsValidEmail": "Añade una dirección de correo válida para usar este canal.",
   "supplierPhoneLabel": "Teléfono",
   "supplierEmailLabel": "Correo electrónico",
   "supplierPreferredChannelLabel": "Canal preferente",
@@ -327,7 +333,7 @@
   "eventStatusPast": "Pasado",
 
   "duplicateEventAction": "Duplicar",
-  "duplicateEventNameTemplate": "Copia de {name}",
+  "duplicateEventNameTemplate": "{name} - Copia",
   "duplicateEventConfirmTitle": "¿Quieres duplicar este evento?",
   "duplicateEventConfirmBody": "La copia tendrá el mismo menú pero sin fecha ni ingredientes pedidos.",
 

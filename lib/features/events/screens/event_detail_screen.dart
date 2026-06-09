@@ -13,10 +13,7 @@ import '../../../ui/section_header.dart';
 import '../../../ui/segmented_choice.dart';
 import '../../../ui/stepper_field.dart';
 import '../../catalog/data/dish_category.dart';
-import '../../photos/data/photo_actions.dart';
 import '../../photos/data/photo_storage.dart';
-import '../../photos/screens/event_photo_carousel_screen.dart';
-import '../../photos/widgets/photo_image.dart';
 import '../../shopping/screens/event_shopping_panel.dart';
 import '../data/event.dart';
 import '../data/event_dish.dart';
@@ -24,6 +21,7 @@ import '../data/event_draft.dart';
 import '../data/event_status.dart';
 import '../data/events_providers.dart';
 import '../widgets/event_formatters.dart';
+import '../widgets/event_photos_section.dart';
 
 /// Event detail screen (Spec 007 §2.1).
 ///
@@ -218,7 +216,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
     } catch (_) {
       if (!mounted) return;
       setState(() => _deleting = false);
-      messenger.showSnackBar(SnackBar(content: Text(l10n.saveError)));
+      messenger.showSnackBar(SnackBar(content: Text(l10n.deleteEventError)));
     }
   }
 
@@ -581,7 +579,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
         const SizedBox(height: 24),
         // Spec 009 §2.2: the event's photo album — a thumbnail row that opens
         // the full-screen carousel, plus an add tile.
-        _EventPhotosSection(eventId: event.id),
+        EventPhotosSection(eventId: event.id),
       ],
     );
   }
@@ -867,117 +865,6 @@ class _DishRow extends StatelessWidget {
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Spec 009 §2.2.5: the event's photo album on the Esdeveniment tab — a
-/// horizontal thumbnail row in `position` order plus a trailing add tile.
-/// Tapping a thumbnail opens the full-screen carousel at that photo; the add
-/// tile starts the camera/gallery flow. Watches [eventPhotosProvider] so it
-/// refreshes immediately after add / remove.
-class _EventPhotosSection extends ConsumerWidget {
-  const _EventPhotosSection({required this.eventId});
-
-  final String eventId;
-
-  static const double _tile = 80;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = AppLocalizations.of(context);
-    final photosAsync = ref.watch(eventPhotosProvider(eventId));
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          l10n.eventPhotosLabel,
-          style: AppTypography.label.copyWith(color: AppColors.textSecondary),
-        ),
-        const SizedBox(height: 8),
-        photosAsync.when(
-          loading: () => const SizedBox(
-            height: _tile,
-            child: Center(
-              child: CircularProgressIndicator(color: AppColors.accent),
-            ),
-          ),
-          error: (_, _) => Text(
-            l10n.photoLoadError,
-            style: AppTypography.caption.copyWith(color: AppColors.danger),
-          ),
-          data: (photos) => SizedBox(
-            height: _tile,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: photos.length + 1,
-              separatorBuilder: (_, _) => const SizedBox(width: 8),
-              itemBuilder: (context, index) {
-                if (index == photos.length) {
-                  return _AddPhotoTile(
-                    size: _tile,
-                    onTap: () => addEventPhoto(
-                      ref: ref,
-                      context: context,
-                      eventId: eventId,
-                    ),
-                  );
-                }
-                final photo = photos[index];
-                return GestureDetector(
-                  onTap: () => EventPhotoCarouselScreen.open(
-                    context,
-                    eventId,
-                    index,
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: SizedBox(
-                      width: _tile,
-                      height: _tile,
-                      child: PhotoBytesImage(
-                        photoRef: (
-                          bucket: PhotoStorage.eventBucket,
-                          path: photo.photoPath,
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _AddPhotoTile extends StatelessWidget {
-  const _AddPhotoTile({required this.size, required this.onTap});
-
-  final double size;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(12),
-      onTap: onTap,
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          color: AppColors.surfaceSoft,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: const Icon(
-          Icons.add_a_photo_outlined,
-          color: AppColors.accentSecondary,
         ),
       ),
     );

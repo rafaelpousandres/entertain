@@ -71,6 +71,8 @@
   "dishCategoryOther": "Other",
 
   "saveError": "Couldn't save the event.",
+  "deleteEventError": "Couldn't delete the event.",
+  "@deleteEventError": {},
 
   "navEvents": "Events",
   "navDishes": "Dishes",
@@ -317,12 +319,24 @@
   "@channelNone": {},
   "addressWhatsAppLabel": "WhatsApp number",
   "@addressWhatsAppLabel": {},
-  "addressWhatsAppHint": "With international prefix",
+  "addressWhatsAppHint": "600 123 456",
   "@addressWhatsAppHint": {},
   "addressEmailLabel": "Email address",
   "@addressEmailLabel": {},
   "addressEmailHint": "name@example.com",
   "@addressEmailHint": {},
+  "phoneCountryPickerTitle": "Country code",
+  "@phoneCountryPickerTitle": {
+    "description": "Title of the sheet that picks the phone international dialling prefix (Spec 009 Fixes §3)."
+  },
+  "supplierPhoneInvalid": "Enter a valid phone number.",
+  "@supplierPhoneInvalid": {},
+  "supplierEmailInvalid": "Enter a valid email address.",
+  "@supplierEmailInvalid": {},
+  "channelNeedsValidPhone": "Add a valid phone number to use this channel.",
+  "@channelNeedsValidPhone": {},
+  "channelNeedsValidEmail": "Add a valid email address to use this channel.",
+  "@channelNeedsValidEmail": {},
   "supplierPhoneLabel": "Phone",
   "@supplierPhoneLabel": {
     "description": "Label for the phone-number field on a supplier category (Fixes §2.1)."
@@ -437,7 +451,7 @@
 
   "duplicateEventAction": "Duplicate",
   "@duplicateEventAction": {},
-  "duplicateEventNameTemplate": "Copy of {name}",
+  "duplicateEventNameTemplate": "{name} - Copy",
   "@duplicateEventNameTemplate": {
     "placeholders": { "name": { "type": "String" } }
   },

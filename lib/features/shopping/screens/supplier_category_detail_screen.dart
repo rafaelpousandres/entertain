@@ -17,6 +17,18 @@ import '../data/contact_picker.dart';
 import '../data/message_channel.dart';
 import '../data/shopping_providers.dart';
 import '../supplier_category_format.dart';
+import '../widgets/phone_field.dart';
+
+/// RFC 5322-subset email check (the HTML5 `type=email` grammar): a local part of
+/// permitted characters, an `@`, then one or more dot-separated labels. Used to
+/// validate the supplier email and to gate the email channel (Spec 009 §3).
+final _emailRegExp = RegExp(
+  r"^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@"
+  r'[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?'
+  r'(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$',
+);
+
+bool isValidSupplierEmail(String value) => _emailRegExp.hasMatch(value.trim());
 
 /// Supplier category detail screen (Spec 007 §2.3).
 ///
@@ -51,10 +63,15 @@ class _SupplierCategoryDetailScreenState
   /// are stored independently below, and this marks which one the composer uses
   /// unless overridden for a single send.
   MessageChannel? _channel;
+  // §3: the phone's international dialling prefix; the controller above holds
+  // only the local part. Stored recombined as E.164 (`+34600123456`).
+  String _phoneDialCode = defaultPhoneDialCode();
   bool _seeded = false;
   bool _saving = false;
   bool _deleting = false;
   String? _nameError;
+  String? _phoneError;
+  String? _emailError;
   // §2.3: tracks user edits so the unsaved-changes guard knows when to prompt.
   bool _dirty = false;
 
@@ -86,7 +103,10 @@ class _SupplierCategoryDetailScreenState
     final setting = settingsMap[widget.category.id];
     _channel = setting?.channel;
     _supplierNameController.text = setting?.supplierName ?? '';
-    _phoneController.text = setting?.phoneAddress ?? '';
+    // §3: split the stored E.164 number into its prefix + local part to edit.
+    final phone = splitStoredPhone(setting?.phoneAddress);
+    _phoneDialCode = phone.dialCode;
+    _phoneController.text = phone.local;
     _emailController.text = setting?.emailAddress ?? '';
     _seeded = true;
   }
@@ -100,8 +120,34 @@ class _SupplierCategoryDetailScreenState
       return;
     }
 
+    // §3: validate the phone and email formats, and ensure the *selected*
+    // channel actually has a valid address behind it, before persisting.
+    if (_showChannel) {
+      final localPhone = _phoneController.text.trim();
+      final email = _emailController.text.trim();
+      final phoneInvalid = localPhone.isNotEmpty && !isValidLocalPhone(localPhone);
+      final emailInvalid = email.isNotEmpty && !isValidSupplierEmail(email);
+      final whatsappNeedsPhone =
+          _channel == MessageChannel.whatsapp && !isValidLocalPhone(localPhone);
+      final emailNeedsEmail =
+          _channel == MessageChannel.email && !isValidSupplierEmail(email);
+      if (phoneInvalid || emailInvalid || whatsappNeedsPhone || emailNeedsEmail) {
+        setState(() {
+          _phoneError = (phoneInvalid || whatsappNeedsPhone)
+              ? l10n.supplierPhoneInvalid
+              : null;
+          _emailError = (emailInvalid || emailNeedsEmail)
+              ? l10n.supplierEmailInvalid
+              : null;
+        });
+        return;
+      }
+    }
+
     setState(() {
       _nameError = null;
+      _phoneError = null;
+      _emailError = null;
       _saving = true;
     });
     try {
@@ -114,7 +160,8 @@ class _SupplierCategoryDetailScreenState
       }
       if (_showChannel) {
         final groupId = await ref.read(currentGroupIdProvider.future);
-        final phone = _phoneController.text.trim();
+        // §3: recombine the prefix + local part into the stored E.164 value.
+        final phone = composeStoredPhone(_phoneDialCode, _phoneController.text);
         final email = _emailController.text.trim();
         final supplierName = _supplierNameController.text.trim();
         await ref
@@ -138,6 +185,57 @@ class _SupplierCategoryDetailScreenState
       setState(() => _saving = false);
       messenger.showSnackBar(SnackBar(content: Text(l10n.settingsSaveError)));
     }
+  }
+
+  /// §3: a channel can only be *selected* when its address is valid — WhatsApp
+  /// needs a valid phone, Email a valid email. Share and None never need one.
+  /// Tapping a guarded channel with no valid address shows a hint instead of
+  /// selecting it, so the user understands why nothing happened.
+  void _selectChannel(MessageChannel? channel) {
+    final l10n = AppLocalizations.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    if (channel == MessageChannel.whatsapp &&
+        !isValidLocalPhone(_phoneController.text)) {
+      messenger.showSnackBar(
+        SnackBar(content: Text(l10n.channelNeedsValidPhone)),
+      );
+      return;
+    }
+    if (channel == MessageChannel.email &&
+        !isValidSupplierEmail(_emailController.text)) {
+      messenger.showSnackBar(
+        SnackBar(content: Text(l10n.channelNeedsValidEmail)),
+      );
+      return;
+    }
+    setState(() {
+      _dirty = true;
+      _channel = channel;
+    });
+  }
+
+  void _onPhoneChanged(String value) {
+    setState(() {
+      _dirty = true;
+      if (_phoneError != null && isValidLocalPhone(value)) _phoneError = null;
+    });
+  }
+
+  void _onEmailChanged(String value) {
+    setState(() {
+      _dirty = true;
+      if (_emailError != null && isValidSupplierEmail(value)) _emailError = null;
+    });
+  }
+
+  /// Applies a phone picked from a contact (which may already carry a prefix in
+  /// any of several shapes) to the prefix selector + local field.
+  void _applyContactPhone(String raw) {
+    var value = raw.replaceAll(RegExp(r'[\s\-()]'), '');
+    if (value.startsWith('00')) value = '+${value.substring(2)}';
+    final split = splitStoredPhone(value);
+    _phoneDialCode = split.dialCode;
+    _phoneController.text = split.local;
   }
 
   /// Spec 009 §2.3: requests contacts permission, opens the device picker, and
@@ -181,7 +279,7 @@ class _SupplierCategoryDetailScreenState
       contact.phones,
       l10n.contactPickPhoneTitle,
     );
-    if (phone != null) _phoneController.text = phone;
+    if (phone != null) _applyContactPhone(phone);
     if (!mounted) return;
     final email = await _chooseContactValue(
       contact.emails,
@@ -312,27 +410,9 @@ class _SupplierCategoryDetailScreenState
                 ],
               ),
               const SizedBox(height: 20),
-              // Spec 008 §2.3: the concrete supplier name ("Peixos Samba"),
-              // free text, at the top of the screen — but not for the Rebost
-              // pantry, which has no supplier behind it.
-              if (_showChannel) ...[
-                FieldLabel(
-                  label: l10n.supplierNameLabel,
-                  child: AppTextField(
-                    controller: _supplierNameController,
-                    hintText: l10n.supplierNameHint,
-                    onChanged: (_) => _markDirty(),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                // §2.3: fill name + phone + email from a device contact.
-                SecondaryButton(
-                  label: l10n.pickFromContactsAction,
-                  icon: Icons.contacts_outlined,
-                  onPressed: busy ? null : _pickFromContacts,
-                ),
-                const SizedBox(height: 16),
-              ],
+              // §3 reorder: the category comes first (read-only for system /
+              // pantry, editable for user categories), then the supplier name,
+              // then the preferred channel, with the contact picker last.
               FieldLabel(
                 label: l10n.supplierCategoryCategoryLabel,
                 child: _isUser
@@ -366,12 +446,25 @@ class _SupplierCategoryDetailScreenState
                 ),
               ],
               if (_showChannel) ...[
+                const SizedBox(height: 16),
+                // Spec 008 §2.3: the concrete supplier name ("Peixos Samba"),
+                // free text — but not for the Rebost pantry, which has no
+                // supplier behind it.
+                FieldLabel(
+                  label: l10n.supplierNameLabel,
+                  child: AppTextField(
+                    controller: _supplierNameController,
+                    hintText: l10n.supplierNameHint,
+                    onChanged: (_) => _markDirty(),
+                  ),
+                ),
                 // Fixes round 2 §2.4: pair each preferred-channel option with
                 // its address on the same row, so the link between a channel
                 // and the address it sends to is immediate. Both addresses
                 // stay stored and editable (Fixes §2.1); the non-selected rows
-                // read as visually secondary. Compartir (round 2 §2.3) and Cap
-                // need no address.
+                // read as visually secondary. §3: WhatsApp / Email can only be
+                // selected once their address is valid; the phone carries an
+                // international prefix selector. Compartir / Cap need no address.
                 const SizedBox(height: 24),
                 Text(
                   l10n.supplierPreferredChannelLabel,
@@ -384,44 +477,38 @@ class _SupplierCategoryDetailScreenState
                   icon: channelIcon(MessageChannel.whatsapp),
                   label: l10n.channelWhatsApp,
                   selected: _channel == MessageChannel.whatsapp,
-                  onSelect: () => setState(() {
-                    _dirty = true;
-                    _channel = MessageChannel.whatsapp;
-                  }),
-                  field: AppTextField(
+                  onSelect: () => _selectChannel(MessageChannel.whatsapp),
+                  field: PhoneField(
+                    dialCode: _phoneDialCode,
                     controller: _phoneController,
                     hintText: l10n.addressWhatsAppHint,
-                    keyboardType: TextInputType.phone,
-                    textCapitalization: TextCapitalization.none,
-                    onChanged: (_) => _markDirty(),
+                    onDialCodeChanged: (code) =>
+                        setState(() => _phoneDialCode = code),
+                    onChanged: _onPhoneChanged,
                   ),
                 ),
+                if (_phoneError != null) _FieldError(message: _phoneError!),
                 const SizedBox(height: 10),
                 _ChannelRow(
                   icon: channelIcon(MessageChannel.email),
                   label: l10n.channelEmail,
                   selected: _channel == MessageChannel.email,
-                  onSelect: () => setState(() {
-                    _dirty = true;
-                    _channel = MessageChannel.email;
-                  }),
+                  onSelect: () => _selectChannel(MessageChannel.email),
                   field: AppTextField(
                     controller: _emailController,
                     hintText: l10n.addressEmailHint,
                     keyboardType: TextInputType.emailAddress,
                     textCapitalization: TextCapitalization.none,
-                    onChanged: (_) => _markDirty(),
+                    onChanged: _onEmailChanged,
                   ),
                 ),
+                if (_emailError != null) _FieldError(message: _emailError!),
                 const SizedBox(height: 10),
                 _ChannelRow(
                   icon: channelIcon(MessageChannel.share),
                   label: l10n.channelShare,
                   selected: _channel == MessageChannel.share,
-                  onSelect: () => setState(() {
-                    _dirty = true;
-                    _channel = MessageChannel.share;
-                  }),
+                  onSelect: () => _selectChannel(MessageChannel.share),
                   hint: l10n.supplierShareNoAddressHint,
                 ),
                 const SizedBox(height: 10),
@@ -429,10 +516,15 @@ class _SupplierCategoryDetailScreenState
                   icon: channelIcon(null),
                   label: l10n.channelNone,
                   selected: _channel == null,
-                  onSelect: () => setState(() {
-                    _dirty = true;
-                    _channel = null;
-                  }),
+                  onSelect: () => _selectChannel(null),
+                ),
+                const SizedBox(height: 24),
+                // §3: the contact picker lives at the bottom, below the form it
+                // fills (name + phone + email).
+                SecondaryButton(
+                  label: l10n.pickFromContactsAction,
+                  icon: Icons.contacts_outlined,
+                  onPressed: busy ? null : _pickFromContacts,
                 ),
               ] else ...[
                 const SizedBox(height: 16),
@@ -559,6 +651,26 @@ class _SelectionCircle extends StatelessWidget {
       child: selected
           ? const Icon(Icons.check, size: 14, color: AppColors.onAccent)
           : null,
+    );
+  }
+}
+
+/// Inline validation caption for a channel row (§3), left-indented to sit under
+/// the address field rather than the selector (the selector column is 70 px:
+/// 62 px box + 8 px gap).
+class _FieldError extends StatelessWidget {
+  const _FieldError({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 70, top: 4),
+      child: Text(
+        message,
+        style: AppTypography.caption.copyWith(color: AppColors.danger),
+      ),
     );
   }
 }

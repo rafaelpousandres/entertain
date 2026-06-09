@@ -71,6 +71,7 @@
   "dishCategoryOther": "Altres",
 
   "saveError": "No s'ha pogut desar l'esdeveniment.",
+  "deleteEventError": "No s'ha pogut esborrar l'esdeveniment.",
 
   "navEvents": "Esdeveniments",
   "navDishes": "Plats",
@@ -271,9 +272,14 @@
   "channelShare": "Compartir",
   "channelNone": "Cap",
   "addressWhatsAppLabel": "Número de WhatsApp",
-  "addressWhatsAppHint": "Amb prefix internacional",
+  "addressWhatsAppHint": "600 123 456",
   "addressEmailLabel": "Adreça electrònica",
   "addressEmailHint": "nom@exemple.com",
+  "phoneCountryPickerTitle": "Prefix del país",
+  "supplierPhoneInvalid": "Introdueix un número de telèfon vàlid.",
+  "supplierEmailInvalid": "Introdueix una adreça de correu vàlida.",
+  "channelNeedsValidPhone": "Afegeix un número de telèfon vàlid per fer servir aquest canal.",
+  "channelNeedsValidEmail": "Afegeix una adreça de correu vàlida per fer servir aquest canal.",
   "supplierPhoneLabel": "Telèfon",
   "supplierEmailLabel": "Correu electrònic",
   "supplierPreferredChannelLabel": "Canal preferent",
@@ -327,7 +333,7 @@
   "eventStatusPast": "Passat",
 
   "duplicateEventAction": "Duplica",
-  "duplicateEventNameTemplate": "Copia de {name}",
+  "duplicateEventNameTemplate": "{name} - Còpia",
   "duplicateEventConfirmTitle": "Vols duplicar aquest esdeveniment?",
   "duplicateEventConfirmBody": "La còpia tindrà el mateix menú però sense data ni ingredients demanats.",
 
