@@ -12,8 +12,11 @@ import '../../../ui/primary_button.dart';
 import '../../../ui/section_header.dart';
 import '../../../ui/segmented_choice.dart';
 import '../../../ui/stepper_field.dart';
+import '../../catalog/data/catalog_providers.dart';
+import '../../catalog/data/dish.dart';
 import '../../catalog/data/dish_category.dart';
 import '../../photos/data/photo_storage.dart';
+import '../../photos/widgets/photo_image.dart';
 import '../../shopping/screens/event_shopping_panel.dart';
 import '../data/event.dart';
 import '../data/event_dish.dart';
@@ -703,6 +706,16 @@ class _MenuView extends ConsumerWidget {
     final l10n = AppLocalizations.of(context);
     final dishesAsync = ref.watch(eventDishesProvider(event.id));
 
+    // §2: photos for menu rows mirror the catalog. A menu dish is a snapshot,
+    // so its photo is read from the catalog dish it came from (source_dish_id).
+    // The catalog list (already cached when browsing Dishes) gives us the
+    // photo_path per dish id; thumbnails fill in once it loads and rows render
+    // without them in the meantime.
+    final catalogPhotos = <String, String?>{
+      for (final dish in ref.watch(dishesListProvider).value ?? const <Dish>[])
+        dish.id: dish.photoPath,
+    };
+
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
       children: [
@@ -724,7 +737,11 @@ class _MenuView extends ConsumerWidget {
           ),
           data: (dishes) => dishes.isEmpty
               ? const _MenuEmpty()
-              : _MenuByCategory(dishes: dishes, eventId: event.id),
+              : _MenuByCategory(
+                  dishes: dishes,
+                  eventId: event.id,
+                  catalogPhotos: catalogPhotos,
+                ),
         ),
       ],
     );
@@ -755,10 +772,17 @@ class _MenuEmpty extends StatelessWidget {
 }
 
 class _MenuByCategory extends StatefulWidget {
-  const _MenuByCategory({required this.dishes, required this.eventId});
+  const _MenuByCategory({
+    required this.dishes,
+    required this.eventId,
+    required this.catalogPhotos,
+  });
 
   final List<EventDish> dishes;
   final String eventId;
+
+  /// §2: catalog dish id → photo_path (null when none), for the menu thumbnails.
+  final Map<String, String?> catalogPhotos;
 
   @override
   State<_MenuByCategory> createState() => _MenuByCategoryState();
@@ -802,6 +826,9 @@ class _MenuByCategoryState extends State<_MenuByCategory> {
                       padding: const EdgeInsets.only(bottom: 8),
                       child: _DishRow(
                         dish: dish,
+                        photoPath: dish.sourceDishId == null
+                            ? null
+                            : widget.catalogPhotos[dish.sourceDishId],
                         onTap: () => context.push(
                           '/events/${widget.eventId}/dishes/${dish.id}',
                         ),
@@ -817,9 +844,17 @@ class _MenuByCategoryState extends State<_MenuByCategory> {
 }
 
 class _DishRow extends StatelessWidget {
-  const _DishRow({required this.dish, required this.onTap});
+  const _DishRow({
+    required this.dish,
+    required this.photoPath,
+    required this.onTap,
+  });
 
   final EventDish dish;
+
+  /// §2: the source catalog dish's photo_path, or null when it has none (or
+  /// the catalog dish is gone). Null shows no thumbnail, matching the catalog.
+  final String? photoPath;
   final VoidCallback onTap;
 
   @override
@@ -839,6 +874,17 @@ class _DishRow extends StatelessWidget {
           ),
           child: Row(
             children: [
+              // §2: inline photo thumbnail when the catalog dish has one,
+              // consistent with the Dishes catalog rows.
+              if (photoPath != null) ...[
+                RowPhotoThumb(
+                  photoRef: (
+                    bucket: PhotoStorage.dishBucket,
+                    path: photoPath!,
+                  ),
+                ),
+                const SizedBox(width: 12),
+              ],
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

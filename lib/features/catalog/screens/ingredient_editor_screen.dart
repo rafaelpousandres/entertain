@@ -40,7 +40,11 @@ class IngredientEditorScreen extends ConsumerWidget {
         : ref.watch(ingredientByIdProvider(ingredientId!)).whenData((i) => i);
 
     final combined = [unitsAsync, categoriesAsync, ingredientAsync];
-    if (combined.any((a) => a.isLoading)) {
+    // Only block on the *initial* load: a background refresh (e.g. after a
+    // photo change invalidates ingredientByIdProvider, §1) keeps its previous
+    // value, so the in-progress form must stay mounted rather than flash a
+    // spinner and lose unsaved edits.
+    if (combined.any((a) => a.isLoading && !a.hasValue)) {
       return const _Scaffold(child: _Loading());
     }
     if (combined.any((a) => a.hasError)) {
@@ -195,9 +199,22 @@ class _IngredientFormState extends ConsumerState<_IngredientForm> {
         await ref
             .read(catalogRepositoryProvider)
             .setIngredientPhotoPath(ingredientId, path);
-        if (mounted) setState(() => _photoPath = path);
+        // §1: mirror the new path locally and mark the form dirty so leaving
+        // without saving still trips the unsaved-changes guard.
+        if (mounted) {
+          setState(() {
+            _photoPath = path;
+            _dirty = true;
+          });
+        }
       },
-      onChanged: () => ref.invalidate(ingredientsListProvider),
+      // §1: refresh the ingredient itself too (not just the list), so reopening
+      // the editor reflects the new photo_path without needing a prior save.
+      // The form stays mounted through this refresh (see the loading guard).
+      onChanged: () {
+        ref.invalidate(ingredientsListProvider);
+        ref.invalidate(ingredientByIdProvider(ingredientId));
+      },
     );
   }
 

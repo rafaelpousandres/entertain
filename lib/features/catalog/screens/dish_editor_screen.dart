@@ -38,7 +38,12 @@ class DishEditorScreen extends ConsumerWidget {
     final dishAsync = ref.watch(dishByIdProvider(dishId!));
     final linesAsync = ref.watch(dishLinesProvider(dishId!));
 
-    if (dishAsync.isLoading || linesAsync.isLoading) {
+    // Only block on the *initial* load: a background refresh (e.g. after a
+    // photo change invalidates dishByIdProvider, §1) keeps its previous value,
+    // so the in-progress form must stay mounted rather than flash a spinner
+    // and lose unsaved edits.
+    if ((dishAsync.isLoading && !dishAsync.hasValue) ||
+        (linesAsync.isLoading && !linesAsync.hasValue)) {
       return const _Scaffold(child: _Loading());
     }
     if (dishAsync.hasError || linesAsync.hasError) {
@@ -160,9 +165,22 @@ class _DishFormState extends ConsumerState<_DishForm> {
       currentPath: _photoPath,
       persistPath: (path) async {
         await ref.read(catalogRepositoryProvider).setDishPhotoPath(dishId, path);
-        if (mounted) setState(() => _photoPath = path);
+        // §1: mirror the new path locally and mark the form dirty so leaving
+        // without saving still trips the unsaved-changes guard.
+        if (mounted) {
+          setState(() {
+            _photoPath = path;
+            _dirty = true;
+          });
+        }
       },
-      onChanged: () => ref.invalidate(dishesListProvider),
+      // §1: refresh the dish itself too (not just the list), so reopening the
+      // editor reflects the new photo_path without needing a prior save. The
+      // form stays mounted through this refresh (see the loading guard above).
+      onChanged: () {
+        ref.invalidate(dishesListProvider);
+        ref.invalidate(dishByIdProvider(dishId));
+      },
     );
   }
 
