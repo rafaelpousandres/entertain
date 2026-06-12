@@ -1,0 +1,75 @@
+/// Domain model for a polymorphic `media` row (Specification 010 §2.4).
+///
+/// One photo attached to an event, dish or ingredient. The
+/// `(entityType, entityId)` pair is the polymorphic foreign key; the storage
+/// bucket is implied by [entityType] and the bytes live at [path] inside it.
+library;
+
+/// The three entity kinds photos attach to (matches the `media_entity_type`
+/// Postgres enum). The richer owner kinds from the data model live in the
+/// unused `media_owner_type` enum; Spec 010 uses this leaner set.
+enum MediaEntityType {
+  event('event'),
+  dish('dish'),
+  ingredient('ingredient');
+
+  const MediaEntityType(this.wire);
+
+  /// Database enum value.
+  final String wire;
+
+  /// Parses a wire value; throws on an unknown value rather than guessing, so a
+  /// schema/code drift surfaces loudly.
+  static MediaEntityType parse(String value) {
+    for (final t in MediaEntityType.values) {
+      if (t.wire == value) return t;
+    }
+    throw ArgumentError('Unknown media entity type: $value');
+  }
+}
+
+extension MediaEntityTypeBucket on MediaEntityType {
+  /// The Supabase Storage bucket this entity type's photos live in (unchanged
+  /// from Spec 009 — the bucket is implied by the entity type).
+  String get bucket => switch (this) {
+    MediaEntityType.event => 'event-photos',
+    MediaEntityType.dish => 'dish-photos',
+    MediaEntityType.ingredient => 'ingredient-photos',
+  };
+}
+
+class Media {
+  const Media({
+    required this.id,
+    required this.entityType,
+    required this.entityId,
+    required this.path,
+    required this.position,
+  });
+
+  final String id;
+  final MediaEntityType entityType;
+  final String entityId;
+
+  /// Object path inside [MediaEntityTypeBucket.bucket]: the legacy single-photo
+  /// `{entity_id}.jpg` (dishes/ingredients before Spec 010) or the multi-photo
+  /// `{entity_id}/{photo_id}.jpg`.
+  final String path;
+
+  /// Ordering within the carousel; ties broken by `created_at` (handled by the
+  /// query's secondary sort).
+  final int position;
+
+  factory Media.fromRow(Map<String, dynamic> row) {
+    return Media(
+      id: row['id'] as String,
+      entityType: MediaEntityType.parse(row['entity_type'] as String),
+      entityId: row['entity_id'] as String,
+      path: row['path'] as String,
+      position: (row['position'] as num?)?.toInt() ?? 0,
+    );
+  }
+
+  static const String selectColumns =
+      'id, entity_type, entity_id, path, position';
+}

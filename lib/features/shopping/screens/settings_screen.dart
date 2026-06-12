@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../l10n/app_localizations.dart';
 import '../../../theme/app_colors.dart';
@@ -253,7 +255,95 @@ class _GeneralTab extends StatelessWidget {
             ],
           ),
         ),
+        // Spec 010 §2.5: the user's Supabase Auth id, near the bottom of the
+        // General tab, so a data-deletion request by email can identify the
+        // account. The id is exposed only here.
+        const SizedBox(height: 16),
+        const _PrivacyDataCard(),
       ],
+    );
+  }
+}
+
+/// Spec 010 §2.5 — "Privacy & data": shows the authenticated `user_id` (the
+/// Supabase Auth UUID) with a copy-to-clipboard button so the user can quote it
+/// in a deletion request. Reads the id directly from the auth session; falls
+/// back to a neutral "Not available" line if there is somehow no session.
+class _PrivacyDataCard extends StatelessWidget {
+  const _PrivacyDataCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+
+    Future<void> copy() async {
+      if (userId == null) return;
+      await Clipboard.setData(ClipboardData(text: userId));
+      messenger.showSnackBar(
+        SnackBar(content: Text(l10n.settingsAccountIdCopied)),
+      );
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(l10n.settingsPrivacyTitle, style: AppTypography.sectionTitle),
+          const SizedBox(height: 12),
+          Text(
+            l10n.settingsAccountIdLabel,
+            style: AppTypography.label.copyWith(color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: SelectableText(
+                  userId ?? l10n.settingsAccountIdUnavailable,
+                  style: AppTypography.body.copyWith(
+                    color: userId == null
+                        ? AppColors.textTertiary
+                        : AppColors.textPrimary,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              if (userId != null)
+                TextButton.icon(
+                  onPressed: copy,
+                  icon: const Icon(
+                    Icons.copy_outlined,
+                    size: 18,
+                    color: AppColors.accentSecondary,
+                  ),
+                  label: Text(
+                    l10n.settingsCopyAction,
+                    style: AppTypography.button.copyWith(
+                      color: AppColors.accentSecondary,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            l10n.settingsAccountIdHelp,
+            style: AppTypography.caption.copyWith(
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

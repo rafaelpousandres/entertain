@@ -16,8 +16,8 @@ import '../../events/data/events_providers.dart'
     show eventReadinessProvider, eventsListProvider;
 import '../data/ingredient_state.dart';
 import '../data/message_composer.dart';
+import '../data/shopping_aggregation.dart';
 import '../data/shopping_delta.dart';
-import '../data/shopping_models.dart';
 import '../data/shopping_providers.dart';
 import '../ingredient_state_format.dart';
 import '../supplier_category_format.dart';
@@ -64,8 +64,12 @@ class _EventShoppingPanelState extends ConsumerState<EventShoppingPanel> {
   /// prep note) but without greeting / needed-by / signature — copies it to the
   /// clipboard, confirms with a toast, and moves those lines to `ordered` so the
   /// state machine reflects that the user has taken on the purchase themselves.
+  ///
+  /// Spec 010 §2.1: the lines are already aggregated, so the text carries the
+  /// summed quantity ("3 bunches"), and moving them to `ordered` writes every
+  /// underlying row id of each aggregate atomically.
   Future<void> _useAsShoppingList(
-    List<ShoppingLine> toOrderLines,
+    List<AggregatedShoppingLine> toOrderLines,
     Map<String, Unit> unitsById,
   ) async {
     if (toOrderLines.isEmpty) return;
@@ -94,7 +98,7 @@ class _EventShoppingPanelState extends ConsumerState<EventShoppingPanel> {
 
     await Clipboard.setData(ClipboardData(text: text));
     await ref.read(shoppingRepositoryProvider).updateLineStates(
-          [for (final line in toOrderLines) line.id],
+          [for (final line in toOrderLines) ...line.sourceIds],
           IngredientState.ordered,
         );
     ref.invalidate(eventShoppingProvider(widget.eventId));
@@ -104,7 +108,13 @@ class _EventShoppingPanelState extends ConsumerState<EventShoppingPanel> {
     );
   }
 
-  Future<void> _changeState(ShoppingLine line, {required bool isPantry}) async {
+  /// Changes the state of an aggregated line (Spec 010 §2.1): a single
+  /// `IN (...)` update over **all** the folded rows' ids, so they transition
+  /// together or not at all.
+  Future<void> _changeState(
+    AggregatedShoppingLine line, {
+    required bool isPantry,
+  }) async {
     final options = allowedTransitions(line.state, isPantry: isPantry);
     if (options.isEmpty) return;
     final picked = await showModalBottomSheet<IngredientState>(
@@ -117,7 +127,9 @@ class _EventShoppingPanelState extends ConsumerState<EventShoppingPanel> {
           _StateSheet(line: line, options: options),
     );
     if (picked == null || picked == line.state) return;
-    await ref.read(shoppingRepositoryProvider).updateLineState(line.id, picked);
+    await ref
+        .read(shoppingRepositoryProvider)
+        .updateLineStates(line.sourceIds, picked);
     ref.invalidate(eventShoppingProvider(widget.eventId));
     _refreshEventStatus();
   }
@@ -162,24 +174,28 @@ class _EventShoppingPanelState extends ConsumerState<EventShoppingPanel> {
     final categoriesById = {for (final c in categoriesAsync.value!) c.id: c};
     final unitsById = {for (final u in unitsAsync.value!) u.id: u};
 
+    // Spec 010 §2.1: aggregate repeated ingredients (same ingredient, unit,
+    // state, supplier and prep_note) into a single line whose quantity is the
+    // sum of the effective scaled quantities. Everything below renders these
+    // aggregated lines; the underlying rows stay individual in the database.
+    final aggregated = aggregateShoppingLines(shopping.lines);
+
     // Fixes round 2 §2.2: derive the "Retrassat" overlay per line — an `ordered`
     // line whose most recent order is past its needed-by date. Computed once
-    // here at render time (no persistence) and looked up by line id downstream.
+    // here at render time (no persistence). Uniform across an aggregate, which
+    // shares the key fields the overlay derives from.
     final neededBy = neededByByItem(shopping.orders);
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final displayStates = <String, DisplayState>{
-      for (final line in shopping.lines)
-        line.id: DisplayState.of(
-          line.state,
-          delayed: lineIsDelayed(line, neededBy, today),
-        ),
-    };
+    DisplayState displayOf(AggregatedShoppingLine line) => DisplayState.of(
+      line.state,
+      delayed: aggregatedLineIsDelayed(line, neededBy, today),
+    );
 
-    final linesByCat = linesByCategory(shopping.lines);
+    final linesByCat = aggregatedLinesByCategory(aggregated);
 
     final uncategorised = [
-      for (final line in shopping.lines)
+      for (final line in aggregated)
         if (line.supplierCategoryId == null) line,
     ];
 
@@ -192,13 +208,13 @@ class _EventShoppingPanelState extends ConsumerState<EventShoppingPanel> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
       children: [
-        _SummaryHeader(lines: shopping.lines, displayStates: displayStates),
+        _SummaryHeader(lines: aggregated, displayOf: displayOf),
         const SizedBox(height: 16),
         for (final categoryId in ordered)
           _CategorySection(
             category: categoriesById[categoryId],
             lines: linesByCat[categoryId] ?? const [],
-            displayStates: displayStates,
+            displayOf: displayOf,
             unitsById: unitsById,
             expanded: _expanded[categoryId] ?? true,
             onToggleExpanded: () => setState(
@@ -213,7 +229,7 @@ class _EventShoppingPanelState extends ConsumerState<EventShoppingPanel> {
         if (uncategorised.isNotEmpty)
           _UncategorisedSection(
             lines: uncategorised,
-            displayStates: displayStates,
+            displayOf: displayOf,
             unitsById: unitsById,
             expanded: _expanded[_uncategorisedKey] ?? true,
             onToggleExpanded: () => setState(
@@ -252,8 +268,9 @@ class _EventShoppingPanelState extends ConsumerState<EventShoppingPanel> {
 
 /// Counts each persisted state across [lines] (zeros included). Used for the
 /// section footer gating, which keys off the operational states (send delta =
-/// `to_order`; mark-all-received = `ordered`), not the display overlay.
-Map<IngredientState, int> _countStates(List<ShoppingLine> lines) {
+/// `to_order`; mark-all-received = `ordered`), not the display overlay. Counts
+/// aggregated lines (Spec 010 §2.1), so a folded ingredient counts once.
+Map<IngredientState, int> _countStates(List<AggregatedShoppingLine> lines) {
   final counts = {for (final s in IngredientState.values) s: 0};
   for (final line in lines) {
     counts[line.state] = (counts[line.state] ?? 0) + 1;
@@ -262,15 +279,15 @@ Map<IngredientState, int> _countStates(List<ShoppingLine> lines) {
 }
 
 /// Counts each [DisplayState] across [lines] (zeros included), resolving each
-/// line through [displayStates] so the derived "Retrassat" overlay is counted
-/// as its own group (Fixes round 2 §2.2).
+/// line through [displayOf] so the derived "Retrassat" overlay is counted as
+/// its own group (Fixes round 2 §2.2).
 Map<DisplayState, int> _countDisplay(
-  List<ShoppingLine> lines,
-  Map<String, DisplayState> displayStates,
+  List<AggregatedShoppingLine> lines,
+  DisplayState Function(AggregatedShoppingLine) displayOf,
 ) {
   final counts = {for (final s in DisplayState.values) s: 0};
   for (final line in lines) {
-    final s = displayStates[line.id] ?? DisplayState.of(line.state, delayed: false);
+    final s = displayOf(line);
     counts[s] = (counts[s] ?? 0) + 1;
   }
   return counts;
@@ -280,15 +297,15 @@ Map<DisplayState, int> _countDisplay(
 /// count and a coloured-dot legend with the count of each state, including the
 /// derived "Retrassat" count (Fixes round 2 §2.2).
 class _SummaryHeader extends StatelessWidget {
-  const _SummaryHeader({required this.lines, required this.displayStates});
+  const _SummaryHeader({required this.lines, required this.displayOf});
 
-  final List<ShoppingLine> lines;
-  final Map<String, DisplayState> displayStates;
+  final List<AggregatedShoppingLine> lines;
+  final DisplayState Function(AggregatedShoppingLine) displayOf;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final counts = _countDisplay(lines, displayStates);
+    final counts = _countDisplay(lines, displayOf);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
@@ -364,7 +381,7 @@ class _CategorySection extends StatelessWidget {
   const _CategorySection({
     required this.category,
     required this.lines,
-    required this.displayStates,
+    required this.displayOf,
     required this.unitsById,
     required this.expanded,
     required this.onToggleExpanded,
@@ -375,16 +392,17 @@ class _CategorySection extends StatelessWidget {
   });
 
   final SupplierCategory? category;
-  final List<ShoppingLine> lines;
-  final Map<String, DisplayState> displayStates;
+  final List<AggregatedShoppingLine> lines;
+  final DisplayState Function(AggregatedShoppingLine) displayOf;
   final Map<String, Unit> unitsById;
   final bool expanded;
   final VoidCallback onToggleExpanded;
   final VoidCallback onSend;
-  final void Function(ShoppingLine line, {required bool isPantry}) onChangeState;
+  final void Function(AggregatedShoppingLine line, {required bool isPantry})
+  onChangeState;
   final void Function(List<String> orderedLineIds) onMarkAllReceived;
   final void Function(
-    List<ShoppingLine> toOrderLines,
+    List<AggregatedShoppingLine> toOrderLines,
     Map<String, Unit> unitsById,
   ) onUseAsShoppingList;
 
@@ -395,9 +413,11 @@ class _CategorySection extends StatelessWidget {
     final counts = _countStates(lines);
     final toOrder = counts[IngredientState.toOrder] ?? 0;
     final orderedCount = counts[IngredientState.ordered] ?? 0;
+    // Aggregated lines expand to their underlying row ids so a bulk action
+    // touches every folded row (Spec 010 §2.1).
     final orderedIds = [
       for (final line in lines)
-        if (line.state == IngredientState.ordered) line.id,
+        if (line.state == IngredientState.ordered) ...line.sourceIds,
     ];
     final toOrderLines = [
       for (final line in lines)
@@ -428,7 +448,7 @@ class _CategorySection extends StatelessWidget {
             ),
           _StateGroups(
             lines: lines,
-            displayStates: displayStates,
+            displayOf: displayOf,
             unitsById: unitsById,
             isPantry: isPantry,
             onChangeState: onChangeState,
@@ -461,7 +481,7 @@ class _CategorySection extends StatelessWidget {
 class _UncategorisedSection extends StatelessWidget {
   const _UncategorisedSection({
     required this.lines,
-    required this.displayStates,
+    required this.displayOf,
     required this.unitsById,
     required this.expanded,
     required this.onToggleExpanded,
@@ -469,12 +489,13 @@ class _UncategorisedSection extends StatelessWidget {
     required this.onMarkAllReceived,
   });
 
-  final List<ShoppingLine> lines;
-  final Map<String, DisplayState> displayStates;
+  final List<AggregatedShoppingLine> lines;
+  final DisplayState Function(AggregatedShoppingLine) displayOf;
   final Map<String, Unit> unitsById;
   final bool expanded;
   final VoidCallback onToggleExpanded;
-  final void Function(ShoppingLine line, {required bool isPantry}) onChangeState;
+  final void Function(AggregatedShoppingLine line, {required bool isPantry})
+  onChangeState;
   final void Function(List<String> orderedLineIds) onMarkAllReceived;
 
   @override
@@ -484,7 +505,7 @@ class _UncategorisedSection extends StatelessWidget {
     final orderedCount = counts[IngredientState.ordered] ?? 0;
     final orderedIds = [
       for (final line in lines)
-        if (line.state == IngredientState.ordered) line.id,
+        if (line.state == IngredientState.ordered) ...line.sourceIds,
     ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -507,7 +528,7 @@ class _UncategorisedSection extends StatelessWidget {
           ),
           _StateGroups(
             lines: lines,
-            displayStates: displayStates,
+            displayOf: displayOf,
             unitsById: unitsById,
             isPantry: false,
             onChangeState: onChangeState,
@@ -533,27 +554,25 @@ class _UncategorisedSection extends StatelessWidget {
 class _StateGroups extends StatelessWidget {
   const _StateGroups({
     required this.lines,
-    required this.displayStates,
+    required this.displayOf,
     required this.unitsById,
     required this.isPantry,
     required this.onChangeState,
   });
 
-  final List<ShoppingLine> lines;
-  final Map<String, DisplayState> displayStates;
+  final List<AggregatedShoppingLine> lines;
+  final DisplayState Function(AggregatedShoppingLine) displayOf;
   final Map<String, Unit> unitsById;
   final bool isPantry;
-  final void Function(ShoppingLine line, {required bool isPantry}) onChangeState;
-
-  DisplayState _displayOf(ShoppingLine line) =>
-      displayStates[line.id] ?? DisplayState.of(line.state, delayed: false);
+  final void Function(AggregatedShoppingLine line, {required bool isPantry})
+  onChangeState;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final byState = {
       for (final state in DisplayState.values)
-        state: [for (final l in lines) if (_displayOf(l) == state) l],
+        state: [for (final l in lines) if (displayOf(l) == state) l],
     };
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -663,7 +682,7 @@ class _LineRow extends StatelessWidget {
     required this.onTap,
   });
 
-  final ShoppingLine line;
+  final AggregatedShoppingLine line;
   final DisplayState displayState;
   final Unit? unit;
   final VoidCallback onTap;
@@ -728,7 +747,7 @@ class _LineRow extends StatelessWidget {
 class _StateSheet extends StatelessWidget {
   const _StateSheet({required this.line, required this.options});
 
-  final ShoppingLine line;
+  final AggregatedShoppingLine line;
   final List<IngredientState> options;
 
   @override

@@ -7,6 +7,8 @@ import '../../../theme/app_colors.dart';
 import '../../../theme/app_typography.dart';
 import '../../../ui/primary_button.dart';
 import '../../../ui/section_header.dart';
+import '../../photos/data/media.dart';
+import '../../photos/data/media_providers.dart';
 import '../data/event.dart';
 import '../data/event_status.dart';
 import '../data/events_providers.dart';
@@ -24,7 +26,9 @@ class EventsListScreen extends ConsumerWidget {
     final l10n = AppLocalizations.of(context);
     final eventsAsync = ref.watch(eventsListProvider);
     final readinessAsync = ref.watch(eventReadinessProvider);
-    final photosAsync = ref.watch(eventFirstPhotosProvider);
+    final photosAsync = ref.watch(
+      entityCoverPathsProvider(MediaEntityType.event),
+    );
 
     return Scaffold(
       backgroundColor: AppColors.bg,

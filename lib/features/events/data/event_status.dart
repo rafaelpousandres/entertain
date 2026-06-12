@@ -1,9 +1,10 @@
 /// Derived event status (Specification 008 §2.4).
 ///
 /// A computed, never-persisted classification of an event from its date and the
-/// shopping state of its menu. Distinct from the (largely vestigial) persisted
-/// `events.status` enum (planning / confirmed / done); this is what the events
-/// list groups by and what the detail header shows as a chip.
+/// shopping state of its menu. This is what the events list groups by and what
+/// the detail header shows as a chip. (Spec 010 §2.6 dropped the old persisted
+/// `events.status` column — planning / confirmed / done — which had been unused
+/// since this derivation replaced it.)
 library;
 
 import 'event.dart';

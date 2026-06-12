@@ -12,10 +12,11 @@ import '../../../ui/primary_button.dart';
 import '../../../ui/section_header.dart';
 import '../../../ui/segmented_choice.dart';
 import '../../../ui/stepper_field.dart';
-import '../../catalog/data/catalog_providers.dart';
-import '../../catalog/data/dish.dart';
 import '../../catalog/data/dish_category.dart';
+import '../../photos/data/media.dart';
+import '../../photos/data/media_providers.dart';
 import '../../photos/data/photo_storage.dart';
+import '../../photos/widgets/photo_carousel_section.dart';
 import '../../photos/widgets/photo_image.dart';
 import '../../shopping/screens/event_shopping_panel.dart';
 import '../data/event.dart';
@@ -24,7 +25,6 @@ import '../data/event_draft.dart';
 import '../data/event_status.dart';
 import '../data/events_providers.dart';
 import '../widgets/event_formatters.dart';
-import '../widgets/event_photos_section.dart';
 
 /// Event detail screen (Spec 007 §2.1).
 ///
@@ -204,16 +204,21 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
     final messenger = ScaffoldMessenger.of(context);
     setState(() => _deleting = true);
     try {
-      // §2.2.7: purge the event's photo blobs before the row is soft-deleted
-      // (non-fatal on failure). deleteEvent removes the event_photos rows.
+      // Spec 010 §2.4: clear the event's media rows (the soft delete never
+      // fires the cleanup trigger) and purge their blobs (non-fatal on
+      // failure), then soft-delete the event.
       try {
-        final storage = ref.read(photoStorageProvider);
-        final paths = await storage.listEventObjectPaths(widget.eventId);
-        await storage.remove(PhotoStorage.eventBucket, paths);
+        final paths = await ref
+            .read(mediaRepositoryProvider)
+            .deleteForEntity(MediaEntityType.event, widget.eventId);
+        await ref
+            .read(photoStorageProvider)
+            .remove(MediaEntityType.event.bucket, paths);
       } catch (_) {}
       await ref.read(eventsRepositoryProvider).deleteEvent(widget.eventId);
       ref.invalidate(eventsListProvider);
       ref.invalidate(eventByIdProvider(widget.eventId));
+      ref.invalidate(entityCoverPathsProvider(MediaEntityType.event));
       if (!mounted) return;
       context.go('/');
     } catch (_) {
@@ -467,6 +472,12 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
       children: [
+        // Spec 010 §2.3: the photo carousel sits at the top of the editor,
+        // above the title field, with the standard body padding above it
+        // (moved here from between Lloc and Notes). Same reusable widget the
+        // dish and ingredient editors use.
+        PhotoCarouselSection(type: MediaEntityType.event, entityId: event.id),
+        const SizedBox(height: 20),
         FieldLabel(
           label: l10n.fieldTitleLabel,
           child: AppTextField(
@@ -568,11 +579,6 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
             onChanged: (_) => setState(() {}),
           ),
         ),
-        const SizedBox(height: 16),
-        // Spec 009 §2.2 / §9: the event's photo album — a thumbnail row that
-        // opens the full-screen carousel, plus an add tile. Placed between Lloc
-        // and Notes so Notes stays the last section of the detail.
-        EventPhotosSection(eventId: event.id),
         const SizedBox(height: 16),
         FieldLabel(
           label: l10n.fieldNotesLabel,
@@ -707,14 +713,13 @@ class _MenuView extends ConsumerWidget {
     final dishesAsync = ref.watch(eventDishesProvider(event.id));
 
     // §2: photos for menu rows mirror the catalog. A menu dish is a snapshot,
-    // so its photo is read from the catalog dish it came from (source_dish_id).
-    // The catalog list (already cached when browsing Dishes) gives us the
-    // photo_path per dish id; thumbnails fill in once it loads and rows render
-    // without them in the meantime.
-    final catalogPhotos = <String, String?>{
-      for (final dish in ref.watch(dishesListProvider).value ?? const <Dish>[])
-        dish.id: dish.photoPath,
-    };
+    // so its photo is the cover (first by position) of the catalog dish it came
+    // from (source_dish_id). Spec 010 §2.4: the cover comes from the polymorphic
+    // media table via [entityCoverPathsProvider]; thumbnails fill in once it
+    // loads and rows render without them in the meantime.
+    final catalogPhotos =
+        ref.watch(entityCoverPathsProvider(MediaEntityType.dish)).value ??
+        const <String, String>{};
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),

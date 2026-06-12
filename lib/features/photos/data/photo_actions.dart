@@ -4,17 +4,16 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../l10n/app_localizations.dart';
-import '../../events/data/events_providers.dart';
-import 'event_photo.dart';
+import 'media.dart';
+import 'media_providers.dart';
 import 'photo_capture.dart';
 import 'photo_storage.dart';
-import '../screens/photo_viewer_screen.dart';
 import '../widgets/photo_source_sheet.dart';
 
-/// Shared photo workflows (Spec 009 §2.2): capture → compress → upload, the
-/// single-photo (dish / ingredient) tap behaviour, and the event-album add /
-/// remove. Kept in one place so the three entry points stay consistent and the
-/// dish and ingredient editors don't duplicate the orchestration.
+/// Shared photo workflows over the polymorphic `media` table (Spec 010 §2.4):
+/// capture → compress → upload, then the carousel add / reorder / remove. One
+/// implementation for all three entity types (event, dish, ingredient), so the
+/// editors share the same orchestration (Spec 010 §2.3).
 
 const _uuid = Uuid();
 
@@ -70,131 +69,77 @@ Future<String?> _captureCompressAndUpload({
   }
 }
 
-/// The single-photo (dish / ingredient) tap behaviour (Spec §2.2.4 / §2.2.5):
-///
-/// - with **no** photo, opens the source sheet and, on a capture, uploads to
-///   `{entityId}.jpg` and persists the path;
-/// - with a photo, opens the full-screen viewer; if the user removes it there,
-///   clears the path and deletes the blob.
-///
-/// [persistPath] writes (or clears) the entity's `photo_path` column;
-/// [onChanged] refreshes the caller's providers (the entity + its list) after
-/// a change.
-Future<void> handleSinglePhotoTap({
+/// Adds a photo to an entity's carousel (Spec 010 §2.3/§2.4): source sheet →
+/// capture → upload to `{entityId}/{uuid}.jpg` in the entity's bucket → append
+/// a `media` row at the end (position = current count). Returns true on success.
+Future<bool> addEntityPhoto({
   required WidgetRef ref,
   required BuildContext context,
-  required String bucket,
+  required MediaEntityType type,
   required String entityId,
-  required String? currentPath,
-  required Future<void> Function(String? path) persistPath,
-  required VoidCallback onChanged,
-}) async {
-  if (currentPath == null) {
-    final choice = await showPhotoSourceSheet(context, canRemove: false);
-    if (choice == null || !context.mounted) return;
-    final source = choice == PhotoSheetChoice.camera
-        ? PhotoSource.camera
-        : PhotoSource.gallery;
-    final uploaded = await _captureCompressAndUpload(
-      ref: ref,
-      context: context,
-      source: source,
-      bucket: bucket,
-      objectPath: '$entityId.jpg',
-    );
-    if (uploaded == null) return;
-    await persistPath(uploaded);
-    onChanged();
-  } else {
-    final removed = await PhotoViewerScreen.open(context, (
-      bucket: bucket,
-      path: currentPath,
-    ));
-    if (!removed) return;
-    await persistPath(null);
-    try {
-      await ref.read(photoStorageProvider).remove(bucket, [currentPath]);
-    } catch (_) {
-      // Non-fatal (§2.2.7): the row no longer points at the blob; a future
-      // sweep can reclaim an orphan.
-    }
-    ref.invalidate(photoBytesProvider((bucket: bucket, path: currentPath)));
-    onChanged();
-  }
-}
-
-/// Adds a photo to an event's album (Spec §2.2.4/§2.2.5): source sheet →
-/// capture → upload to `{eventId}/{uuid}.jpg` → append a row at the end.
-/// Returns true on success. Shared by the event detail and the carousel "+".
-Future<bool> addEventPhoto({
-  required WidgetRef ref,
-  required BuildContext context,
-  required String eventId,
 }) async {
   final choice = await showPhotoSourceSheet(context, canRemove: false);
   if (choice == null || !context.mounted) return false;
   final source = choice == PhotoSheetChoice.camera
       ? PhotoSource.camera
       : PhotoSource.gallery;
-  final path = '$eventId/${_uuid.v4()}.jpg';
+  final path = '$entityId/${_uuid.v4()}.jpg';
   final uploaded = await _captureCompressAndUpload(
     ref: ref,
     context: context,
     source: source,
-    bucket: PhotoStorage.eventBucket,
+    bucket: type.bucket,
     objectPath: path,
   );
   if (uploaded == null) return false;
-  // position = current count, so the new photo lands at the end (§2.2.6).
-  final existing = await ref.read(eventPhotosProvider(eventId).future);
-  await ref
-      .read(eventsRepositoryProvider)
-      .insertEventPhoto(
-        eventId: eventId,
-        photoPath: path,
+  final existing = await ref.read(
+    entityMediaProvider((type: type, entityId: entityId)).future,
+  );
+  await ref.read(mediaRepositoryProvider).insert(
+        type: type,
+        entityId: entityId,
+        path: path,
         position: existing.length,
       );
-  ref.invalidate(eventPhotosProvider(eventId));
-  // The list-screen thumbnail (§6.2) is the first photo; a first-ever add
-  // changes it from nothing to this photo.
-  ref.invalidate(eventFirstPhotosProvider);
+  ref.invalidate(entityMediaProvider((type: type, entityId: entityId)));
+  // A first-ever add changes the cover shown on the list / menu thumbnails.
+  ref.invalidate(entityCoverPathsProvider(type));
   return true;
 }
 
-/// Persists a drag-reordered album (Spec 009 §6.1): writes each photo's new
-/// `position` from its index in [ordered], then refreshes the album so the
-/// thumbnail row and the carousel pick up the new order. The list-screen
-/// thumbnails (first photo per event) are refreshed too, since the first photo
-/// may have changed.
-Future<void> reorderEventPhotos({
+/// Persists a drag-reordered carousel (Spec 009 §6.1, generalised): writes each
+/// photo's new `position` from its index in [ordered], then refreshes the
+/// carousel and the cover thumbnails (the first photo may have changed).
+Future<void> reorderEntityMedia({
   required WidgetRef ref,
-  required String eventId,
-  required List<EventPhoto> ordered,
+  required MediaEntityType type,
+  required String entityId,
+  required List<Media> ordered,
 }) async {
-  await ref.read(eventsRepositoryProvider).reorderEventPhotos(ordered);
-  ref.invalidate(eventPhotosProvider(eventId));
-  ref.invalidate(eventFirstPhotosProvider);
+  await ref.read(mediaRepositoryProvider).reorder(ordered);
+  ref.invalidate(entityMediaProvider((type: type, entityId: entityId)));
+  ref.invalidate(entityCoverPathsProvider(type));
 }
 
-/// Removes one event photo: deletes the row, then the blob (non-fatal on
-/// failure, §2.2.7), and refreshes the album.
-Future<void> deleteEventPhoto({
+/// Removes one photo: deletes the media row, then the blob (non-fatal on
+/// failure, §2.2.7), and refreshes the carousel and cover thumbnails.
+Future<void> deleteEntityMedia({
   required WidgetRef ref,
-  required EventPhoto photo,
+  required Media media,
 }) async {
-  await ref.read(eventsRepositoryProvider).deleteEventPhoto(photo.id);
+  await ref.read(mediaRepositoryProvider).deleteById(media.id);
   try {
-    await ref.read(photoStorageProvider).remove(PhotoStorage.eventBucket, [
-      photo.photoPath,
-    ]);
+    await ref
+        .read(photoStorageProvider)
+        .remove(media.entityType.bucket, [media.path]);
   } catch (_) {
     // Non-fatal — orphan blob swept later.
   }
-  ref.invalidate(eventPhotosProvider(photo.eventId));
-  // Removing the current first photo promotes the next one (or none) on the
-  // list-screen thumbnail (§6.2).
-  ref.invalidate(eventFirstPhotosProvider);
   ref.invalidate(
-    photoBytesProvider((bucket: PhotoStorage.eventBucket, path: photo.photoPath)),
+    entityMediaProvider((type: media.entityType, entityId: media.entityId)),
+  );
+  ref.invalidate(entityCoverPathsProvider(media.entityType));
+  ref.invalidate(
+    photoBytesProvider((bucket: media.entityType.bucket, path: media.path)),
   );
 }

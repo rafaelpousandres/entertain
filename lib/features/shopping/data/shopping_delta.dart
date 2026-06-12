@@ -12,12 +12,28 @@
 library;
 
 import 'ingredient_state.dart';
+import 'shopping_aggregation.dart';
 import 'shopping_models.dart';
 
 /// Lines that carry a supplier category, grouped by it. Lines with no
 /// category are excluded — they have no destination section.
 Map<String, List<ShoppingLine>> linesByCategory(List<ShoppingLine> lines) {
   final map = <String, List<ShoppingLine>>{};
+  for (final line in lines) {
+    final category = line.supplierCategoryId;
+    if (category == null) continue;
+    map.putIfAbsent(category, () => []).add(line);
+  }
+  return map;
+}
+
+/// Aggregated lines that carry a supplier category, grouped by it (Spec 010
+/// §2.1). Same contract as [linesByCategory] but over already-aggregated lines,
+/// so the shopping panel groups the §2.1-folded lines into supplier sections.
+Map<String, List<AggregatedShoppingLine>> aggregatedLinesByCategory(
+  List<AggregatedShoppingLine> lines,
+) {
+  final map = <String, List<AggregatedShoppingLine>>{};
   for (final line in lines) {
     final category = line.supplierCategoryId;
     if (category == null) continue;
@@ -98,13 +114,43 @@ bool lineIsDelayed(
   ShoppingLine line,
   Map<String, DateTime> neededByItem,
   DateTime today,
-) {
-  if (line.state != IngredientState.ordered) return false;
-  final needed = neededByItem[_itemKey(
-    line.supplierCategoryId,
-    line.ingredientId,
-    line.ingredientName,
-  )];
+) => _isDelayed(
+  state: line.state,
+  supplierCategoryId: line.supplierCategoryId,
+  ingredientId: line.ingredientId,
+  ingredientName: line.ingredientName,
+  neededByItem: neededByItem,
+  today: today,
+);
+
+/// [lineIsDelayed] for an aggregated line (Spec 010 §2.1): the folded rows share
+/// the state, supplier category, ingredient id and name the delay key uses, so
+/// the overlay is uniform across the aggregate and derives from those shared
+/// values.
+bool aggregatedLineIsDelayed(
+  AggregatedShoppingLine line,
+  Map<String, DateTime> neededByItem,
+  DateTime today,
+) => _isDelayed(
+  state: line.state,
+  supplierCategoryId: line.supplierCategoryId,
+  ingredientId: line.ingredientId,
+  ingredientName: line.ingredientName,
+  neededByItem: neededByItem,
+  today: today,
+);
+
+bool _isDelayed({
+  required IngredientState state,
+  required String? supplierCategoryId,
+  required String? ingredientId,
+  required String ingredientName,
+  required Map<String, DateTime> neededByItem,
+  required DateTime today,
+}) {
+  if (state != IngredientState.ordered) return false;
+  final needed =
+      neededByItem[_itemKey(supplierCategoryId, ingredientId, ingredientName)];
   if (needed == null) return false;
   return today.isAfter(needed);
 }

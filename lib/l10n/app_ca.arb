@@ -41,9 +41,6 @@
   "eventFormatSeated": "Asseguts",
   "eventFormatBuffet": "Bufet",
   "eventFormatOther": "Altre",
-  "eventStatusPlanning": "En planificació",
-  "eventStatusConfirmed": "Confirmat",
-  "eventStatusDone": "Fet",
 
   "guestsCount": "{count, plural, =1{1 convidat} other{{count} convidats}}",
   "@guestsCount": {
@@ -309,6 +306,13 @@
   "settingsTabMessages": "Missatges",
   "settingsAboutVersion": "Versió {version}",
   "settingsAboutDescription": "Organitza esdeveniments domèstics: menús, plats, ingredients i llistes de compra per proveïdor.",
+
+  "settingsPrivacyTitle": "Privadesa i dades",
+  "settingsAccountIdLabel": "El teu identificador de compte",
+  "settingsAccountIdHelp": "Fes servir aquest identificador quan sol·licitis l'eliminació de les teves dades. Correu: rafael.pous@gmail.com",
+  "settingsAccountIdUnavailable": "No disponible",
+  "settingsCopyAction": "Copia",
+  "settingsAccountIdCopied": "Identificador copiat",
 
   "supplierCategoryAddAction": "Afegeix categoria",
   "supplierCategoryAddTitle": "Nova categoria",

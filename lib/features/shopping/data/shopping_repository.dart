@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../events/data/serving_scale.dart';
 import 'ingredient_state.dart';
 import 'message_channel.dart';
+import 'shopping_aggregation.dart';
 import 'shopping_models.dart';
 
 /// Data-access wrapper for the event shopping panel and supplier messages
@@ -80,10 +81,14 @@ class ShoppingRepository {
   /// Copy-on-send (Spec §2.4, analogous to copy-on-add of Spec 004).
   ///
   /// Creates one `orders` row for `(eventId, supplierCategoryId)` stamped as
-  /// sent, then one `order_items` row per delta line — a true snapshot, so
+  /// sent, then one `order_items` row per aggregated line — a true snapshot, so
   /// later menu edits never reach the order. The actual channel / address
   /// used (configured, overridden, or whatever the share sheet handled) is
   /// persisted on the order.
+  ///
+  /// Spec 010 §2.1: [items] are the §2.1-aggregated lines, so the frozen order
+  /// (and the supplier message built from the same lines) carries the summed
+  /// quantity per ingredient ("3 bunches"), not one line per dish.
   Future<void> createSentOrder({
     required String eventId,
     required String supplierCategoryId,
@@ -91,7 +96,7 @@ class ShoppingRepository {
     required String? address,
     required DateTime sentAt,
     required DateTime? neededByDate,
-    required List<ShoppingLine> items,
+    required List<AggregatedShoppingLine> items,
   }) async {
     final order = await _client
         .from('orders')

@@ -1,6 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../photos/data/event_photo.dart';
 import 'event.dart';
 import 'event_dish.dart';
 import 'event_dish_line.dart';
@@ -147,93 +146,15 @@ class EventsRepository {
   /// Soft delete. The data model marks `events` with 🗑, so deletion sets
   /// `deleted_at` rather than removing the row.
   ///
-  /// `event_photos` rows are removed explicitly here (Spec 009 §2.2.7): the FK
-  /// declares `on delete cascade`, but a soft delete leaves the parent row in
-  /// place so the cascade never fires — without this the album rows (and the
-  /// storage blobs the caller purges alongside) would be orphaned. The photo
-  /// rows are a physical child table with no soft-delete of their own.
+  /// The event's `media` rows (Spec 010 §2.4) are removed by the caller via
+  /// [MediaRepository.deleteForEntity] before the soft delete, which also
+  /// returns the blob paths to purge — the AFTER DELETE cleanup trigger never
+  /// fires on a soft delete, so the rows must be cleared explicitly.
   Future<void> deleteEvent(String id) async {
-    await _client.from('event_photos').delete().eq('event_id', id);
     await _client
         .from('events')
         .update({'deleted_at': DateTime.now().toUtc().toIso8601String()})
         .eq('id', id);
-  }
-
-  /// An event's photos, in carousel order (Spec 009 §2.2.6): ascending
-  /// `position`, then ascending `created_at` as the tiebreaker.
-  Future<List<EventPhoto>> listEventPhotos(String eventId) async {
-    final rows = await _client
-        .from('event_photos')
-        .select(EventPhoto.selectColumns)
-        .eq('event_id', eventId)
-        .order('position', ascending: true)
-        .order('created_at', ascending: true);
-    return (rows as List)
-        .map((r) => EventPhoto.fromRow(r as Map<String, dynamic>))
-        .toList();
-  }
-
-  /// The first photo (by carousel order) of every event in the group that has
-  /// one, as a map of event id → object path (Spec 009 §6.2). Used by the
-  /// events list to show a recall thumbnail on each card without an N+1: one
-  /// query joins `event_photos` to its event for the group filter, ordered so
-  /// the first row seen per event is its lowest `position` (ties broken by
-  /// `created_at`); later rows for the same event are ignored.
-  Future<Map<String, String>> firstPhotoPathByEvent(String groupId) async {
-    final rows = await _client
-        .from('event_photos')
-        .select('event_id, photo_path, events!inner(group_id)')
-        .eq('events.group_id', groupId)
-        .order('position', ascending: true)
-        .order('created_at', ascending: true);
-    final result = <String, String>{};
-    for (final r in rows as List) {
-      final row = r as Map<String, dynamic>;
-      final eventId = row['event_id'] as String;
-      result.putIfAbsent(eventId, () => row['photo_path'] as String);
-    }
-    return result;
-  }
-
-  /// Inserts an `event_photos` row after the blob has been uploaded. The
-  /// caller computes [photoPath] (`{event_id}/{photo_id}.jpg`) and [position]
-  /// (the current photo count, so the new photo lands at the end — §2.2.6).
-  Future<void> insertEventPhoto({
-    required String eventId,
-    required String photoPath,
-    required int position,
-  }) async {
-    await _client.from('event_photos').insert({
-      'event_id': eventId,
-      'photo_path': photoPath,
-      'position': position,
-    });
-  }
-
-  /// Removes a single `event_photos` row (the blob is removed by the caller).
-  Future<void> deleteEventPhoto(String photoId) async {
-    await _client.from('event_photos').delete().eq('id', photoId);
-  }
-
-  /// Persists a new carousel order for an event's photos (Spec 009 §6.1).
-  /// [ordered] is the photos in their target order; each row's `position` is
-  /// rewritten to its index so the next read (`order by position`) reflects the
-  /// drag. A single upsert keyed on the primary key updates them in one round
-  /// trip; `event_id` and `photo_path` are carried so the NOT NULL columns are
-  /// satisfied on the update path (`created_at` keeps its existing value).
-  Future<void> reorderEventPhotos(List<EventPhoto> ordered) async {
-    if (ordered.isEmpty) return;
-    final payload = [
-      for (var i = 0; i < ordered.length; i++)
-        {
-          'id': ordered[i].id,
-          'event_id': ordered[i].eventId,
-          'photo_path': ordered[i].photoPath,
-          'position': i,
-        },
-    ];
-    await _client.from('event_photos').upsert(payload);
   }
 
   /// Dishes attached to an event, ordered by `sort_order`.

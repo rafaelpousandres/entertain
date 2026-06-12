@@ -23,14 +23,6 @@ String eventFormatLabel(AppLocalizations l10n, EventFormat format) {
   };
 }
 
-String eventStatusLabel(AppLocalizations l10n, EventStatus status) {
-  return switch (status) {
-    EventStatus.planning => l10n.eventStatusPlanning,
-    EventStatus.confirmed => l10n.eventStatusConfirmed,
-    EventStatus.done => l10n.eventStatusDone,
-  };
-}
-
 /// Localised label for the derived event status (Spec 008 §2.4).
 String derivedEventStatusLabel(
   AppLocalizations l10n,

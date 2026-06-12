@@ -41,9 +41,6 @@
   "eventFormatSeated": "Seated",
   "eventFormatBuffet": "Buffet",
   "eventFormatOther": "Other",
-  "eventStatusPlanning": "Planning",
-  "eventStatusConfirmed": "Confirmed",
-  "eventStatusDone": "Done",
 
   "guestsCount": "{count, plural, =1{1 guest} other{{count} guests}}",
   "@guestsCount": {
@@ -406,6 +403,21 @@
   },
   "settingsAboutDescription": "Organize domestic events: menus, dishes, ingredients, and per-supplier shopping lists.",
   "@settingsAboutDescription": {},
+
+  "settingsPrivacyTitle": "Privacy & data",
+  "@settingsPrivacyTitle": {
+    "description": "Settings section header for the account id / data-deletion info (Spec 010 §2.5)."
+  },
+  "settingsAccountIdLabel": "Your account ID",
+  "@settingsAccountIdLabel": {},
+  "settingsAccountIdHelp": "Use this ID when requesting data deletion. Email: rafael.pous@gmail.com",
+  "@settingsAccountIdHelp": {},
+  "settingsAccountIdUnavailable": "Not available",
+  "@settingsAccountIdUnavailable": {},
+  "settingsCopyAction": "Copy",
+  "@settingsCopyAction": {},
+  "settingsAccountIdCopied": "Account ID copied",
+  "@settingsAccountIdCopied": {},
 
   "supplierCategoryAddAction": "Add category",
   "@supplierCategoryAddAction": {},
