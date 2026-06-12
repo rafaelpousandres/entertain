@@ -192,16 +192,6 @@ class CatalogRepository {
         .eq('id', id);
   }
 
-  /// Records (or clears, when [path] is null) the ingredient's main photo path
-  /// after the blob has been uploaded to / removed from the `ingredient-photos`
-  /// bucket (Spec 009 §2.2).
-  Future<void> setIngredientPhotoPath(String id, String? path) async {
-    await _client
-        .from('ingredients')
-        .update({'photo_path': path})
-        .eq('id', id);
-  }
-
   /// Soft delete — `ingredients` is marked 🗑 in the data model, and catalog
   /// rows are referenced from event snapshots, so the row is kept.
   Future<void> deleteIngredient(String id) async {
@@ -271,13 +261,6 @@ class CatalogRepository {
         .single();
     await _replaceLines(id, draft.lines);
     return Dish.fromRow(row);
-  }
-
-  /// Records (or clears, when [path] is null) the dish's main photo path after
-  /// the blob has been uploaded to / removed from the `dish-photos` bucket
-  /// (Spec 009 §2.2).
-  Future<void> setDishPhotoPath(String id, String? path) async {
-    await _client.from('dishes').update({'photo_path': path}).eq('id', id);
   }
 
   /// Soft delete the dish. Its `dish_ingredients` are left in place — they

@@ -41,9 +41,6 @@
   "eventFormatSeated": "Sentados",
   "eventFormatBuffet": "Bufé",
   "eventFormatOther": "Otro",
-  "eventStatusPlanning": "En planificación",
-  "eventStatusConfirmed": "Confirmado",
-  "eventStatusDone": "Hecho",
 
   "guestsCount": "{count, plural, =1{1 invitado} other{{count} invitados}}",
   "@guestsCount": {
@@ -309,6 +306,13 @@
   "settingsTabMessages": "Mensajes",
   "settingsAboutVersion": "Versión {version}",
   "settingsAboutDescription": "Organiza eventos domésticos: menús, platos, ingredientes y listas de compra por proveedor.",
+
+  "settingsPrivacyTitle": "Privacidad y datos",
+  "settingsAccountIdLabel": "Tu identificador de cuenta",
+  "settingsAccountIdHelp": "Usa este identificador cuando solicites la eliminación de tus datos. Correo: rafael.pous@gmail.com",
+  "settingsAccountIdUnavailable": "No disponible",
+  "settingsCopyAction": "Copiar",
+  "settingsAccountIdCopied": "Identificador copiado",
 
   "supplierCategoryAddAction": "Añadir categoría",
   "supplierCategoryAddTitle": "Nueva categoría",

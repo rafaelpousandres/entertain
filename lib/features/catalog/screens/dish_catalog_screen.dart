@@ -7,6 +7,8 @@ import '../../../theme/app_colors.dart';
 import '../../../theme/app_typography.dart';
 import '../../../ui/primary_button.dart';
 import '../../../ui/section_header.dart';
+import '../../photos/data/media.dart';
+import '../../photos/data/media_providers.dart';
 import '../../photos/data/photo_storage.dart';
 import '../../photos/widgets/photo_image.dart';
 import '../data/dish.dart';
@@ -23,6 +25,11 @@ class DishCatalogScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     final dishesAsync = ref.watch(dishesListProvider);
+    // Spec 010 §2.4: row thumbnails read the cover (first photo by position)
+    // from the polymorphic media table.
+    final coverPaths =
+        ref.watch(entityCoverPathsProvider(MediaEntityType.dish)).value ??
+        const <String, String>{};
 
     return Scaffold(
       backgroundColor: AppColors.bg,
@@ -39,8 +46,9 @@ class DishCatalogScreen extends ConsumerWidget {
             message: l10n.dishesLoadError,
             onRetry: () => ref.invalidate(dishesListProvider),
           ),
-          data: (dishes) =>
-              dishes.isEmpty ? const _EmptyState() : _DishesByCategory(dishes: dishes),
+          data: (dishes) => dishes.isEmpty
+              ? const _EmptyState()
+              : _DishesByCategory(dishes: dishes, coverPaths: coverPaths),
         ),
       ),
       bottomNavigationBar: Container(
@@ -60,9 +68,12 @@ class DishCatalogScreen extends ConsumerWidget {
 }
 
 class _DishesByCategory extends StatefulWidget {
-  const _DishesByCategory({required this.dishes});
+  const _DishesByCategory({required this.dishes, required this.coverPaths});
 
   final List<Dish> dishes;
+
+  /// Dish id → cover photo path (first by position), or absent when none.
+  final Map<String, String> coverPaths;
 
   @override
   State<_DishesByCategory> createState() => _DishesByCategoryState();
@@ -104,6 +115,7 @@ class _DishesByCategoryState extends State<_DishesByCategory> {
                   padding: const EdgeInsets.only(bottom: 8),
                   child: _DishRow(
                     dish: dish,
+                    coverPath: widget.coverPaths[dish.id],
                     onTap: () => context.push('/dishes/${dish.id}'),
                   ),
                 ),
@@ -115,9 +127,10 @@ class _DishesByCategoryState extends State<_DishesByCategory> {
 }
 
 class _DishRow extends StatelessWidget {
-  const _DishRow({required this.dish, required this.onTap});
+  const _DishRow({required this.dish, required this.coverPath, required this.onTap});
 
   final Dish dish;
+  final String? coverPath;
   final VoidCallback onTap;
 
   @override
@@ -136,12 +149,12 @@ class _DishRow extends StatelessWidget {
           ),
           child: Row(
             children: [
-              // Spec 009 §2.2.3: inline photo thumbnail when the dish has one.
-              if (dish.photoPath != null) ...[
+              // Spec 010 §2.4: inline cover thumbnail when the dish has a photo.
+              if (coverPath != null) ...[
                 RowPhotoThumb(
                   photoRef: (
                     bucket: PhotoStorage.dishBucket,
-                    path: dish.photoPath!,
+                    path: coverPath!,
                   ),
                 ),
                 const SizedBox(width: 12),

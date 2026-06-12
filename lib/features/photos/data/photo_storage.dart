@@ -70,13 +70,6 @@ class PhotoStorage {
     if (paths.isEmpty) return;
     await _client.storage.from(bucket).remove(paths);
   }
-
-  /// All object paths under an event's folder, used to purge the album when the
-  /// event is deleted (Spec §2.2.7).
-  Future<List<String>> listEventObjectPaths(String eventId) async {
-    final objects = await _client.storage.from(eventBucket).list(path: eventId);
-    return [for (final o in objects) '$eventId/${o.name}'];
-  }
 }
 
 final photoStorageProvider = Provider<PhotoStorage>((ref) {

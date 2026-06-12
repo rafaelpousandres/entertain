@@ -131,7 +131,7 @@ User ↔ group relationship. In the MVP, a single member with `role = owner`.
 | longitude | numeric | Nullable. |
 | guest_count | integer | Number of guests (decision Q6). Default value of `servings`. |
 | notes | text | Nullable. |
-| status | enum(planning,confirmed,done) | Default `planning`. |
+| ~~status~~ | ~~enum(planning,confirmed,done)~~ | **Dropped (Spec 010 §2.6).** Unused since Spec 008 §2.4 derived event status (in_preparation / ready / past) at the UI layer from the date and ingredient states. The `event_status` enum type is left in place, unreferenced. |
 
 #### `persons` — Person · Phase 1 🗑
 Contacts: guests, cooks, etc. Independent of `profiles`.
@@ -187,7 +187,7 @@ Each ingredient has **a single unit** or a convertible family (decision Q2).
 | prep_description | text | Nullable. Base preparation/handling ("cuttlefish with skin, cleaned, ink sac separate"). |
 | package_equiv_value | numeric | Nullable. Optional conversion: mass/volume equivalent of **one** package unit. |
 | package_equiv_unit_id | uuid | FK → units (mass or volume). Accompanies `package_equiv_value`. |
-| photo_path | text | Nullable. Object path of the ingredient's main photo in the `ingredient-photos` bucket (`{ingredient_id}.jpg`); Spec 009 §2.2. See the photos note in §3.9. |
+| ~~photo_path~~ | ~~text~~ | ⚠️ **Deprecated (Spec 010 §2.4, Wave 2 drops it).** Single main photo (Spec 009 §2.2); superseded by the polymorphic `media` table — the app reads/writes only `media` now. Backfilled into `media` in Wave 1; the column remains until Wave 2. |
 | is_system | boolean | Default `false`. |
 
 #### `dishes` — Dish · Phase 0 🗑
@@ -200,7 +200,7 @@ Reusable canonical recipe (decision Q1a).
 | category | enum(aperitif,starter,main,dessert,drink,other) | |
 | base_servings | integer | Servings of the canonical recipe. Default `4`. |
 | description | text | Nullable. |
-| photo_path | text | Nullable. Object path of the dish's main photo in the `dish-photos` bucket (`{dish_id}.jpg`); Spec 009 §2.2. See the photos note in §3.9. |
+| ~~photo_path~~ | ~~text~~ | ⚠️ **Deprecated (Spec 010 §2.4, Wave 2 drops it).** Single main photo (Spec 009 §2.2); superseded by the polymorphic `media` table — the app reads/writes only `media` now. Backfilled into `media` in Wave 1; the column remains until Wave 2. |
 
 #### `dish_ingredients` — Dish ingredient line (canonical) · Phase 0
 
@@ -390,36 +390,45 @@ Includes the cooking schedule (tasks with `due_at`).
 
 ### 3.9 Cross-cutting
 
-#### `media` — Media · Phase 0 (photos in 0.x; videos in Phase 1)
-Polymorphic association with multiple entities.
+#### `media` — Media · Phase 0 (photos; videos deferred)
+Polymorphic association with the photo-bearing entities. **Implemented by Spec
+010 §2.4** as a lean, purpose-built table (a single carousel of photos per
+entity); it replaces the Spec 009 hybrid (a per-event `event_photos` table plus
+single `photo_path` columns on dishes/ingredients), now deprecated (see below).
 
 | Field | Type | Notes |
 |---|---|---|
-| group_id | uuid | FK → groups. |
-| owner_type | enum(event,dish,ingredient,person,supplier,material,receipt) | |
-| owner_id | uuid | Identifier of the owning entity. |
-| kind | enum(photo,video) | |
-| storage_path | text | Path in Supabase Storage. |
-| caption | text | Nullable. |
-| sort_order | integer | |
-| | | Index (`owner_type`, `owner_id`). |
+| entity_type | enum `media_entity_type`(event,dish,ingredient) | The owning entity kind; implies the Storage bucket. |
+| entity_id | uuid | Identifier of the owning entity. Polymorphic FK enforced by triggers (Postgres has no native polymorphic FK). |
+| path | text | Relative object path inside the bucket (`{entity_id}/{photo_id}.jpg`, or the legacy flat `{entity_id}.jpg` for backfilled single photos). |
+| position | integer | Ordering within the carousel; default `0`. The first photo by `position` is the cover. |
+| created_at | timestamptz | Secondary sort (tiebreaker for equal `position`). |
+| updated_at | timestamptz | |
+| | | Index (`entity_type`, `entity_id`, `position`). |
 
-> **Photos (Spec 009 §2.2).** The first photo feature (one photo per dish, one
-> per ingredient, an album per event) is implemented **not** through the
-> polymorphic `media` table above but with a simpler per-entity design, chosen
-> deliberately for three entities with fixed cardinalities:
-> - `dishes.photo_path` and `ingredients.photo_path` — a single nullable column
->   each (object `{id}.jpg`), so "has a photo" is just "column non-null".
-> - `event_photos` — a dedicated child table for the multi-photo event album
->   (below).
+> **Referential integrity & RLS (Spec 010 §2.4).** `entity_id` has no native FK
+> (Postgres can't FK polymorphically). A BEFORE INSERT/UPDATE trigger validates
+> that it references an existing row in the table named by `entity_type`; AFTER
+> DELETE triggers on `events`/`dishes`/`ingredients` clear orphaned media rows
+> (a safety net — those entities are *soft*-deleted, so the app also clears
+> media rows explicitly on delete). RLS: a single `media_group_access` policy
+> reaches the owning entity's `group_id` per `entity_type` via `is_group_member`.
+> A GRANT to anon/authenticated is required (table privileges are checked before
+> RLS). Bytes live in the three private Storage buckets (`dish-photos`,
+> `ingredient-photos`, `event-photos`), EU region, gated by analogous storage
+> RLS; the bucket is implied by `entity_type` and no blobs are moved.
 >
-> Bytes live in three private Supabase Storage buckets (`dish-photos`,
-> `ingredient-photos`, `event-photos`), EU region, gated by RLS on group
-> membership. `media` remains the model for richer/polymorphic media (videos,
-> receipts, captions, ordering across mixed owners) if a later phase needs it.
+> The earlier "complete vision" media columns (`group_id`, `owner_type` over 7
+> owner kinds, `kind` photo/video, `caption`, `sort_order`) and the unused
+> `media_owner_type` / `media_kind` enums remain in the schema as a forward
+> marker; richer media (videos, receipts, captions, ordering across mixed
+> owners) can extend this table when a later phase needs it.
 
-#### `event_photos` — Event photo album · Phase 1
-Multiple photos per event, presented as a carousel (Spec 009 §2.2).
+#### `event_photos` — Event photo album · Phase 1 · ⚠️ deprecated (Spec 010 Wave 2 drops it)
+Multiple photos per event, presented as a carousel (Spec 009 §2.2). **Superseded
+by `media`** (Spec 010 §2.4): the app no longer reads or writes this table. The
+rows were backfilled into `media` (Wave 1) and the table is kept only until a
+validated release cycle passes, after which Wave 2 drops it.
 
 | Field | Type | Notes |
 |---|---|---|
@@ -493,7 +502,7 @@ Single principle: **a row is accessible if the user is a member of its group.**
 |---|---|
 | **0 — Lean MVP** | groups, profiles, memberships, events, units, ingredients, dishes, dish_ingredients, event_dishes, event_dish_ingredients, supplier_categories, orders, order_items, translations, message_templates, media (structure) |
 | **0.x — Fast-follow** | use of `media` for photos; editable categories/suppliers |
-| **1 — Scale and convenience** | persons, suppliers, pantry_items, costs, material_items, event_materials, tasks, ratings; videos in `media`; `event_dishes.servings` and quantity verification; photos (`dishes.photo_path`, `ingredients.photo_path`, `event_photos`) — Spec 009 §2.2 |
+| **1 — Scale and convenience** | persons, suppliers, pantry_items, costs, material_items, event_materials, tasks, ratings; videos in `media`; `event_dishes.servings` and quantity verification; photos — first via the Spec 009 hybrid (`dishes.photo_path`, `ingredients.photo_path`, `event_photos`), then unified into the polymorphic `media` table (Spec 010 §2.3–§2.4; the hybrid is deprecated, dropped in Spec 010 Wave 2) |
 | **2 — Collaborative cloud** | event_participants, dietary_restrictions; `memberships.role`; `tasks.assignee_user_id` |
 | **3 — AI** | recipes |
 | **5 — Costs and payments** | cost_shares; `costs.source = receipt_ocr` and `receipt_media_id` |

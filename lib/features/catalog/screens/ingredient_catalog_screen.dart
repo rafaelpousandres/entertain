@@ -6,6 +6,8 @@ import '../../../l10n/app_localizations.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_typography.dart';
 import '../../../ui/primary_button.dart';
+import '../../photos/data/media.dart';
+import '../../photos/data/media_providers.dart';
 import '../../photos/data/photo_storage.dart';
 import '../../photos/widgets/photo_image.dart';
 import '../data/catalog_providers.dart';
@@ -25,6 +27,11 @@ class IngredientCatalogScreen extends ConsumerWidget {
     final ingredientsAsync = ref.watch(ingredientsListProvider);
     final unitsAsync = ref.watch(unitsProvider(localeCode));
     final categoriesAsync = ref.watch(supplierCategoriesProvider(localeCode));
+    // Spec 010 §2.4: row thumbnails read the cover (first photo by position)
+    // from the polymorphic media table.
+    final coverPaths =
+        ref.watch(entityCoverPathsProvider(MediaEntityType.ingredient)).value ??
+        const <String, String>{};
 
     return Scaffold(
       backgroundColor: AppColors.bg,
@@ -59,6 +66,7 @@ class IngredientCatalogScreen extends ConsumerWidget {
                 final ingredient = ingredients[index];
                 return _IngredientRow(
                   ingredient: ingredient,
+                  coverPath: coverPaths[ingredient.id],
                   unit: unitsById[ingredient.defaultUnitId],
                   category:
                       categoriesById[ingredient.defaultSupplierCategoryId],
@@ -89,12 +97,14 @@ class IngredientCatalogScreen extends ConsumerWidget {
 class _IngredientRow extends StatelessWidget {
   const _IngredientRow({
     required this.ingredient,
+    required this.coverPath,
     required this.unit,
     required this.category,
     required this.onTap,
   });
 
   final Ingredient ingredient;
+  final String? coverPath;
   final Unit? unit;
   final SupplierCategory? category;
   final VoidCallback onTap;
@@ -122,13 +132,13 @@ class _IngredientRow extends StatelessWidget {
           ),
           child: Row(
             children: [
-              // Spec 009 §2.2.3: inline photo thumbnail when the ingredient
-              // has one.
-              if (ingredient.photoPath != null) ...[
+              // Spec 010 §2.4: inline cover thumbnail when the ingredient has a
+              // photo.
+              if (coverPath != null) ...[
                 RowPhotoThumb(
                   photoRef: (
                     bucket: PhotoStorage.ingredientBucket,
-                    path: ingredient.photoPath!,
+                    path: coverPath!,
                   ),
                 ),
                 const SizedBox(width: 12),

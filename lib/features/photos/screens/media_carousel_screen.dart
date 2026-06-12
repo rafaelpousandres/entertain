@@ -5,36 +5,40 @@ import 'package:photo_view/photo_view_gallery.dart';
 
 import '../../../l10n/app_localizations.dart';
 import '../../../theme/app_typography.dart';
-import '../../events/data/events_providers.dart';
+import '../data/media.dart';
+import '../data/media_providers.dart';
 import '../data/photo_actions.dart';
-import '../data/photo_storage.dart';
 import '../widgets/photo_image.dart';
 import '../widgets/photo_remove_confirm.dart';
 
-/// Full-screen carousel for an event's photo album (Spec 009 §2.2.5):
-/// horizontal swipe between photos, pinch-to-zoom on each, a delete action for
-/// the current photo, and a "+" to add another from within the viewer. Reads
-/// the live [eventPhotosProvider] so add / remove reflect immediately; pops
-/// back to the event detail when the album becomes empty.
-class EventPhotoCarouselScreen extends ConsumerStatefulWidget {
-  const EventPhotoCarouselScreen({
+/// Full-screen carousel for any entity's photos (Spec 010 §2.3, generalising
+/// the Spec 009 event carousel): horizontal swipe between photos, pinch-to-zoom
+/// on each, a delete action for the current photo, and a "+" to add another.
+/// Reads the live [entityMediaProvider] so add / remove reflect immediately;
+/// pops back when the carousel becomes empty.
+class MediaCarouselScreen extends ConsumerStatefulWidget {
+  const MediaCarouselScreen({
     super.key,
-    required this.eventId,
+    required this.type,
+    required this.entityId,
     required this.initialIndex,
   });
 
-  final String eventId;
+  final MediaEntityType type;
+  final String entityId;
   final int initialIndex;
 
   static Future<void> open(
     BuildContext context,
-    String eventId,
+    MediaEntityType type,
+    String entityId,
     int initialIndex,
   ) {
     return Navigator.of(context).push<void>(
       MaterialPageRoute(
-        builder: (_) => EventPhotoCarouselScreen(
-          eventId: eventId,
+        builder: (_) => MediaCarouselScreen(
+          type: type,
+          entityId: entityId,
           initialIndex: initialIndex,
         ),
       ),
@@ -42,14 +46,15 @@ class EventPhotoCarouselScreen extends ConsumerStatefulWidget {
   }
 
   @override
-  ConsumerState<EventPhotoCarouselScreen> createState() =>
-      _EventPhotoCarouselScreenState();
+  ConsumerState<MediaCarouselScreen> createState() =>
+      _MediaCarouselScreenState();
 }
 
-class _EventPhotoCarouselScreenState
-    extends ConsumerState<EventPhotoCarouselScreen> {
+class _MediaCarouselScreenState extends ConsumerState<MediaCarouselScreen> {
   late final PageController _controller;
   late int _current;
+
+  MediaTarget get _target => (type: widget.type, entityId: widget.entityId);
 
   @override
   void initState() {
@@ -67,7 +72,7 @@ class _EventPhotoCarouselScreenState
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final photosAsync = ref.watch(eventPhotosProvider(widget.eventId));
+    final photosAsync = ref.watch(entityMediaProvider(_target));
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -84,10 +89,11 @@ class _EventPhotoCarouselScreenState
           IconButton(
             icon: const Icon(Icons.add_a_photo_outlined),
             tooltip: l10n.addPhotoAction,
-            onPressed: () => addEventPhoto(
+            onPressed: () => addEntityPhoto(
               ref: ref,
               context: context,
-              eventId: widget.eventId,
+              type: widget.type,
+              entityId: widget.entityId,
             ),
           ),
           photosAsync.maybeWhen(
@@ -112,8 +118,8 @@ class _EventPhotoCarouselScreenState
         ),
         data: (photos) {
           if (photos.isEmpty) {
-            // Album emptied (last photo removed) — return to the detail once
-            // the frame settles.
+            // Carousel emptied (last photo removed) — return once the frame
+            // settles.
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (mounted) Navigator.of(context).maybePop();
             });
@@ -130,10 +136,7 @@ class _EventPhotoCarouselScreenState
               final photo = photos[index];
               return PhotoViewGalleryPageOptions.customChild(
                 child: PhotoBytesImage(
-                  photoRef: (
-                    bucket: PhotoStorage.eventBucket,
-                    path: photo.photoPath,
-                  ),
+                  photoRef: (bucket: widget.type.bucket, path: photo.path),
                   fit: BoxFit.contain,
                 ),
                 minScale: PhotoViewComputedScale.contained,
@@ -148,11 +151,11 @@ class _EventPhotoCarouselScreenState
   }
 
   Future<void> _removeCurrent() async {
-    final photos = ref.read(eventPhotosProvider(widget.eventId)).value;
+    final photos = ref.read(entityMediaProvider(_target)).value;
     if (photos == null || photos.isEmpty) return;
     final index = _current.clamp(0, photos.length - 1);
     final confirmed = await showPhotoRemoveConfirm(context);
     if (!confirmed) return;
-    await deleteEventPhoto(ref: ref, photo: photos[index]);
+    await deleteEntityMedia(ref: ref, media: photos[index]);
   }
 }

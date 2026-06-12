@@ -12,8 +12,6 @@ enum EventType { lunch, dinner, other }
 
 enum EventFormat { seated, buffet, other }
 
-enum EventStatus { planning, confirmed, done }
-
 /// Source of truth for serialising enum values into Postgres `enum` types.
 extension EventTypeWire on EventType {
   String get wire => switch (this) {
@@ -43,20 +41,6 @@ extension EventFormatWire on EventFormat {
   };
 }
 
-extension EventStatusWire on EventStatus {
-  String get wire => switch (this) {
-    EventStatus.planning => 'planning',
-    EventStatus.confirmed => 'confirmed',
-    EventStatus.done => 'done',
-  };
-
-  static EventStatus parse(String value) => switch (value) {
-    'confirmed' => EventStatus.confirmed,
-    'done' => EventStatus.done,
-    _ => EventStatus.planning,
-  };
-}
-
 class Event {
   const Event({
     required this.id,
@@ -65,7 +49,6 @@ class Event {
     required this.type,
     required this.format,
     required this.guestCount,
-    required this.status,
     required this.createdAt,
     this.eventDate,
     this.eventTime,
@@ -83,7 +66,6 @@ class Event {
   final String? locationName;
   final int guestCount;
   final String? notes;
-  final EventStatus status;
   final DateTime createdAt;
 
   factory Event.fromRow(Map<String, dynamic> row) {
@@ -98,7 +80,6 @@ class Event {
       locationName: row['location_name'] as String?,
       guestCount: (row['guest_count'] as num).toInt(),
       notes: row['notes'] as String?,
-      status: EventStatusWire.parse(row['status'] as String),
       createdAt: DateTime.parse(row['created_at'] as String),
     );
   }
@@ -107,7 +88,7 @@ class Event {
   /// the repository so reads stay consistent.
   static const String selectColumns =
       'id, group_id, title, type, format, event_date, event_time, '
-      'location_name, guest_count, notes, status, created_at';
+      'location_name, guest_count, notes, created_at';
 }
 
 DateTime? _parseDate(Object? raw) {

@@ -1,33 +1,37 @@
-import 'package:entertain/features/events/data/events_providers.dart';
-import 'package:entertain/features/events/widgets/event_photos_section.dart';
-import 'package:entertain/features/photos/data/event_photo.dart';
+import 'package:entertain/features/photos/data/media.dart';
+import 'package:entertain/features/photos/data/media_providers.dart';
+import 'package:entertain/features/photos/widgets/photo_carousel_section.dart';
 import 'package:entertain/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Spec 009 Fixes §6 — the event photos section must never strand the user on a
-/// spinner or a "couldn't load the photo" error: an empty album and a failed
-/// read both show the add-photo placeholder so the first photo can always be
-/// added.
+/// Spec 010 §2.3 / Spec 009 Fixes §6 — the reusable photo carousel must never
+/// strand the user on a spinner or a "couldn't load the photo" error: an empty
+/// carousel and a failed read both show the add-photo placeholder so the first
+/// photo can always be added. Exercised here for a dish (the same widget serves
+/// all three entity types).
 void main() {
-  const eventId = 'event-1';
+  const target = (type: MediaEntityType.dish, entityId: 'dish-1');
 
   Future<void> pumpSection(
     WidgetTester tester, {
-    required Future<List<EventPhoto>> Function() photos,
+    required Future<List<Media>> Function() media,
   }) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          eventPhotosProvider(eventId).overrideWith((ref) => photos()),
+          entityMediaProvider(target).overrideWith((ref) => media()),
         ],
         child: const MaterialApp(
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           locale: Locale('en'),
           home: Scaffold(
-            body: EventPhotosSection(eventId: eventId),
+            body: PhotoCarouselSection(
+              type: MediaEntityType.dish,
+              entityId: 'dish-1',
+            ),
           ),
         ),
       ),
@@ -36,9 +40,9 @@ void main() {
   }
 
   testWidgets(
-    'empty album shows the add-photo placeholder, not an error or spinner',
+    'empty carousel shows the add-photo placeholder, not an error or spinner',
     (tester) async {
-      await pumpSection(tester, photos: () async => []);
+      await pumpSection(tester, media: () async => []);
 
       final en = await AppLocalizations.delegate.load(const Locale('en'));
       expect(find.byIcon(Icons.add_a_photo_outlined), findsOneWidget);
@@ -52,8 +56,7 @@ void main() {
     (tester) async {
       await pumpSection(
         tester,
-        photos: () async =>
-            throw Exception('permission denied for event_photos'),
+        media: () async => throw Exception('permission denied for media'),
       );
 
       final en = await AppLocalizations.delegate.load(const Locale('en'));

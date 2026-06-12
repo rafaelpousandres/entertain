@@ -19,7 +19,6 @@ class Dish {
     required this.baseServings,
     this.description,
     this.preparation,
-    this.photoPath,
   });
 
   final String id;
@@ -35,9 +34,11 @@ class Dish {
   /// the short [description].
   final String? preparation;
 
-  /// Object path of the dish's main photo in the `dish-photos` bucket
-  /// (`{dish_id}.jpg`), or null when it has none (Spec 009 §2.2).
-  final String? photoPath;
+  // Spec 010 §2.4: the dish's photos now live in the polymorphic `media` table,
+  // not a `photo_path` column — the cover is read via entityCoverPathsProvider
+  // and the editor uses the shared PhotoCarouselSection. The old `photo_path`
+  // column still exists in the DB (dropped in Wave 2) but the app no longer
+  // touches it, so it is intentionally absent here.
 
   factory Dish.fromRow(Map<String, dynamic> row) {
     return Dish(
@@ -48,13 +49,11 @@ class Dish {
       baseServings: (row['base_servings'] as num?)?.toInt() ?? 4,
       description: row['description'] as String?,
       preparation: row['preparation'] as String?,
-      photoPath: row['photo_path'] as String?,
     );
   }
 
   static const String selectColumns =
-      'id, group_id, name, category, base_servings, description, preparation, '
-      'photo_path';
+      'id, group_id, name, category, base_servings, description, preparation';
 }
 
 /// One in-memory recipe line being edited inside the dish editor. Maps to a

@@ -13,7 +13,6 @@ class Ingredient {
     required this.defaultUnitId,
     this.defaultSupplierCategoryId,
     this.prepDescription,
-    this.photoPath,
   });
 
   final String id;
@@ -23,9 +22,12 @@ class Ingredient {
   final String? defaultSupplierCategoryId;
   final String? prepDescription;
 
-  /// Object path of the ingredient's main photo in the `ingredient-photos`
-  /// bucket (`{ingredient_id}.jpg`), or null when it has none (Spec 009 §2.2).
-  final String? photoPath;
+  // Spec 010 §2.4: the ingredient's photos now live in the polymorphic `media`
+  // table, not a `photo_path` column — the cover is read via
+  // entityCoverPathsProvider and the editor uses the shared
+  // PhotoCarouselSection. The old `photo_path` column still exists in the DB
+  // (dropped in Wave 2) but the app no longer touches it, so it is
+  // intentionally absent here.
 
   factory Ingredient.fromRow(Map<String, dynamic> row) {
     return Ingredient(
@@ -35,13 +37,12 @@ class Ingredient {
       defaultUnitId: row['default_unit_id'] as String,
       defaultSupplierCategoryId: row['default_supplier_category_id'] as String?,
       prepDescription: row['prep_description'] as String?,
-      photoPath: row['photo_path'] as String?,
     );
   }
 
   static const String selectColumns =
       'id, group_id, name, default_unit_id, '
-      'default_supplier_category_id, prep_description, photo_path';
+      'default_supplier_category_id, prep_description';
 }
 
 /// Mutable editor view of an ingredient. Converted to a row payload at save

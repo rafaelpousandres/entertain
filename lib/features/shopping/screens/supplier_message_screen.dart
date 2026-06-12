@@ -20,6 +20,7 @@ import '../data/ingredient_state.dart';
 import '../data/message_channel.dart';
 import '../data/message_composer.dart';
 import '../data/message_dispatcher.dart';
+import '../data/shopping_aggregation.dart';
 import '../data/shopping_delta.dart';
 import '../data/shopping_models.dart';
 import '../data/shopping_providers.dart';
@@ -125,8 +126,12 @@ class _SupplierMessageScreenState
     final router = GoRouter.of(context);
 
     final destination = _destination(configured);
+    // Spec 010 §2.1: fold repeated ingredients before composing the message and
+    // freezing the order, so the supplier receives one summed line per
+    // ingredient. The per-row state transition below still uses the full delta.
+    final aggregated = aggregateShoppingLines(delta);
     final body = _composeBody(
-      delta: delta,
+      items: aggregated,
       unitsById: unitsById,
       greeting: greeting,
       signature: signature,
@@ -176,7 +181,7 @@ class _SupplierMessageScreenState
         address: outcome.address,
         sentAt: DateTime.now(),
         neededByDate: _neededByDate,
-        items: delta,
+        items: aggregated,
       );
       // Spec 007 §3.2: every line in the sent order moves to `ordered`, here
       // at the call site after the confirmation — the dispatcher stays unaware
@@ -241,7 +246,7 @@ class _SupplierMessageScreenState
   }
 
   String _composeBody({
-    required List<ShoppingLine> delta,
+    required List<AggregatedShoppingLine> items,
     required Map<String, Unit> unitsById,
     required String greeting,
     required String signature,
@@ -252,7 +257,7 @@ class _SupplierMessageScreenState
       greeting: greeting,
       leadingLine: _neededBySentence(locale, l10n),
       itemLines: [
-        for (final line in delta)
+        for (final line in items)
           composeItemLine(
             quantity: formatQuantity(
               line.quantity,
@@ -412,7 +417,7 @@ class _SupplierMessageScreenState
             }
 
             final body = _composeBody(
-              delta: delta,
+              items: aggregateShoppingLines(delta),
               unitsById: unitsById,
               greeting: greeting,
               signature: signature,
