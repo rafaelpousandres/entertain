@@ -124,3 +124,15 @@ managed on claude.ai). When in doubt, consult them; do not improvise.
 - Repository: `https://github.com/rafaelpousandres/entertain` (private)
 - Development environment: WSL2 (Ubuntu) on Windows; the code lives on the
   Linux filesystem.
+## House rules
+- Specs and project documents live under docs/. Always read the relevant
+  spec or document file before working; never work from pasted text.
+- One feature branch + PR per spec, phase, or docs pass; commit the spec
+  together with the code that implements it.
+- Pause for the user's validation of each increment before committing.
+- Explain changes and plans in plain language; the user supervises
+  architecture and product, not code lines.
+- Never put keys or secrets in code, specs, or commits; environment and
+  config files stay excluded via .gitignore.
+- Commit small and often, with clear messages.
+- Validation happens on the user's Pixel 8 Pro.
