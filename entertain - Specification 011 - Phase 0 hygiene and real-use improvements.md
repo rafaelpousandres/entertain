@@ -737,3 +737,66 @@ all of the following on the Android device:
 - New `is_extras` boolean on `event_dishes`.
 
 **Branch name**: `feat/spec-011-phase-0-hygiene-and-real-use-improvements`.
+
+---
+
+## 6. Post-validation refinements (Internal Testing)
+
+Refinements collected while validating this Spec on the project owner's device
+during implementation. All land on the same branch as the items above.
+
+### §2.11.a — "+ Add extra" button spacing
+
+The "+ Add extra" button is equispaced (the standard 8px) with the section's
+other action buttons, instead of being glued to the preceding element.
+
+### §2.11.b — Strict supplier filter on the extra picker
+
+When adding or editing an extra, the ingredient picker shows **only** catalog
+ingredients whose `default_supplier_category_id` matches the section's supplier
+— a strict filter with no "show all" escape. A new ingredient created from that
+picker has its supplier **pre-fixed to the section's and non-editable**, and the
+supplier field in the extra's line editor is likewise read-only. (Normal dish
+lines keep the full, editable behaviour.)
+
+### §2.11.c — Extra group header and ordering
+
+Extras render as their own group: an **"Extra · N" header** in the same style as
+the per-state sub-groups, after the managed ingredients. The "+ Add extra"
+button **leads the section's action-button group** (before Send / Use-as-list),
+i.e. the Extra group and its add button sit between the managed ingredients and
+the order-generating buttons.
+
+### §2.11.d — Accent- and case-insensitive search (universal)
+
+All text search in the app normalises both sides of the comparison (lowercase +
+Latin diacritic fold) via a reusable helper `foldForSearch`, so "Sípia" is found
+with "sip", "Síp", "SÍP", etc. The app's only text-search surface is the
+ingredient picker (shared by add-to-dish, add-event-line and add-extra); the
+catalogs have no search field, so there is nothing else to apply it to.
+
+### §2.11.e — Extra deletion dialog wording
+
+Deleting an extra (the panel's "×" affordance, or the line editor's remove
+action when editing an extra) shows shopping-list wording — "This removes this
+extra from the shopping list. It can't be undone." — instead of the generic
+per-dish line text, since the phantom dish the extra lives on is invisible to
+the user. Real dish-ingredient lines keep the existing wording.
+
+### §A — Send active with extras
+
+A supplier section's **Send** and **Use-as-list** actions stay active while
+there is anything to order — managed `to_order` lines **or** extras — so a
+section whose managed items are all received can still send its extras. An
+extras-only send includes the extras in the generated message (plus any
+`to_order` lines); extras carry no state and are never transitioned. Counters
+and event status are unaffected (extras are excluded from both).
+
+### §B — In-section state-group order
+
+Within a supplier section the state sub-groups run **settled → urgent**: A casa
+→ Rebut → Demanat → Retardat → Falta → Per demanar, so "Per demanar" sits as
+close as possible to the order-generating action buttons below it. The global
+summary header at the top of the Shopping tab and the red/yellow/green supplier
+counters are **unchanged** (the counters still group `missing` + `to_order` as
+red).

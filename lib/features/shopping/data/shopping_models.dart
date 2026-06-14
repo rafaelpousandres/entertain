@@ -24,6 +24,7 @@ class ShoppingLine {
     this.ingredientId,
     this.prepNote,
     this.supplierCategoryId,
+    this.isExtra = false,
   });
 
   /// The originating `event_dish_ingredients.id`.
@@ -38,8 +39,16 @@ class ShoppingLine {
   /// any supplier section (they have no destination yet).
   final String? supplierCategoryId;
 
-  /// Where this line is in the shopping process (Spec 007 §3.1).
+  /// Where this line is in the shopping process (Spec 007 §3.1). For an extra
+  /// (Spec 011 §2.11) the state is not meaningful — extras carry no status.
   final IngredientState state;
+
+  /// Spec 011 §2.11 — true when this line belongs to the event's phantom
+  /// "extras" dish: an item piggybacked onto a supplier's order that is not part
+  /// of any real dish. Extras never aggregate (with managed lines or each
+  /// other), are excluded from status counters, and render with an "Extra"
+  /// badge instead of a state.
+  final bool isExtra;
 
   factory ShoppingLine.fromRow(Map<String, dynamic> row) {
     return ShoppingLine(
@@ -121,8 +130,7 @@ class SupplierOrder {
           ? null
           : DateTime.parse(row['needed_by_date'] as String),
       items: [
-        for (final r in rawItems)
-          OrderItem.fromRow(r as Map<String, dynamic>),
+        for (final r in rawItems) OrderItem.fromRow(r as Map<String, dynamic>),
       ],
     );
   }

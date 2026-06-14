@@ -3,11 +3,13 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../l10n/app_localizations.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_typography.dart';
 import '../../../ui/app_form_field.dart';
+import '../../../ui/dirty_tabs_guard.dart';
 import '../../../ui/primary_button.dart';
 import '../../../ui/segmented_choice.dart';
 import '../../catalog/data/catalog_providers.dart';
@@ -51,6 +53,28 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
   bool _seeded = false;
   bool _saving = false;
 
+  // Spec 011 §2.5: the last saved/seeded values, so the tab-switch guard can
+  // tell whether the Missatges tab is dirty and restore them on Discard.
+  String _seededGreeting = '';
+  String _seededSignature = '';
+  late TextMessageChannel _seededChannel;
+
+  /// Whether the Missatges tab has unsaved edits (the only editable Settings
+  /// tab; General and Proveïdors are read-only here).
+  bool get _messagesDirty =>
+      _seeded &&
+      (_greetingController.text != _seededGreeting ||
+          _signatureController.text != _seededSignature ||
+          _textChannel != _seededChannel);
+
+  /// §2.5: restore the Missatges fields to their last saved values, called when
+  /// the user confirms Discard on a tab switch.
+  void _discardMessages() {
+    _greetingController.text = _seededGreeting;
+    _signatureController.text = _seededSignature;
+    setState(() => _textChannel = _seededChannel);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -75,6 +99,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
     _greetingController.text = greeting;
     _signatureController.text = signature;
     _textChannel = textChannel;
+    _seededGreeting = greeting;
+    _seededSignature = signature;
+    _seededChannel = textChannel;
     _seeded = true;
   }
 
@@ -99,6 +126,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
       ref.invalidate(groupGreetingProvider);
       ref.invalidate(groupSignatureProvider);
       ref.invalidate(groupTextMessageChannelProvider);
+      // §2.5: the saved values are now the clean baseline, so the tab-switch
+      // guard no longer treats the Missatges tab as dirty.
+      _seededGreeting = _greetingController.text;
+      _seededSignature = _signatureController.text;
+      _seededChannel = _textChannel;
       if (!mounted) return;
       messenger.showSnackBar(SnackBar(content: Text(l10n.saveAction)));
     } catch (_) {
@@ -173,22 +205,29 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
       ),
       body: SafeArea(
         top: false,
-        child: TabBarView(
+        // §2.5: guard tab switches away from the Missatges tab when it has
+        // unsaved edits (the General and Proveïdors tabs are read-only here).
+        child: DirtyTabsGuard(
           controller: _tab,
-          children: [
-            const _GeneralTab(),
-            _SuppliersTab(localeCode: localeCode),
-            _MessagesTab(
-              greetingAsync: greetingAsync,
-              signatureAsync: signatureAsync,
-              textChannelAsync: textChannelAsync,
-              greetingController: _greetingController,
-              signatureController: _signatureController,
-              textChannel: _textChannel,
-              onChannelChanged: (c) => setState(() => _textChannel = c),
-              onSeed: _seedMessages,
-            ),
-          ],
+          isTabDirty: (index) => index == 2 && _messagesDirty,
+          onConfirmDiscard: (_) => _discardMessages(),
+          child: TabBarView(
+            controller: _tab,
+            children: [
+              const _GeneralTab(),
+              _SuppliersTab(localeCode: localeCode),
+              _MessagesTab(
+                greetingAsync: greetingAsync,
+                signatureAsync: signatureAsync,
+                textChannelAsync: textChannelAsync,
+                greetingController: _greetingController,
+                signatureController: _signatureController,
+                textChannel: _textChannel,
+                onChannelChanged: (c) => setState(() => _textChannel = c),
+                onSeed: _seedMessages,
+              ),
+            ],
+          ),
         ),
       ),
       bottomNavigationBar: _buildBottomBar(l10n),
@@ -342,11 +381,44 @@ class _PrivacyDataCard extends StatelessWidget {
               color: AppColors.textSecondary,
             ),
           ),
+          // Spec 011 §2.1: link to the public deletion page the stores require,
+          // in addition to the email instructions above.
+          const SizedBox(height: 10),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              style: TextButton.styleFrom(
+                padding: EdgeInsets.zero,
+                minimumSize: const Size(0, 0),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              onPressed: () => launchUrl(
+                Uri.parse(_deleteDataUrl),
+                mode: LaunchMode.externalApplication,
+              ),
+              icon: const Icon(
+                Icons.open_in_new,
+                size: 18,
+                color: AppColors.accentSecondary,
+              ),
+              label: Text(
+                l10n.settingsDeleteDataLink,
+                style: AppTypography.button.copyWith(
+                  color: AppColors.accentSecondary,
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
 }
+
+/// Public deletion page (Spec 011 §2.1), hosted on GitHub Pages alongside the
+/// privacy policy. The stores may require this dedicated page for production.
+const String _deleteDataUrl =
+    'https://rafaelpousandres.github.io/entertain/delete-data/';
 
 class _SuppliersTab extends ConsumerWidget {
   const _SuppliersTab({required this.localeCode});

@@ -195,6 +195,9 @@
   "@removeLineConfirmBody": {},
   "removeLineConfirmButton": "Quitar la línea",
   "@removeLineConfirmButton": {},
+  "removeExtraConfirmTitle": "¿Quitar este extra?",
+  "removeExtraConfirmBody": "Esto quita este extra de la lista de la compra. No se puede deshacer.",
+  "removeExtraConfirmButton": "Quitar el extra",
   "lineSupplierCategoryLabel": "Categoría de proveedor",
   "@lineSupplierCategoryLabel": {},
   "lineSupplierCategoryHint": "Opcional",
@@ -214,6 +217,8 @@
   "shoppingSendMessageAction": "Enviar mensaje",
   "shoppingUseAsListAction": "Usar como lista de compra",
   "shoppingListCopiedToast": "Lista copiada al portapapeles",
+  "extraBadge": "Extra",
+  "addExtraAction": "Añadir extra",
   "shoppingUnsentCount": "{count, plural, =1{1 ingrediente sin enviar} other{{count} ingredientes sin enviar}}",
   "@shoppingUnsentCount": {
     "placeholders": { "count": { "type": "int" } }
@@ -310,6 +315,7 @@
   "settingsPrivacyTitle": "Privacidad y datos",
   "settingsAccountIdLabel": "Tu identificador de cuenta",
   "settingsAccountIdHelp": "Usa este identificador cuando solicites la eliminación de tus datos. Correo: rafael.pous@gmail.com",
+  "settingsDeleteDataLink": "Cómo eliminar tus datos",
   "settingsAccountIdUnavailable": "No disponible",
   "settingsCopyAction": "Copiar",
   "settingsAccountIdCopied": "Identificador copiado",
@@ -357,5 +363,6 @@
   "photoRemoveConfirmBody": "Esta foto se eliminará.",
   "photoSaveError": "No se ha podido guardar la foto.",
   "photoLoadError": "No se ha podido cargar la foto.",
+  "photoRollbackWarning": "No se han podido deshacer algunos cambios de las fotos. Revisa el editor.",
   "cameraPermissionDeniedBody": "Para hacer una foto, debes autorizar el acceso a la cámara en la configuración del teléfono."
 }

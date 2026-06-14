@@ -199,6 +199,12 @@
   "@removeLineConfirmBody": {},
   "removeLineConfirmButton": "Remove line",
   "@removeLineConfirmButton": {},
+  "removeExtraConfirmTitle": "Remove this extra?",
+  "@removeExtraConfirmTitle": {},
+  "removeExtraConfirmBody": "This removes this extra from the shopping list. It can't be undone.",
+  "@removeExtraConfirmBody": {},
+  "removeExtraConfirmButton": "Remove extra",
+  "@removeExtraConfirmButton": {},
   "lineSupplierCategoryLabel": "Supplier category",
   "@lineSupplierCategoryLabel": {},
   "lineSupplierCategoryHint": "Optional",
@@ -227,6 +233,10 @@
   "@shoppingUseAsListAction": {},
   "shoppingListCopiedToast": "List copied to clipboard",
   "@shoppingListCopiedToast": {},
+  "extraBadge": "Extra",
+  "@extraBadge": {},
+  "addExtraAction": "Add extra",
+  "@addExtraAction": {},
   "shoppingUnsentCount": "{count, plural, =1{1 ingredient not sent} other{{count} ingredients not sent}}",
   "@shoppingUnsentCount": {
     "placeholders": { "count": { "type": "int" } }
@@ -412,6 +422,8 @@
   "@settingsAccountIdLabel": {},
   "settingsAccountIdHelp": "Use this ID when requesting data deletion. Email: rafael.pous@gmail.com",
   "@settingsAccountIdHelp": {},
+  "settingsDeleteDataLink": "How to delete your data",
+  "@settingsDeleteDataLink": {},
   "settingsAccountIdUnavailable": "Not available",
   "@settingsAccountIdUnavailable": {},
   "settingsCopyAction": "Copy",
@@ -503,6 +515,8 @@
   "@photoSaveError": {},
   "photoLoadError": "Couldn't load the photo.",
   "@photoLoadError": {},
+  "photoRollbackWarning": "Some photo changes couldn't be reverted. Please check the editor.",
+  "@photoRollbackWarning": {},
   "cameraPermissionDeniedBody": "To take a photo, you need to allow camera access in the phone's settings.",
   "@cameraPermissionDeniedBody": {}
 }

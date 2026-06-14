@@ -7,6 +7,7 @@ import '../../../l10n/app_localizations.dart';
 import 'media.dart';
 import 'media_providers.dart';
 import 'photo_capture.dart';
+import 'photo_edit_session.dart';
 import 'photo_storage.dart';
 import '../widgets/photo_source_sheet.dart';
 
@@ -16,6 +17,14 @@ import '../widgets/photo_source_sheet.dart';
 /// editors share the same orchestration (Spec 010 §2.3).
 
 const _uuid = Uuid();
+
+/// The active [PhotoEditSession] for an entity, if an editor has one open
+/// (Spec 011 §2.6). Null for surfaces with no rollback (e.g. event photos).
+PhotoEditSession? _activeSession(
+  WidgetRef ref,
+  MediaEntityType type,
+  String entityId,
+) => ref.read(photoEditRegistryProvider).lookup(type, entityId);
 
 /// Captures from [source], compresses to JPEG and uploads to
 /// `bucket/objectPath`, invalidating the byte cache for that object. Returns
@@ -95,7 +104,9 @@ Future<bool> addEntityPhoto({
   final existing = await ref.read(
     entityMediaProvider((type: type, entityId: entityId)).future,
   );
-  await ref.read(mediaRepositoryProvider).insert(
+  await ref
+      .read(mediaRepositoryProvider)
+      .insert(
         type: type,
         entityId: entityId,
         path: path,
@@ -104,6 +115,8 @@ Future<bool> addEntityPhoto({
   ref.invalidate(entityMediaProvider((type: type, entityId: entityId)));
   // A first-ever add changes the cover shown on the list / menu thumbnails.
   ref.invalidate(entityCoverPathsProvider(type));
+  // §2.6: a new photo is an unsaved change the editor can roll back on Discard.
+  _activeSession(ref, type, entityId)?.markDirty();
   return true;
 }
 
@@ -119,6 +132,8 @@ Future<void> reorderEntityMedia({
   await ref.read(mediaRepositoryProvider).reorder(ordered);
   ref.invalidate(entityMediaProvider((type: type, entityId: entityId)));
   ref.invalidate(entityCoverPathsProvider(type));
+  // §2.6: a reorder is an unsaved change the editor can roll back on Discard.
+  _activeSession(ref, type, entityId)?.markDirty();
 }
 
 /// Removes one photo: deletes the media row, then the blob (non-fatal on
@@ -128,12 +143,20 @@ Future<void> deleteEntityMedia({
   required Media media,
 }) async {
   await ref.read(mediaRepositoryProvider).deleteById(media.id);
-  try {
-    await ref
-        .read(photoStorageProvider)
-        .remove(media.entityType.bucket, [media.path]);
-  } catch (_) {
-    // Non-fatal — orphan blob swept later.
+  final session = _activeSession(ref, media.entityType, media.entityId);
+  if (session != null) {
+    // §2.6: inside an editor session, keep the blob in Storage (buffered) so a
+    // Discard can restore this photo; it is purged on commit (Save).
+    session.deferredBlobs.add(media.path);
+    session.markDirty();
+  } else {
+    try {
+      await ref.read(photoStorageProvider).remove(media.entityType.bucket, [
+        media.path,
+      ]);
+    } catch (_) {
+      // Non-fatal — orphan blob swept later.
+    }
   }
   ref.invalidate(
     entityMediaProvider((type: media.entityType, entityId: media.entityId)),

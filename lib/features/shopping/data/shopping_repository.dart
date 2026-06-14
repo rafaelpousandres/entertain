@@ -26,7 +26,8 @@ class ShoppingRepository {
         .select(
           'id, ingredient_id, ingredient_name, quantity, unit_id, prep_note, '
           'supplier_category_id, state, sort_order, reference_servings, '
-          'event_dishes!inner(event_id, servings), units!inner(magnitude)',
+          'event_dishes!inner(event_id, servings, is_extras), '
+          'units!inner(magnitude)',
         )
         .eq('event_dishes.event_id', eventId)
         .order('sort_order', ascending: true);
@@ -43,21 +44,27 @@ class ShoppingRepository {
     final eventDish = row['event_dishes'] as Map<String, dynamic>?;
     final unit = row['units'] as Map<String, dynamic>?;
     final base = (row['quantity'] as num).toDouble();
-    final scaled = scaleServingQuantity(
-      base: base,
-      referenceServings: (row['reference_servings'] as num?)?.toInt(),
-      targetServings: (eventDish?['servings'] as num?)?.toInt() ?? 0,
-      countable: (unit?['magnitude'] as String?) == 'count',
-    );
+    // Spec 011 §2.11: an extra's quantity is taken as entered — it belongs to a
+    // phantom dish, not a real one, so servings-scaling never applies.
+    final isExtra = (eventDish?['is_extras'] as bool?) ?? false;
+    final quantity = isExtra
+        ? base
+        : scaleServingQuantity(
+            base: base,
+            referenceServings: (row['reference_servings'] as num?)?.toInt(),
+            targetServings: (eventDish?['servings'] as num?)?.toInt() ?? 0,
+            countable: (unit?['magnitude'] as String?) == 'count',
+          );
     return ShoppingLine(
       id: row['id'] as String,
       ingredientId: row['ingredient_id'] as String?,
       ingredientName: row['ingredient_name'] as String,
-      quantity: scaled,
+      quantity: quantity,
       unitId: row['unit_id'] as String,
       prepNote: row['prep_note'] as String?,
       supplierCategoryId: row['supplier_category_id'] as String?,
       state: IngredientState.parse(row['state'] as String?),
+      isExtra: isExtra,
     );
   }
 
@@ -136,10 +143,7 @@ class ShoppingRepository {
   /// Moves one ingredient line to a new state (Spec 007 §3.3). A direct
   /// update on `event_dish_ingredients`; RLS scopes it to the caller's group
   /// through the parent event.
-  Future<void> updateLineState(
-    String lineId,
-    IngredientState state,
-  ) async {
+  Future<void> updateLineState(String lineId, IngredientState state) async {
     await _client
         .from('event_dish_ingredients')
         .update({'state': state.wire})

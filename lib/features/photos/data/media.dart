@@ -6,8 +6,9 @@
 library;
 
 /// The three entity kinds photos attach to (matches the `media_entity_type`
-/// Postgres enum). The richer owner kinds from the data model live in the
-/// unused `media_owner_type` enum; Spec 010 uses this leaner set.
+/// Postgres enum). An earlier Phase 0 design carried a richer `media_owner_type`
+/// enum; it was never used and was dropped in Wave 2 (Spec 011 §2.3). Spec 010
+/// uses this leaner set.
 enum MediaEntityType {
   event('event'),
   dish('dish'),

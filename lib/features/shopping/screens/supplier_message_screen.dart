@@ -51,8 +51,7 @@ class SupplierMessageScreen extends ConsumerStatefulWidget {
       _SupplierMessageScreenState();
 }
 
-class _SupplierMessageScreenState
-    extends ConsumerState<SupplierMessageScreen> {
+class _SupplierMessageScreenState extends ConsumerState<SupplierMessageScreen> {
   /// Per-send destination override (Spec §2.4). Null until the user sets one;
   /// it never touches the persisted Settings configuration.
   bool _hasOverride = false;
@@ -114,6 +113,7 @@ class _SupplierMessageScreenState
   Future<void> _send({
     required String categoryName,
     required List<ShoppingLine> delta,
+    required List<ShoppingLine> extras,
     required Map<String, Unit> unitsById,
     required GroupSupplierSetting? configured,
     required String greeting,
@@ -132,6 +132,7 @@ class _SupplierMessageScreenState
     final aggregated = aggregateShoppingLines(delta);
     final body = _composeBody(
       items: aggregated,
+      extras: extras,
       unitsById: unitsById,
       greeting: greeting,
       signature: signature,
@@ -186,10 +187,9 @@ class _SupplierMessageScreenState
       // Spec 007 §3.2: every line in the sent order moves to `ordered`, here
       // at the call site after the confirmation — the dispatcher stays unaware
       // of the state machine (Spec §5).
-      await repo.updateLineStates(
-        [for (final line in delta) line.id],
-        IngredientState.ordered,
-      );
+      await repo.updateLineStates([
+        for (final line in delta) line.id,
+      ], IngredientState.ordered);
       ref.invalidate(eventShoppingProvider(widget.eventId));
       // Spec 008 §2.4: sending moves lines to `ordered`, which can change the
       // event's derived status shown on the list and detail header.
@@ -247,30 +247,52 @@ class _SupplierMessageScreenState
 
   String _composeBody({
     required List<AggregatedShoppingLine> items,
+    required List<ShoppingLine> extras,
     required Map<String, Unit> unitsById,
     required String greeting,
     required String signature,
     required Locale locale,
     required AppLocalizations l10n,
   }) {
+    String itemLine(
+      double quantity,
+      String unitId,
+      String ingredientName,
+      String? prepNote,
+    ) => composeItemLine(
+      quantity: formatQuantity(
+        quantity,
+        decimalSeparator: quantityDecimalSeparator(locale.languageCode),
+      ),
+      // Fixes §2.3: a unit flagged omit_in_display drops out (and the
+      // connector with it) by reusing the no-unit path → "3 ous".
+      unit: _displayUnit(unitsById[unitId]),
+      connector: l10n.messageItemConnector,
+      ingredientName: ingredientName,
+      prepNote: prepNote,
+      // Fixes §2.4: Catalan-only "de" → "d'" elision before vowels/h.
+      elideConnector: locale.languageCode == 'ca',
+    );
+
     return composeMessageBody(
       greeting: greeting,
       leadingLine: _neededBySentence(locale, l10n),
       itemLines: [
         for (final line in items)
-          composeItemLine(
-            quantity: formatQuantity(
-              line.quantity,
-              decimalSeparator: quantityDecimalSeparator(locale.languageCode),
-            ),
-            // Fixes §2.3: a unit flagged omit_in_display drops out (and the
-            // connector with it) by reusing the no-unit path → "3 ous".
-            unit: _displayUnit(unitsById[line.unitId]),
-            connector: l10n.messageItemConnector,
-            ingredientName: line.ingredientName,
-            prepNote: line.prepNote,
-            // Fixes §2.4: Catalan-only "de" → "d'" elision before vowels/h.
-            elideConnector: locale.languageCode == 'ca',
+          itemLine(
+            line.quantity,
+            line.unitId,
+            line.ingredientName,
+            line.prepNote,
+          ),
+        // Spec 011 §2.11: the supplier's extras follow the managed items, so the
+        // one message covers everything to order. Extras are not aggregated.
+        for (final extra in extras)
+          itemLine(
+            extra.quantity,
+            extra.unitId,
+            extra.ingredientName,
+            extra.prepNote,
           ),
       ],
       signature: signature,
@@ -284,6 +306,11 @@ class _SupplierMessageScreenState
     if (date == null) return '';
     return l10n.supplierMessageNeededBy(formatDayMonth(date, locale));
   }
+
+  /// §2.11 — this supplier's extras (the phantom-dish piggyback items), raw and
+  /// unaggregated, in their stored order.
+  List<ShoppingLine> _extrasForCategory(List<ShoppingLine> lines) =>
+      extrasByCategory(lines)[widget.categoryId] ?? const [];
 
   String _categoryName(List<SupplierCategory>? categories) {
     if (categories == null) return '';
@@ -302,10 +329,7 @@ class _SupplierMessageScreenState
     required AppLocalizations l10n,
   }) {
     final neededBy = _neededBySentence(locale, l10n);
-    final parts = <String>[
-      categoryName,
-      if (neededBy.isNotEmpty) neededBy,
-    ];
+    final parts = <String>[categoryName, if (neededBy.isNotEmpty) neededBy];
     return parts.join(l10n.metadataSeparator);
   }
 
@@ -382,7 +406,8 @@ class _SupplierMessageScreenState
             final configured = settingsAsync.value![widget.categoryId];
             // Null greeting means "never set" — fall back to the localised
             // default ("Hola,"); an empty string means the user cleared it.
-            final greeting = greetingAsync.value ?? l10n.settingsGreetingDefault;
+            final greeting =
+                greetingAsync.value ?? l10n.settingsGreetingDefault;
             final signature = signatureAsync.value!;
 
             // Fixes §2.5: default the needed-by date to the day before the
@@ -394,19 +419,30 @@ class _SupplierMessageScreenState
               final d = event.eventDate;
               _neededByDate = d == null
                   ? null
-                  : DateTime(d.year, d.month, d.day)
-                      .subtract(const Duration(days: 1));
+                  : DateTime(
+                      d.year,
+                      d.month,
+                      d.day,
+                    ).subtract(const Duration(days: 1));
             }
 
+            // §2.11: extras (the phantom-dish piggyback items) are excluded from
+            // the managed delta / state machine, but appended to the message so
+            // the supplier sees everything to order in one go.
+            final extras = _extrasForCategory(shopping.lines);
             final categoryLines =
-                linesByCategory(shopping.lines)[widget.categoryId] ??
+                linesByCategory(
+                  managedShoppingLines(shopping.lines),
+                )[widget.categoryId] ??
                 const <ShoppingLine>[];
             final categoryOrders =
                 ordersByCategory(shopping.orders)[widget.categoryId] ??
                 const <SupplierOrder>[];
             final delta = deltaForCategory(categoryLines);
 
-            if (delta.isEmpty) {
+            // §A: there is something to send while either the managed delta or
+            // the supplier's extras are non-empty.
+            if (delta.isEmpty && extras.isEmpty) {
               return _NothingToSend(
                 event: event,
                 categoryName: categoryName,
@@ -418,6 +454,7 @@ class _SupplierMessageScreenState
 
             final body = _composeBody(
               items: aggregateShoppingLines(delta),
+              extras: extras,
               unitsById: unitsById,
               greeting: greeting,
               signature: signature,
@@ -446,9 +483,7 @@ class _SupplierMessageScreenState
               shoppingAsync: shoppingAsync,
               onSend: () {
                 final shopping = shoppingAsync.value!;
-                final unitsById = {
-                  for (final u in unitsAsync.value!) u.id: u,
-                };
+                final unitsById = {for (final u in unitsAsync.value!) u.id: u};
                 final configured = settingsAsync.value![widget.categoryId];
                 final greeting =
                     greetingAsync.value ?? l10n.settingsGreetingDefault;
@@ -456,13 +491,18 @@ class _SupplierMessageScreenState
                 final textChannel =
                     textChannelAsync.value ?? TextMessageChannel.whatsapp;
                 final categoryLines =
-                    linesByCategory(shopping.lines)[widget.categoryId] ??
+                    linesByCategory(
+                      managedShoppingLines(shopping.lines),
+                    )[widget.categoryId] ??
                     const <ShoppingLine>[];
                 final delta = deltaForCategory(categoryLines);
-                if (delta.isEmpty) return;
+                final extras = _extrasForCategory(shopping.lines);
+                // §A: send while either the managed delta or the extras exist.
+                if (delta.isEmpty && extras.isEmpty) return;
                 _send(
                   categoryName: categoryName,
                   delta: delta,
+                  extras: extras,
                   unitsById: unitsById,
                   configured: configured,
                   greeting: greeting,
@@ -808,8 +848,9 @@ class SentOrderCard extends StatelessWidget {
                 composeItemLine(
                   quantity: formatQuantity(
                     item.quantity,
-                    decimalSeparator:
-                        quantityDecimalSeparator(locale.languageCode),
+                    decimalSeparator: quantityDecimalSeparator(
+                      locale.languageCode,
+                    ),
                   ),
                   unit: _displayUnit(unitsById[item.unitId]),
                   connector: l10n.messageItemConnector,
@@ -853,10 +894,12 @@ class _OverrideSheet extends StatefulWidget {
 
 class _OverrideSheetState extends State<_OverrideSheet> {
   late MessageChannel? _channel = widget.initialChannel;
-  late final TextEditingController _phoneController =
-      TextEditingController(text: widget.initialPhone ?? '');
-  late final TextEditingController _emailController =
-      TextEditingController(text: widget.initialEmail ?? '');
+  late final TextEditingController _phoneController = TextEditingController(
+    text: widget.initialPhone ?? '',
+  );
+  late final TextEditingController _emailController = TextEditingController(
+    text: widget.initialEmail ?? '',
+  );
 
   @override
   void dispose() {

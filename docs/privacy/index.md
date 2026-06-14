@@ -163,6 +163,15 @@ We have no offline backup retention policy beyond the operational
 backups maintained by Supabase for service continuity (typically
 retained for a short period and used only for disaster recovery).
 
+### 7.1 Account and data deletion
+
+You can request the permanent deletion of your account and all your
+data at any time. The full deletion process — what is deleted, what is
+retained, and how to submit a request — is described on our dedicated
+page:
+
+https://rafaelpousandres.github.io/entertain/delete-data/
+
 ---
 
 ## 8. Children's privacy

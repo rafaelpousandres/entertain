@@ -17,6 +17,10 @@ class SectionHeader extends StatelessWidget {
     required this.expanded,
     required this.onToggle,
     this.count,
+    this.trailing,
+    this.iconBackgroundColor,
+    this.iconColor,
+    this.iconRingColor,
   });
 
   final IconData icon;
@@ -24,6 +28,16 @@ class SectionHeader extends StatelessWidget {
   final int? count;
   final bool expanded;
   final VoidCallback onToggle;
+
+  /// Optional widget shown between the label and the chevron — used by the
+  /// shopping panel for the per-supplier status counters (Spec 011 §2.9).
+  final Widget? trailing;
+
+  /// Optional tint for the leading [IconCircle] (Spec 011 §2.10). When null the
+  /// circle keeps its default accent-secondary look.
+  final Color? iconBackgroundColor;
+  final Color? iconColor;
+  final Color? iconRingColor;
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +48,12 @@ class SectionHeader extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: Row(
           children: [
-            IconCircle(icon: icon),
+            IconCircle(
+              icon: icon,
+              backgroundColor: iconBackgroundColor,
+              iconColor: iconColor,
+              ringColor: iconRingColor,
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
@@ -44,6 +63,7 @@ class SectionHeader extends StatelessWidget {
                 ),
               ),
             ),
+            if (trailing != null) ...[trailing!, const SizedBox(width: 8)],
             if (count != null) ...[
               Text(
                 '$count',

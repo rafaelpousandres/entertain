@@ -7,6 +7,7 @@ import '../../../theme/app_typography.dart';
 import '../../../ui/app_form_field.dart';
 import '../../../ui/primary_button.dart';
 import '../../../ui/single_choice_sheet.dart';
+import '../../../util/search_text.dart';
 import '../../events/data/events_providers.dart' show currentGroupIdProvider;
 import '../data/catalog_providers.dart';
 import '../data/ingredient.dart';
@@ -24,6 +25,7 @@ Future<Ingredient?> showIngredientPicker({
   required List<Ingredient> ingredients,
   required List<Unit> units,
   required List<SupplierCategory> categories,
+  String? restrictToSupplierCategoryId,
 }) {
   return showModalBottomSheet<Ingredient>(
     context: context,
@@ -37,6 +39,7 @@ Future<Ingredient?> showIngredientPicker({
       ingredients: ingredients,
       units: units,
       categories: categories,
+      restrictToSupplierCategoryId: restrictToSupplierCategoryId,
     ),
   );
 }
@@ -47,12 +50,19 @@ class _IngredientPickerSheet extends StatefulWidget {
     required this.ingredients,
     required this.units,
     required this.categories,
+    this.restrictToSupplierCategoryId,
   });
 
   final WidgetRef ref;
   final List<Ingredient> ingredients;
   final List<Unit> units;
   final List<SupplierCategory> categories;
+
+  /// Spec 011 §2.11.b — when set, the picker shows ONLY catalog ingredients
+  /// whose `default_supplier_category_id` matches this supplier (the section the
+  /// extra is being added to); a strict filter with no "show all" escape. A
+  /// freshly created ingredient inherits this supplier, fixed and non-editable.
+  final String? restrictToSupplierCategoryId;
 
   @override
   State<_IngredientPickerSheet> createState() => _IngredientPickerSheetState();
@@ -69,11 +79,17 @@ class _IngredientPickerSheetState extends State<_IngredientPickerSheet> {
   }
 
   List<Ingredient> get _filtered {
-    final q = _query.trim().toLowerCase();
-    if (q.isEmpty) return widget.ingredients;
-    return widget.ingredients
-        .where((i) => i.name.toLowerCase().contains(q))
-        .toList();
+    final restrict = widget.restrictToSupplierCategoryId;
+    final base = restrict == null
+        ? widget.ingredients
+        : widget.ingredients
+              .where((i) => i.defaultSupplierCategoryId == restrict)
+              .toList();
+    // §2.11.d: accent- and case-insensitive — normalise both sides so "sip"
+    // (or "Síp") matches "Sípia".
+    final q = foldForSearch(_query.trim());
+    if (q.isEmpty) return base;
+    return base.where((i) => foldForSearch(i.name).contains(q)).toList();
   }
 
   Future<void> _createNew() async {
@@ -83,6 +99,7 @@ class _IngredientPickerSheetState extends State<_IngredientPickerSheet> {
       units: widget.units,
       categories: widget.categories,
       initialName: _query.trim(),
+      fixedSupplierCategoryId: widget.restrictToSupplierCategoryId,
     );
     if (created != null && mounted) {
       Navigator.of(context).pop(created);
@@ -239,6 +256,7 @@ Future<Ingredient?> showIngredientQuickCreate({
   required List<Unit> units,
   required List<SupplierCategory> categories,
   String? initialName,
+  String? fixedSupplierCategoryId,
 }) {
   return showModalBottomSheet<Ingredient>(
     context: context,
@@ -252,6 +270,7 @@ Future<Ingredient?> showIngredientQuickCreate({
       units: units,
       categories: categories,
       initialName: initialName,
+      fixedSupplierCategoryId: fixedSupplierCategoryId,
     ),
   );
 }
@@ -262,12 +281,18 @@ class _QuickCreateSheet extends StatefulWidget {
     required this.units,
     required this.categories,
     this.initialName,
+    this.fixedSupplierCategoryId,
   });
 
   final WidgetRef ref;
   final List<Unit> units;
   final List<SupplierCategory> categories;
   final String? initialName;
+
+  /// Spec 011 §2.11.b — when set, the supplier category is pre-fixed to this id
+  /// and shown read-only (the extras flow: an extra always belongs to its
+  /// section's supplier, with no override).
+  final String? fixedSupplierCategoryId;
 
   @override
   State<_QuickCreateSheet> createState() => _QuickCreateSheetState();
@@ -280,10 +305,13 @@ class _QuickCreateSheetState extends State<_QuickCreateSheet> {
   bool _saving = false;
   bool _submitted = false;
 
+  bool get _categoryLocked => widget.fixedSupplierCategoryId != null;
+
   @override
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.initialName ?? '');
+    _categoryId = widget.fixedSupplierCategoryId;
   }
 
   @override
@@ -434,16 +462,18 @@ class _QuickCreateSheetState extends State<_QuickCreateSheet> {
               ),
             const SizedBox(height: 16),
             // §2.2: supplier category is the third structural attribute, so it
-            // sits here below the unit — defaulting to "no category".
+            // sits here below the unit — defaulting to "no category". §2.11.b:
+            // in the extras flow it is pre-fixed to the section's supplier and
+            // shown read-only (no picker, no clear).
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
               child: FieldLabel(
                 label: l10n.ingredientSupplierLabel,
                 child: FormFieldTile(
-                  onTap: _pickCategory,
+                  onTap: _categoryLocked ? () {} : _pickCategory,
                   placeholder: l10n.ingredientSupplierHint,
                   value: _selectedCategory?.name,
-                  onClear: _categoryId == null
+                  onClear: (_categoryLocked || _categoryId == null)
                       ? null
                       : () => setState(() => _categoryId = null),
                 ),

@@ -25,9 +25,8 @@ class Ingredient {
   // Spec 010 §2.4: the ingredient's photos now live in the polymorphic `media`
   // table, not a `photo_path` column — the cover is read via
   // entityCoverPathsProvider and the editor uses the shared
-  // PhotoCarouselSection. The old `photo_path` column still exists in the DB
-  // (dropped in Wave 2) but the app no longer touches it, so it is
-  // intentionally absent here.
+  // PhotoCarouselSection. The old `photo_path` column was dropped in Wave 2
+  // (Spec 011 §2.2), so it is absent here.
 
   factory Ingredient.fromRow(Map<String, dynamic> row) {
     return Ingredient(
