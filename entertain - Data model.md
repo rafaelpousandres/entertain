@@ -187,8 +187,10 @@ Each ingredient has **a single unit** or a convertible family (decision Q2).
 | prep_description | text | Nullable. Base preparation/handling ("cuttlefish with skin, cleaned, ink sac separate"). |
 | package_equiv_value | numeric | Nullable. Optional conversion: mass/volume equivalent of **one** package unit. |
 | package_equiv_unit_id | uuid | FK → units (mass or volume). Accompanies `package_equiv_value`. |
-| ~~photo_path~~ | ~~text~~ | ⚠️ **Deprecated (Spec 010 §2.4, Wave 2 drops it).** Single main photo (Spec 009 §2.2); superseded by the polymorphic `media` table — the app reads/writes only `media` now. Backfilled into `media` in Wave 1; the column remains until Wave 2. |
 | is_system | boolean | Default `false`. |
+
+> The single-photo `photo_path` column (Spec 009 §2.2) was dropped in Wave 2
+> (Spec 011 §2.2). Photos live in the polymorphic `media` table (§2.4).
 
 #### `dishes` — Dish · Phase 0 🗑
 Reusable canonical recipe (decision Q1a).
@@ -200,7 +202,9 @@ Reusable canonical recipe (decision Q1a).
 | category | enum(aperitif,starter,main,dessert,drink,other) | |
 | base_servings | integer | Servings of the canonical recipe. Default `4`. |
 | description | text | Nullable. |
-| ~~photo_path~~ | ~~text~~ | ⚠️ **Deprecated (Spec 010 §2.4, Wave 2 drops it).** Single main photo (Spec 009 §2.2); superseded by the polymorphic `media` table — the app reads/writes only `media` now. Backfilled into `media` in Wave 1; the column remains until Wave 2. |
+
+> The single-photo `photo_path` column (Spec 009 §2.2) was dropped in Wave 2
+> (Spec 011 §2.2). Photos live in the polymorphic `media` table (§2.4).
 
 #### `dish_ingredients` — Dish ingredient line (canonical) · Phase 0
 
@@ -224,6 +228,7 @@ Instance frozen when the dish is added to the event (the "copy on add" decision)
 | category | enum(...) | Snapshot. |
 | servings | integer | Servings for this event. Default `events.guest_count`. |
 | sort_order | integer | Order / dish within the menu. |
+| is_extras | boolean | Default `false`. Spec 011 §2.11. Marks the per-event **phantom "extras" dish**, created lazily to hold shopping items not tied to any real dish (a supplier piggyback). The phantom dish is hidden from the Menu and excluded from status / counters; it carries `servings = 1` so its lines are never servings-scaled. |
 
 #### `event_dish_ingredients` — Event ingredient line (editable copy) · Phase 0
 Copy of `dish_ingredients` made when the dish is added; editable without
@@ -418,25 +423,16 @@ single `photo_path` columns on dishes/ingredients), now deprecated (see below).
 > `ingredient-photos`, `event-photos`), EU region, gated by analogous storage
 > RLS; the bucket is implied by `entity_type` and no blobs are moved.
 >
-> The earlier "complete vision" media columns (`group_id`, `owner_type` over 7
-> owner kinds, `kind` photo/video, `caption`, `sort_order`) and the unused
-> `media_owner_type` / `media_kind` enums remain in the schema as a forward
-> marker; richer media (videos, receipts, captions, ordering across mixed
-> owners) can extend this table when a later phase needs it.
+> The unused `media_owner_type` / `media_kind` enums from an earlier Phase 0
+> design were dropped in Wave 2 (Spec 011 §2.3). Richer media (videos, receipts,
+> captions, ordering across mixed owners) can extend this table directly when a
+> later phase needs it.
 
-#### `event_photos` — Event photo album · Phase 1 · ⚠️ deprecated (Spec 010 Wave 2 drops it)
-Multiple photos per event, presented as a carousel (Spec 009 §2.2). **Superseded
-by `media`** (Spec 010 §2.4): the app no longer reads or writes this table. The
-rows were backfilled into `media` (Wave 1) and the table is kept only until a
-validated release cycle passes, after which Wave 2 drops it.
+#### `event_photos` — removed (Spec 011 §2.2, Wave 2)
 
-| Field | Type | Notes |
-|---|---|---|
-| event_id | uuid | FK → events, `on delete cascade`. |
-| photo_path | text | Object path in the `event-photos` bucket (`{event_id}/{photo_id}.jpg`). |
-| position | integer | Ordering within the carousel; default `0`. New photos append at the current count. |
-| created_at | timestamptz | Secondary sort (tiebreaker for equal `position`). |
-| | | Index (`event_id`, `position`). |
+The per-event photo album table (Spec 009 §2.2), superseded by `media` (Spec
+010 §2.4) and backfilled into it in Wave 1, was dropped in Wave 2 (Spec 011
+§2.2). Photos for every entity now live in `media`.
 
 #### `translations` — Translation · Phase 0
 Translations of app-provided content (§5).
@@ -502,7 +498,7 @@ Single principle: **a row is accessible if the user is a member of its group.**
 |---|---|
 | **0 — Lean MVP** | groups, profiles, memberships, events, units, ingredients, dishes, dish_ingredients, event_dishes, event_dish_ingredients, supplier_categories, orders, order_items, translations, message_templates, media (structure) |
 | **0.x — Fast-follow** | use of `media` for photos; editable categories/suppliers |
-| **1 — Scale and convenience** | persons, suppliers, pantry_items, costs, material_items, event_materials, tasks, ratings; videos in `media`; `event_dishes.servings` and quantity verification; photos — first via the Spec 009 hybrid (`dishes.photo_path`, `ingredients.photo_path`, `event_photos`), then unified into the polymorphic `media` table (Spec 010 §2.3–§2.4; the hybrid is deprecated, dropped in Spec 010 Wave 2) |
+| **1 — Scale and convenience** | persons, suppliers, pantry_items, costs, material_items, event_materials, tasks, ratings; videos in `media`; `event_dishes.servings` and quantity verification; photos — first via the Spec 009 hybrid (`dishes.photo_path`, `ingredients.photo_path`, `event_photos`), then unified into the polymorphic `media` table (Spec 010 §2.3–§2.4; the hybrid was dropped in Wave 2, Spec 011 §2.2–§2.3) |
 | **2 — Collaborative cloud** | event_participants, dietary_restrictions; `memberships.role`; `tasks.assignee_user_id` |
 | **3 — AI** | recipes |
 | **5 — Costs and payments** | cost_shares; `costs.source = receipt_ocr` and `receipt_media_id` |

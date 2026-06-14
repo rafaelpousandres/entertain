@@ -195,6 +195,9 @@
   "@removeLineConfirmBody": {},
   "removeLineConfirmButton": "Treu la línia",
   "@removeLineConfirmButton": {},
+  "removeExtraConfirmTitle": "Treure aquest extra?",
+  "removeExtraConfirmBody": "Això treu aquest extra de la llista de la compra. No es pot desfer.",
+  "removeExtraConfirmButton": "Treu l'extra",
   "lineSupplierCategoryLabel": "Categoria de proveïdor",
   "@lineSupplierCategoryLabel": {},
   "lineSupplierCategoryHint": "Opcional",
@@ -214,6 +217,8 @@
   "shoppingSendMessageAction": "Envia missatge",
   "shoppingUseAsListAction": "Usa com a llista de compra",
   "shoppingListCopiedToast": "Llista copiada al porta-retalls",
+  "extraBadge": "Extra",
+  "addExtraAction": "Afegeix extra",
   "shoppingUnsentCount": "{count, plural, =1{1 ingredient sense enviar} other{{count} ingredients sense enviar}}",
   "@shoppingUnsentCount": {
     "placeholders": { "count": { "type": "int" } }
@@ -310,6 +315,7 @@
   "settingsPrivacyTitle": "Privadesa i dades",
   "settingsAccountIdLabel": "El teu identificador de compte",
   "settingsAccountIdHelp": "Fes servir aquest identificador quan sol·licitis l'eliminació de les teves dades. Correu: rafael.pous@gmail.com",
+  "settingsDeleteDataLink": "Com eliminar les teves dades",
   "settingsAccountIdUnavailable": "No disponible",
   "settingsCopyAction": "Copia",
   "settingsAccountIdCopied": "Identificador copiat",
@@ -357,5 +363,6 @@
   "photoRemoveConfirmBody": "Aquesta foto s'esborrarà.",
   "photoSaveError": "No s'ha pogut desar la foto.",
   "photoLoadError": "No s'ha pogut carregar la foto.",
+  "photoRollbackWarning": "No s'han pogut desfer alguns canvis de les fotos. Revisa l'editor.",
   "cameraPermissionDeniedBody": "Per fer una foto, has d'autoritzar l'accés a la càmera a la configuració del telèfon."
 }

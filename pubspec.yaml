@@ -55,6 +55,8 @@ dependencies:
   # (`{event_id}/{photo_id}.jpg`).
   uuid: ^4.5.1
   intl_phone_field: ^3.2.0
+  # Spec 011 §2.7 — local, per-device persistence of each event's last active tab.
+  shared_preferences: ^2.3.2
 
 dev_dependencies:
   flutter_test:

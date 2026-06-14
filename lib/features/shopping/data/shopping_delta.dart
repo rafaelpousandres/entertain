@@ -42,6 +42,54 @@ Map<String, List<AggregatedShoppingLine>> aggregatedLinesByCategory(
   return map;
 }
 
+/// Spec 011 §2.11 — the managed (dish-derived) lines of an event, excluding the
+/// phantom-dish extras. Managed lines feed aggregation, the summary, the status
+/// counters and the state machine; extras are handled separately.
+List<ShoppingLine> managedShoppingLines(List<ShoppingLine> lines) => [
+  for (final line in lines)
+    if (!line.isExtra) line,
+];
+
+/// Spec 011 §2.11 — extras grouped by their supplier category, raw and never
+/// aggregated, in their stored order. An extra with no category is dropped (an
+/// extra always carries a supplier).
+Map<String, List<ShoppingLine>> extrasByCategory(List<ShoppingLine> lines) {
+  final map = <String, List<ShoppingLine>>{};
+  for (final line in lines) {
+    if (!line.isExtra) continue;
+    final category = line.supplierCategoryId;
+    if (category == null) continue;
+    map.putIfAbsent(category, () => []).add(line);
+  }
+  return map;
+}
+
+/// Spec 011 §2.9 — the red/yellow/green status trio for a supplier section,
+/// over its managed aggregated lines (a folded ingredient counts once). Red =
+/// still to act (`to_order` + `missing`); yellow = waiting (`ordered`); green =
+/// resolved (`received` + `at_home`). Extras are excluded by construction —
+/// callers pass managed lines only.
+({int red, int yellow, int green}) supplierStatusCounts(
+  Iterable<AggregatedShoppingLine> lines,
+) {
+  var red = 0;
+  var yellow = 0;
+  var green = 0;
+  for (final line in lines) {
+    switch (line.state) {
+      case IngredientState.toOrder:
+      case IngredientState.missing:
+        red++;
+      case IngredientState.ordered:
+        yellow++;
+      case IngredientState.received:
+      case IngredientState.atHome:
+        green++;
+    }
+  }
+  return (red: red, yellow: yellow, green: green);
+}
+
 /// Orders grouped by category, each list ordered oldest-send first so the
 /// message screen renders the send history in chronological order.
 Map<String, List<SupplierOrder>> ordersByCategory(List<SupplierOrder> orders) {

@@ -22,6 +22,7 @@ import '../../shopping/screens/event_shopping_panel.dart';
 import '../data/event.dart';
 import '../data/event_dish.dart';
 import '../data/event_draft.dart';
+import '../data/event_tab_store.dart';
 import '../data/event_status.dart';
 import '../data/events_providers.dart';
 import '../widgets/event_formatters.dart';
@@ -59,7 +60,9 @@ class EventDetailScreen extends ConsumerStatefulWidget {
 
 class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
     with SingleTickerProviderStateMixin {
-  late final TabController _tab;
+  // Spec 011 §2.7: built only once the remembered tab is known, so the screen
+  // never renders on the default tab first and then jumps (no flicker).
+  TabController? _tab;
 
   final _titleController = TextEditingController();
   final _locationController = TextEditingController();
@@ -74,17 +77,40 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
   @override
   void initState() {
     super.initState();
-    _tab = TabController(
-      length: 3,
-      vsync: this,
-      initialIndex: widget.focusEventTab ? 0 : 1,
-    )..addListener(() => setState(() {}));
     _draft = EventDraft.empty();
+    // §2.7: after a duplication we always land on the Esdeveniment tab to fill in
+    // the copy's essentials, so skip the remembered tab. Otherwise read the
+    // per-event remembered tab (default Menu) before building the controller, so
+    // the screen renders directly on the right tab with no flicker.
+    if (widget.focusEventTab) {
+      _initTabController(0);
+    } else {
+      EventTabStore.readTabIndex(widget.eventId).then((index) {
+        if (mounted) _initTabController(index);
+      });
+    }
+  }
+
+  void _initTabController(int initialIndex) {
+    setState(() {
+      _tab = TabController(length: 3, vsync: this, initialIndex: initialIndex)
+        ..addListener(_onTabChanged);
+    });
+  }
+
+  /// Rebuilds for the per-tab AppBar/bottom-bar actions and, once a switch has
+  /// settled, persists the new tab as this event's last active tab (§2.7).
+  void _onTabChanged() {
+    final tab = _tab!;
+    if (!tab.indexIsChanging) {
+      EventTabStore.writeTabIndex(widget.eventId, tab.index);
+    }
+    setState(() {});
   }
 
   @override
   void dispose() {
-    _tab.dispose();
+    _tab?.dispose();
     _titleController.dispose();
     _locationController.dispose();
     _notesController.dispose();
@@ -300,6 +326,17 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final locale = Localizations.localeOf(context);
+
+    // §2.7: until the remembered tab is read the controller does not exist yet;
+    // show a brief loader (the event data is loading at the same moment anyway).
+    final tab = _tab;
+    if (tab == null) {
+      return const Scaffold(
+        backgroundColor: AppColors.bg,
+        body: Center(child: CircularProgressIndicator(color: AppColors.accent)),
+      );
+    }
+
     final eventAsync = ref.watch(eventByIdProvider(widget.eventId));
     final readinessAsync = ref.watch(eventReadinessProvider);
 
@@ -357,7 +394,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
             // §2.3: the Esdeveniment tab's save moves into the AppBar (always
             // visible above the keyboard), shown only when there are unsaved
             // edits. Other tabs keep their own bottom actions.
-            if (_tab.index == 0 && dirty)
+            if (tab.index == 0 && dirty)
               IconButton(
                 icon: const Icon(Icons.check),
                 color: AppColors.accentSecondary,
@@ -404,7 +441,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
             ),
           ],
           bottom: TabBar(
-            controller: _tab,
+            controller: tab,
             labelColor: AppColors.accentSecondary,
             unselectedLabelColor: AppColors.textTertiary,
             indicatorColor: AppColors.accentSecondary,
@@ -430,7 +467,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
             data: (event) {
               _seed(event);
               return TabBarView(
-                controller: _tab,
+                controller: tab,
                 children: [
                   _buildEventTab(event, locale),
                   _MenuView(event: event),
@@ -455,7 +492,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
     // §2.3: the Esdeveniment save now lives in the AppBar (always visible above
     // the keyboard); Menú keeps its "Afegeix plat" action; Compra has none (the
     // panel owns its per-section actions).
-    if (_tab.index == 1) {
+    if (_tab!.index == 1) {
       return _ActionBar(
         child: PrimaryButton(
           label: l10n.addDishToMenuAction,
@@ -883,10 +920,7 @@ class _DishRow extends StatelessWidget {
               // consistent with the Dishes catalog rows.
               if (photoPath != null) ...[
                 RowPhotoThumb(
-                  photoRef: (
-                    bucket: PhotoStorage.dishBucket,
-                    path: photoPath!,
-                  ),
+                  photoRef: (bucket: PhotoStorage.dishBucket, path: photoPath!),
                 ),
                 const SizedBox(width: 12),
               ],

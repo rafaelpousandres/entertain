@@ -11,6 +11,7 @@ import '../../../ui/single_choice_sheet.dart';
 import '../../events/data/events_providers.dart' show currentGroupIdProvider;
 import '../../photos/data/media.dart';
 import '../../photos/data/media_providers.dart';
+import '../../photos/data/photo_edit_session_host.dart';
 import '../../photos/data/photo_storage.dart';
 import '../../photos/widgets/photo_carousel_section.dart';
 import '../data/catalog_providers.dart';
@@ -91,7 +92,8 @@ class _IngredientForm extends ConsumerStatefulWidget {
   ConsumerState<_IngredientForm> createState() => _IngredientFormState();
 }
 
-class _IngredientFormState extends ConsumerState<_IngredientForm> {
+class _IngredientFormState extends ConsumerState<_IngredientForm>
+    with PhotoEditSessionHost<_IngredientForm> {
   late final TextEditingController _nameController;
   late final TextEditingController _prepController;
   late IngredientDraft _draft;
@@ -114,6 +116,11 @@ class _IngredientFormState extends ConsumerState<_IngredientForm> {
         : IngredientDraft.empty();
     _nameController = TextEditingController(text: _draft.name);
     _prepController = TextEditingController(text: _draft.prepDescription ?? '');
+    // §2.6: snapshot the ingredient's photos so a Discard can roll back photo
+    // changes made during this edit (photos exist only once the ingredient does).
+    if (widget.isEditing) {
+      initPhotoSession(MediaEntityType.ingredient, widget.ingredientId!);
+    }
   }
 
   @override
@@ -218,6 +225,9 @@ class _IngredientFormState extends ConsumerState<_IngredientForm> {
         await repo.createIngredient(_draft, groupId: groupId);
       }
       ref.invalidate(ingredientsListProvider);
+      // §2.6: the edit is confirmed — purge any buffered photo blobs the saved
+      // state no longer references.
+      await commitPhotoSession();
       if (!mounted) return;
       context.pop();
     } catch (_) {
@@ -225,6 +235,20 @@ class _IngredientFormState extends ConsumerState<_IngredientForm> {
       setState(() => _saving = false);
       messenger.showSnackBar(SnackBar(content: Text(l10n.ingredientSaveError)));
     }
+  }
+
+  /// §2.6: on Discard, roll the photo changes back to the pre-edit state; warn
+  /// and stay in the editor if the rollback fails partway (returns false).
+  Future<bool> _discardPhotos() async {
+    final l10n = AppLocalizations.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final ok = await rollbackPhotoSession();
+    if (!ok && mounted) {
+      messenger.showSnackBar(
+        SnackBar(content: Text(l10n.photoRollbackWarning)),
+      );
+    }
+    return ok;
   }
 
   Future<void> _confirmDelete() async {
@@ -306,9 +330,11 @@ class _IngredientFormState extends ConsumerState<_IngredientForm> {
       title: widget.isEditing
           ? l10n.ingredientEditScreenTitle
           : l10n.ingredientNewScreenTitle,
-      hasUnsavedChanges: _dirty,
+      // §2.6: photo changes also count as unsaved.
+      hasUnsavedChanges: _dirty || photosDirty,
       busy: _busy,
       onSave: _busy ? null : _save,
+      onDiscard: _discardPhotos,
       trailingActions: [
         if (widget.isEditing)
           PopupMenuButton<_OverflowAction>(

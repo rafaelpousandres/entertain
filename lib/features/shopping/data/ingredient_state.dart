@@ -71,6 +71,20 @@ const List<DisplayState> kDisplayStateOrder = [
   DisplayState.atHome,
 ];
 
+/// Render order for the per-supplier **section** sub-groups (Spec 011 §B): the
+/// reverse of [kDisplayStateOrder] — settled states first, ending with `missing`
+/// then `to_order`, so "Per demanar" sits as close as possible to the section's
+/// order-generating action buttons (Send / Use-as-list). Only the in-section
+/// grouping uses this; the global summary header keeps [kDisplayStateOrder].
+const List<DisplayState> kSectionStateOrder = [
+  DisplayState.atHome,
+  DisplayState.received,
+  DisplayState.ordered,
+  DisplayState.delayed,
+  DisplayState.missing,
+  DisplayState.toOrder,
+];
+
 /// The four "work" states an ingredient outside the Rebost moves through; the
 /// free transition matrix (Fixes §2.3) lets the user pick any of them.
 const List<IngredientState> _workStates = [

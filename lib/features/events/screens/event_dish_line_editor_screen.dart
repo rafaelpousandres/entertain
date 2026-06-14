@@ -27,6 +27,8 @@ class EventDishLineEditorArgs {
     required this.eventDishId,
     this.line,
     this.sourceDishId,
+    this.initialSupplierCategoryId,
+    this.lockSupplierCategory = false,
   });
 
   /// The owning event, so saving a line can refresh the event shopping panel
@@ -43,6 +45,16 @@ class EventDishLineEditorArgs {
   /// Null when there is no source dish (origin deleted, or unknown), in which
   /// case the promote-to-recipe option is not offered.
   final String? sourceDishId;
+
+  /// Spec 011 §2.11 — supplier to pre-select when adding a brand-new line, used
+  /// by the "+ Add extra" flow to default to the section the user tapped from.
+  /// Ignored when editing an existing line.
+  final String? initialSupplierCategoryId;
+
+  /// Spec 011 §2.11.b — the extras flow: the supplier category is fixed to the
+  /// section's and not editable, and the ingredient picker shows only catalog
+  /// ingredients whose default supplier is that category (strict, no override).
+  final bool lockSupplierCategory;
 }
 
 /// Per-event ingredient line editor (Specification 004 §3.8). Analogous to
@@ -102,7 +114,10 @@ class _EventDishLineEditorScreenState
     _ingredientId = line?.ingredientId;
     _ingredientName = line?.ingredientName;
     _unitId = line?.unitId;
-    _supplierCategoryId = line?.supplierCategoryId;
+    // §2.11: when adding, pre-select the supplier passed by the "+ Add extra"
+    // flow (the section's supplier); otherwise none until an ingredient is set.
+    _supplierCategoryId =
+        line?.supplierCategoryId ?? widget.args.initialSupplierCategoryId;
     // The text is seeded in build once the event-dish servings are loaded, so
     // the field shows the scaled quantity. Adding a new line has nothing to
     // seed (the user types fresh for the current servings).
@@ -145,6 +160,11 @@ class _EventDishLineEditorScreenState
       ingredients: ingredients,
       units: units,
       categories: categories,
+      // §2.11.b: in the extras flow, restrict the catalog to ingredients of the
+      // section's supplier, and fix that supplier on any new ingredient created.
+      restrictToSupplierCategoryId: widget.args.lockSupplierCategory
+          ? _supplierCategoryId
+          : null,
     );
     if (picked == null || !mounted) return;
     setState(() {
@@ -293,17 +313,21 @@ class _EventDishLineEditorScreenState
 
   Future<void> _confirmRemove() async {
     final l10n = AppLocalizations.of(context);
+    // §2.11.e: an extra (the locked-supplier flow) lives on the invisible
+    // phantom dish, so it gets shopping-list wording rather than the generic
+    // "removes the line from this dish".
+    final isExtra = widget.args.lockSupplierCategory;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: AppColors.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: Text(
-          l10n.removeLineConfirmTitle,
+          isExtra ? l10n.removeExtraConfirmTitle : l10n.removeLineConfirmTitle,
           style: AppTypography.sectionTitle,
         ),
         content: Text(
-          l10n.removeLineConfirmBody,
+          isExtra ? l10n.removeExtraConfirmBody : l10n.removeLineConfirmBody,
           style: AppTypography.body.copyWith(color: AppColors.textSecondary),
         ),
         actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
@@ -320,7 +344,9 @@ class _EventDishLineEditorScreenState
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
             child: Text(
-              l10n.removeLineConfirmButton,
+              isExtra
+                  ? l10n.removeExtraConfirmButton
+                  : l10n.removeLineConfirmButton,
               style: AppTypography.button.copyWith(color: AppColors.danger),
             ),
           ),
@@ -493,11 +519,17 @@ class _EventDishLineEditorScreenState
                 const SizedBox(height: 16),
                 FieldLabel(
                   label: l10n.lineSupplierCategoryLabel,
+                  // §2.11.b: the extras flow fixes the supplier to the section's
+                  // and shows it read-only — no picker, no clear.
                   child: FormFieldTile(
-                    onTap: () => _pickSupplierCategory(categories),
+                    onTap: widget.args.lockSupplierCategory
+                        ? () {}
+                        : () => _pickSupplierCategory(categories),
                     placeholder: l10n.lineSupplierCategoryHint,
                     value: supplierCategory?.name,
-                    onClear: _supplierCategoryId == null
+                    onClear:
+                        (widget.args.lockSupplierCategory ||
+                            _supplierCategoryId == null)
                         ? null
                         : () => setState(() {
                             _dirty = true;

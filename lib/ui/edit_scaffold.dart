@@ -30,6 +30,7 @@ class EditScaffold extends StatelessWidget {
     this.showSave = true,
     this.trailingActions = const [],
     this.bottomBar,
+    this.onDiscard,
   });
 
   /// AppBar title text, styled as a section title.
@@ -61,6 +62,12 @@ class EditScaffold extends StatelessWidget {
   /// once the bottom "Desa" is gone; kept for completeness).
   final Widget? bottomBar;
 
+  /// Spec 011 §2.6 — run when the user confirms Discard, before the screen pops
+  /// (e.g. to roll back photo changes persisted during the session). Returns
+  /// whether to proceed with leaving: false keeps the user on the screen (used
+  /// when a photo rollback failed partway and the user must resolve it).
+  final Future<bool> Function()? onDiscard;
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -70,7 +77,11 @@ class EditScaffold extends StatelessWidget {
         if (didPop || busy) return;
         final navigator = Navigator.of(context);
         final discard = await showUnsavedChangesDialog(context);
-        if (discard && navigator.mounted) navigator.pop();
+        if (!discard) return;
+        // §2.6: let the caller undo side effects (photo changes) before leaving;
+        // it may veto the pop if it couldn't fully roll back.
+        final proceed = await onDiscard?.call() ?? true;
+        if (proceed && navigator.mounted) navigator.pop();
       },
       child: Scaffold(
         backgroundColor: AppColors.bg,

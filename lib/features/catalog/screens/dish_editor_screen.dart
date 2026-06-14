@@ -13,6 +13,7 @@ import '../../../ui/stepper_field.dart';
 import '../../events/data/events_providers.dart' show currentGroupIdProvider;
 import '../../photos/data/media.dart';
 import '../../photos/data/media_providers.dart';
+import '../../photos/data/photo_edit_session_host.dart';
 import '../../photos/data/photo_storage.dart';
 import '../../photos/widgets/photo_carousel_section.dart';
 import '../data/catalog_providers.dart';
@@ -81,7 +82,8 @@ class _DishForm extends ConsumerStatefulWidget {
   ConsumerState<_DishForm> createState() => _DishFormState();
 }
 
-class _DishFormState extends ConsumerState<_DishForm> {
+class _DishFormState extends ConsumerState<_DishForm>
+    with PhotoEditSessionHost<_DishForm> {
   late final TextEditingController _nameController;
   late final TextEditingController _descriptionController;
   late final TextEditingController _preparationController;
@@ -107,6 +109,11 @@ class _DishFormState extends ConsumerState<_DishForm> {
     _preparationController = TextEditingController(
       text: _draft.preparation ?? '',
     );
+    // §2.6: snapshot the dish's photos so a Discard can roll back photo changes
+    // made during this edit (photos exist only once the dish does).
+    if (widget.isEditing) {
+      initPhotoSession(MediaEntityType.dish, widget.dishId!);
+    }
   }
 
   @override
@@ -172,6 +179,9 @@ class _DishFormState extends ConsumerState<_DishForm> {
         await repo.createDish(_draft, groupId: groupId);
       }
       ref.invalidate(dishesListProvider);
+      // §2.6: the edit is confirmed, so purge any buffered (deleted/replaced)
+      // photo blobs the saved state no longer references.
+      await commitPhotoSession();
       if (!mounted) return;
       context.pop();
     } catch (_) {
@@ -179,6 +189,21 @@ class _DishFormState extends ConsumerState<_DishForm> {
       setState(() => _saving = false);
       messenger.showSnackBar(SnackBar(content: Text(l10n.dishSaveError)));
     }
+  }
+
+  /// §2.6: on Discard, roll the photo changes back to the pre-edit state. If the
+  /// rollback fails partway, warn the user and keep them in the editor so they
+  /// can resolve it manually (returns false to veto the pop).
+  Future<bool> _discardPhotos() async {
+    final l10n = AppLocalizations.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final ok = await rollbackPhotoSession();
+    if (!ok && mounted) {
+      messenger.showSnackBar(
+        SnackBar(content: Text(l10n.photoRollbackWarning)),
+      );
+    }
+    return ok;
   }
 
   Future<void> _confirmDelete() async {
@@ -261,9 +286,12 @@ class _DishFormState extends ConsumerState<_DishForm> {
       title: widget.isEditing
           ? l10n.dishEditScreenTitle
           : l10n.dishNewScreenTitle,
-      hasUnsavedChanges: _dirty,
+      // §2.6: photo changes also count as unsaved, so the guard prompts even
+      // when only a photo was added/replaced/deleted/reordered.
+      hasUnsavedChanges: _dirty || photosDirty,
       busy: _busy,
       onSave: _busy ? null : _save,
+      onDiscard: _discardPhotos,
       trailingActions: [
         if (widget.isEditing)
           PopupMenuButton<_OverflowAction>(

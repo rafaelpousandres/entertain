@@ -92,7 +92,10 @@ class EventsRepository {
     final rows = await _client
         .from('event_dish_ingredients')
         .select('state, event_dishes!inner(event_id, events!inner(group_id))')
-        .eq('event_dishes.events.group_id', groupId);
+        .eq('event_dishes.events.group_id', groupId)
+        // Spec 011 §2.11: extras (the phantom dish) carry no status, so they
+        // never contribute to an event's readiness.
+        .eq('event_dishes.is_extras', false);
 
     final result = <String, ({int total, int notReady})>{};
     for (final r in rows as List) {
@@ -157,16 +160,49 @@ class EventsRepository {
         .eq('id', id);
   }
 
-  /// Dishes attached to an event, ordered by `sort_order`.
+  /// Dishes attached to an event, ordered by `sort_order`. Spec 011 §2.11: the
+  /// phantom "extras" dish is excluded — it is never shown in the Menu.
   Future<List<EventDish>> listEventDishes(String eventId) async {
     final rows = await _client
         .from('event_dishes')
         .select(EventDish.selectColumns)
         .eq('event_id', eventId)
+        .eq('is_extras', false)
         .order('sort_order', ascending: true);
     return (rows as List)
         .map((r) => EventDish.fromRow(r as Map<String, dynamic>))
         .toList();
+  }
+
+  /// Spec 011 §2.11 — the event's phantom "extras" dish, created lazily on first
+  /// use. It holds extra shopping ingredients (items not tied to any real dish)
+  /// through the normal `event_dish_ingredients` mechanism, but is hidden from
+  /// the Menu and excluded from status. Returns its id, creating it if absent.
+  ///
+  /// `servings` is fixed at 1 (with extra lines stored against a reference of 1)
+  /// so an extra's quantity is taken exactly as entered, never servings-scaled.
+  Future<String> ensureExtrasDish(String eventId) async {
+    final existing = await _client
+        .from('event_dishes')
+        .select('id')
+        .eq('event_id', eventId)
+        .eq('is_extras', true)
+        .limit(1)
+        .maybeSingle();
+    if (existing != null) return existing['id'] as String;
+    final created = await _client
+        .from('event_dishes')
+        .insert({
+          'event_id': eventId,
+          'dish_name': '__extras__',
+          'category': 'other',
+          'servings': 1,
+          'sort_order': 0,
+          'is_extras': true,
+        })
+        .select('id')
+        .single();
+    return created['id'] as String;
   }
 
   Future<EventDish> fetchEventDish(String eventDishId) async {
@@ -274,8 +310,7 @@ class EventsRepository {
             'quantity': line['quantity'],
             'unit_id': line['unit_id'],
             'prep_note': line['prep_note'],
-            'supplier_category_id':
-                ingredient?['default_supplier_category_id'],
+            'supplier_category_id': ingredient?['default_supplier_category_id'],
             'sort_order': line['sort_order'],
             'reference_servings': baseServings,
           };
@@ -350,6 +385,9 @@ class EventsRepository {
         .from('event_dishes')
         .select('source_dish_id, dish_name, category, servings, sort_order, id')
         .eq('event_id', sourceEventId)
+        // Spec 011 §2.11: the phantom "extras" dish is per-event shopping state,
+        // not menu structure, so a duplicate starts without the source's extras.
+        .eq('is_extras', false)
         .order('sort_order', ascending: true);
 
     for (final raw in dishes as List) {
@@ -410,10 +448,7 @@ class EventsRepository {
   /// Updates an event-dish's servings (Spec 008 §2.10). The per-line quantities
   /// are not rewritten — they are immutable bases scaled to this value on read —
   /// so a round-trip of the servings returns the exact original quantities.
-  Future<void> updateEventDishServings(
-    String eventDishId,
-    int servings,
-  ) async {
+  Future<void> updateEventDishServings(String eventDishId, int servings) async {
     await _client
         .from('event_dishes')
         .update({'servings': servings})
