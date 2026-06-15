@@ -70,13 +70,27 @@ photos. The guest count scales the dish quantities.
 plats, racions i racions per convidat. Els plats d'aquí són còpies: editar-los
 no canvia el catàleg.
 
+En afegir un plat, si l'esdeveniment és assegut les racions s'ajusten al
+nombre de convidats; si és bufet es manté el valor del catàleg. Sempre ho pots
+retocar. Com a guia aproximada, un menú ben dimensionat sol rondar les 3-5
+racions per convidat.
+
 **ES** — Los platos del evento, por categoría. Arriba ves los totales:
 platos, raciones y raciones por invitado. Los platos de aquí son copias:
 editarlos no cambia el catálogo.
 
+Al añadir un plato, si el evento es sentado las raciones se ajustan al número
+de invitados; si es bufé se mantiene el valor del catálogo. Siempre puedes
+retocarlo. Como guía aproximada, un menú bien dimensionado suele rondar las
+3-5 raciones por invitado.
+
 **EN** — The event's dishes, by category. The totals at the top show dishes,
 servings, and servings per guest. Dishes here are copies — editing them
 doesn't change the catalog.
+
+When you add a dish, a seated event scales its servings to the guest count; a
+buffet keeps the catalog value. You can always fine-tune. As a rough guide, a
+well-balanced menu lands around 3-5 servings per guest.
 
 ### Event detail — Shopping tab
 
@@ -117,97 +131,83 @@ unit and supplier used in the shopping lists.
 
 ---
 
-## §2.5 — Tester manual (GitHub Pages, English + PDF)
+## §2.5 — Getting started guide (GitHub Pages, English + PDF)
 
-> Two formats, same content:
+> A general getting-started guide for any new user (no tester framing, no
+> feedback section). Two formats, same content:
 > - GitHub Pages at docs/manual/index.md → .../entertain/manual/ (Jekyll
 >   front matter like the privacy page).
-> - A PDF version ("Entertain - Tester guide.pdf") for direct sending to
->   testers who prefer a file over a link. The PDF is already produced and
->   committed alongside this doc; the GitHub Pages page mirrors its content.
+> - PDF "Entertain - Getting started guide.pdf" for direct sending. It
+>   REPLACES the earlier "Entertain - Tester guide.pdf" (delete the old one).
 >
-> The manual is a real getting-started guide with a numbered step-by-step
-> section, not just an expanded version of the in-app Getting Started card.
-> Length: ~2 pages. The in-app Getting Started card (§2.3) stays telegraphic;
-> this manual is the walk-through.
+> Numbered step-by-step walk-through, one page. The in-app Getting Started
+> card (§2.3) stays telegraphic; this is the full walk-through. Integrate the
+> body below verbatim into docs/manual/index.md.
 
-# Entertain — A short guide for testers
-
-Thanks for taking the time to try Entertain. It's an app for organizing the
-meals and gatherings you host at home — the kind of planning that usually
-lives in scattered notes, group chats, and last-minute supermarket runs. The
-idea is to keep all of it in one calm place: you build a menu from your own
-dishes, the app works out the ingredients, and it hands you back a shopping
-list already sorted by the supplier you'll buy each thing from.
+# Entertain — Getting started
 
 ## The big picture
 
-There are two reusable catalogs — your **ingredients** and your **dishes** —
-that you build up over time. Then there are **events**: a lunch, a dinner, a
-gathering. For each event you compose a menu from your dishes, and the app
-turns that into a shopping list grouped by supplier. Build the catalogs once,
-reuse them for every event.
+Entertain helps you organize the meals you host at home: build a menu from
+your own dishes, and the app works out the ingredients and hands you back a
+shopping list sorted by supplier.
+
+Two reusable catalogs sit at the core — your **ingredients** and your
+**dishes** — which you build up over time. Then come the **events**: a lunch,
+a dinner, a gathering. For each one you compose a menu from your dishes, and
+the app turns it into a supplier-grouped shopping list. Build the catalogs
+once, reuse them for every event.
 
 ## First time, step by step
 
-If this is your first time opening the app, here's the smoothest way to get
-going. Follow it in order the first time; after that, you'll jump around
-however you like.
+If this is your first time in the app, follow these in order. After that,
+you'll move around however you like.
 
 **1. Set things up in Settings.** Open the Settings tab first. Set your
-greeting and signature — these are used at the top and bottom of the order
-messages the app drafts for your suppliers, so they read like something you
-actually wrote. Then look at Suppliers: you'll see the built-in categories
-(butcher, fishmonger, greengrocer, supermarket, pantry). Give the ones you
-use a name and a contact, so orders can go straight to the right place.
-*(The General section also has a Getting Started card and your account
-details. Every main screen has a small help icon next to its title if you
-get stuck.)*
+greeting and signature — these top and tail the order messages the app drafts
+for suppliers, so they read like something you wrote. Then open Suppliers:
+you'll see the built-in categories (butcher, fishmonger, greengrocer,
+supermarket, pantry). Give the ones you use a name and a contact, so orders
+go to the right place. *(Every main screen has a small help icon by its title
+if you get stuck.)*
 
-**2. Add a few ingredients.** Go to the Ingredients tab and add the things
-you cook with. For each one you set a default unit (grams, units, a
-bottle…) and a default supplier (which shop it comes from). Those two
-defaults are what let the app build a tidy shopping list later. You don't
-have to add everything at once — just enough to build your first dish.
+**2. Add a few ingredients.** In the Ingredients tab, add the things you cook
+with. Each one gets a default unit (grams, units, a bottle…) and a default
+supplier (which shop it comes from). Those defaults are what let the app build
+a tidy shopping list later. Add just enough for your first dish — you can
+always add more.
 
-**3. Create a dish or two.** In the Dishes tab, create a dish and add its
+**3. Create a dish or two.** In the Dishes tab, create a dish: add its
 ingredients with quantities, plus a base number of servings (how many people
-the recipe is written for). If you realize an ingredient is missing, you can
-add it to the catalog right there without leaving the dish — both ways work.
+the recipe is written for). A missing ingredient can be added to the catalog
+right there, without leaving the dish.
 
-**4. Create your first event.** Go to the Events tab and add an event. Give
-it a type (lunch, dinner), a format (seated, buffet), a date, and the number
-of guests. That guest count is important: it's what the app uses to scale
-your dish quantities to the size of the gathering.
+**4. Create your first event.** In the Events tab, add an event: a type
+(lunch, dinner), a format (seated, buffet), a date, and the number of guests.
+Guest count and format both matter — they're what the app uses to work out
+quantities, as the next step explains.
 
-**5. Build the event's menu.** Open your event and go to its Menu tab. Add
-dishes from your catalog. Here's the one thing really worth remembering: a
-dish added to an event becomes **its own copy**. Adjust its ingredients or
-quantities for this particular occasion and your original catalog dish stays
-exactly as it was. The Menu tab keeps a running total — dishes, servings,
-and servings per guest — so you can see at a glance whether you've planned
-enough food.
+**5. Build the event's menu.** Open the event and go to its Menu tab. Add
+dishes from your catalog. A dish added to an event becomes **its own copy**:
+adjust its ingredients or servings for this occasion and the original catalog
+dish stays exactly as it was.
+
+How servings start depends on the format. A **seated** event scales each dish
+to your guest count automatically — everyone gets a serving of each. A
+**buffet** keeps the dish's catalog servings, since people serve themselves.
+Either way, you can fine-tune afterwards.
+
+At the top of the Menu tab there's a running total: dishes, servings, and
+**servings per guest** — a quick check on whether you've planned enough food.
+As a rough guide, a well-balanced menu lands around **3 to 5 servings per
+guest** across the whole menu. It's a guideline, not a rule — a light lunch
+sits lower, a feast higher. If you're far outside that range, take a second
+look at your servings, especially for a buffet where you set them yourself.
 
 **6. Shop by supplier.** Switch to the event's Shopping tab. Every ingredient
-from your menu is gathered here and grouped by supplier. Each item has a
-status you can tap through — to order, ordered, received, already at home —
-and each supplier header shows the running tally without having to open it.
-When you're ready, the app drafts the order message for you, using the
-greeting and signature you set in step 1. You can also add a few **extra**
-items to a supplier's order — things you want to buy that aren't part of the
-event.
-
-## A few more things
-
-Events, dishes, and ingredients can each carry a few photos; the first one
-becomes the cover everywhere it appears. The app follows your phone's
-language — Catalan, Spanish, or English. And if you ever want your data
-removed, your account ID is in Settings, under Privacy & data.
-
-## What helps us most
-
-Use it for something real if you can — plan an actual meal and walk the whole
-flow. The feedback we value most isn't about big crashes; it's the small
-moments where something felt confusing, slower than it should be, or just not
-where you expected it. Those are hard for us to see from the inside and easy
-for you to spot. Tell us about them — and thanks again for the help.
+is gathered here, grouped by supplier, each with a status you tap through — to
+order, ordered, received, already at home. Each supplier header shows the
+running tally without opening it. When you're ready, the app drafts the order
+message using the greeting and signature from step 1. You can also add
+**extra** items to a supplier's order — things you want to buy that aren't
+part of the event.
