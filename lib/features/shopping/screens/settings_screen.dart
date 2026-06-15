@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -9,6 +10,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_typography.dart';
 import '../../../ui/app_form_field.dart';
+import '../../../ui/app_logo.dart';
 import '../../../ui/dirty_tabs_guard.dart';
 import '../../../ui/primary_button.dart';
 import '../../../ui/segmented_choice.dart';
@@ -20,9 +22,14 @@ import '../data/message_channel.dart';
 import '../data/shopping_providers.dart';
 import '../supplier_category_format.dart';
 
-/// App version shown in the General tab. Kept in sync with `pubspec.yaml`'s
-/// `version:` (the MVP has no `package_info_plus` dependency — Lean first).
-const String _appVersion = '1.0.0';
+/// App version shown in the General tab (Spec 012 §2.1). Read at runtime from
+/// the platform package metadata so the card always reflects the real
+/// `pubspec.yaml` version (`version+build`) instead of a hand-maintained literal
+/// that can drift away from what testers actually have installed.
+final appVersionProvider = FutureProvider<String>((ref) async {
+  final info = await PackageInfo.fromPlatform();
+  return '${info.version}+${info.buildNumber}';
+});
 
 /// Settings screen, reorganised into three tabs (Spec 007 §2.2):
 ///
@@ -177,7 +184,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
     return Scaffold(
       backgroundColor: AppColors.bg,
       appBar: AppBar(
-        title: Text(l10n.settingsScreenTitle, style: AppTypography.display),
+        // Spec 012 §2.1: a small brand logo in the header, beside the title.
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const AppLogo(size: 28, borderRadius: 7),
+            const SizedBox(width: 10),
+            Flexible(
+              child: Text(
+                l10n.settingsScreenTitle,
+                style: AppTypography.display,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
         actions: [
           // §2.3: the Missatges tab saves from an AppBar check (always visible
           // above the keyboard) instead of a bottom button.
@@ -256,12 +277,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
   }
 }
 
-class _GeneralTab extends StatelessWidget {
+class _GeneralTab extends ConsumerWidget {
   const _GeneralTab();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
+    // §2.1: version resolved at runtime; show a neutral ellipsis until it loads
+    // (a fraction of a second) rather than flashing a wrong number.
+    final version = ref.watch(appVersionProvider).value ?? '…';
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
       children: [
@@ -273,33 +297,104 @@ class _GeneralTab extends StatelessWidget {
             borderRadius: BorderRadius.circular(14),
             border: Border.all(color: AppColors.border),
           ),
-          child: Column(
+          // Spec 012 §2.1: the brand logo sits beside the app name/version.
+          child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(l10n.appTitle, style: AppTypography.sectionTitle),
-              const SizedBox(height: 6),
-              Text(
-                l10n.settingsAboutVersion(_appVersion),
-                style: AppTypography.body.copyWith(
-                  color: AppColors.textSecondary,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                l10n.settingsAboutDescription,
-                style: AppTypography.body.copyWith(
-                  color: AppColors.textSecondary,
+              const AppLogo(size: 52, borderRadius: 12),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(l10n.appTitle, style: AppTypography.sectionTitle),
+                    const SizedBox(height: 6),
+                    Text(
+                      l10n.settingsAboutVersion(version),
+                      style: AppTypography.body.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      l10n.settingsAboutDescription,
+                      style: AppTypography.body.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
         ),
+        // Spec 012 §2.3: telegraphic onboarding card.
+        const SizedBox(height: 16),
+        const _GettingStartedCard(),
         // Spec 010 §2.5: the user's Supabase Auth id, near the bottom of the
         // General tab, so a data-deletion request by email can identify the
         // account. The id is exposed only here.
         const SizedBox(height: 16),
         const _PrivacyDataCard(),
       ],
+    );
+  }
+}
+
+/// Spec 012 §2.3 — a brief, scannable "Getting started" card on the General
+/// tab. The fuller walk-through lives in the GitHub Pages tester manual (§2.5).
+class _GettingStartedCard extends StatelessWidget {
+  const _GettingStartedCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final steps = [
+      l10n.gettingStartedStep1,
+      l10n.gettingStartedStep2,
+      l10n.gettingStartedStep3,
+      l10n.gettingStartedStep4,
+      l10n.gettingStartedStep5,
+    ];
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(l10n.gettingStartedTitle, style: AppTypography.sectionTitle),
+          const SizedBox(height: 12),
+          for (var i = 0; i < steps.length; i++)
+            Padding(
+              padding: EdgeInsets.only(bottom: i == steps.length - 1 ? 0 : 10),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${i + 1}.',
+                    style: AppTypography.body.copyWith(
+                      color: AppColors.accentSecondary,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      steps[i],
+                      style: AppTypography.body.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
     );
   }
 }

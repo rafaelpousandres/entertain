@@ -17,6 +17,7 @@ class SectionHeader extends StatelessWidget {
     required this.expanded,
     required this.onToggle,
     this.count,
+    this.countLabel,
     this.trailing,
     this.iconBackgroundColor,
     this.iconColor,
@@ -26,6 +27,11 @@ class SectionHeader extends StatelessWidget {
   final IconData icon;
   final String label;
   final int? count;
+
+  /// Optional pre-formatted count string shown in place of the bare [count]
+  /// (Spec 012 §2.6–§2.8) — e.g. "4 plats · 12 racions" or "9 ingredients".
+  /// When set it takes precedence over [count].
+  final String? countLabel;
   final bool expanded;
   final VoidCallback onToggle;
 
@@ -64,7 +70,15 @@ class SectionHeader extends StatelessWidget {
               ),
             ),
             if (trailing != null) ...[trailing!, const SizedBox(width: 8)],
-            if (count != null) ...[
+            if (countLabel != null) ...[
+              Text(
+                countLabel!,
+                style: AppTypography.caption.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              const SizedBox(width: 8),
+            ] else if (count != null) ...[
               Text(
                 '$count',
                 style: AppTypography.caption.copyWith(

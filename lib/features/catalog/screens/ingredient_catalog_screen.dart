@@ -5,11 +5,14 @@ import 'package:go_router/go_router.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_typography.dart';
+import '../../../ui/help_icon_button.dart';
 import '../../../ui/primary_button.dart';
+import '../../../ui/section_header.dart';
 import '../../photos/data/media.dart';
 import '../../photos/data/media_providers.dart';
 import '../../photos/data/photo_storage.dart';
 import '../../photos/widgets/photo_image.dart';
+import '../../shopping/supplier_category_format.dart';
 import '../data/catalog_providers.dart';
 import '../data/ingredient.dart';
 import '../data/reference_data.dart';
@@ -37,6 +40,13 @@ class IngredientCatalogScreen extends ConsumerWidget {
       backgroundColor: AppColors.bg,
       appBar: AppBar(
         title: Text(l10n.ingredientsScreenTitle, style: AppTypography.display),
+        actions: [
+          // Spec 012 §2.4: per-screen help pop-up.
+          HelpIconButton(
+            title: l10n.ingredientsScreenTitle,
+            body: l10n.helpIngredientsBody,
+          ),
+        ],
       ),
       body: SafeArea(
         top: false,
@@ -58,22 +68,13 @@ class IngredientCatalogScreen extends ConsumerWidget {
             final unitsById = {for (final u in units) u.id: u};
             final categoriesById = {for (final c in categories) c.id: c};
 
-            return ListView.separated(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-              itemCount: ingredients.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 12),
-              itemBuilder: (context, index) {
-                final ingredient = ingredients[index];
-                return _IngredientRow(
-                  ingredient: ingredient,
-                  coverPath: coverPaths[ingredient.id],
-                  unit: unitsById[ingredient.defaultUnitId],
-                  category:
-                      categoriesById[ingredient.defaultSupplierCategoryId],
-                  onTap: () =>
-                      context.push('/ingredients/${ingredient.id}'),
-                );
-              },
+            // Spec 012 §2.8: group by supplier category in an accordion instead
+            // of a flat list.
+            return _IngredientsBySupplier(
+              ingredients: ingredients,
+              unitsById: unitsById,
+              categoriesById: categoriesById,
+              coverPaths: coverPaths,
             );
           },
         ),
@@ -90,6 +91,110 @@ class IngredientCatalogScreen extends ConsumerWidget {
           onPressed: () => context.push('/ingredients/new'),
         ),
       ),
+    );
+  }
+}
+
+/// Spec 012 §2.8 — ingredients grouped by supplier category in an accordion
+/// (all collapsed by default, one open at a time), mirroring the dish catalog
+/// and the shopping panel. Dispatch-capable suppliers come first sorted by
+/// name, then the consultive pantry, then any uncategorised ingredients.
+class _IngredientsBySupplier extends StatefulWidget {
+  const _IngredientsBySupplier({
+    required this.ingredients,
+    required this.unitsById,
+    required this.categoriesById,
+    required this.coverPaths,
+  });
+
+  /// Ingredients pre-sorted by name (from `ingredientsListProvider`); the
+  /// within-group order is preserved from this list.
+  final List<Ingredient> ingredients;
+  final Map<String, Unit> unitsById;
+  final Map<String, SupplierCategory> categoriesById;
+  final Map<String, String> coverPaths;
+
+  @override
+  State<_IngredientsBySupplier> createState() => _IngredientsBySupplierState();
+}
+
+class _IngredientsBySupplierState extends State<_IngredientsBySupplier> {
+  /// Group key currently open, or null when all are collapsed. The
+  /// uncategorised group uses [_uncategorisedKey].
+  String? _open;
+
+  static const String _uncategorisedKey = '__uncategorised__';
+
+  void _toggle(String key) {
+    setState(() => _open = _open == key ? null : key);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
+    // Group ingredients by their default supplier category (null → pantry-less
+    // "Uncategorised" bucket). Insertion order keeps the name sort within each
+    // group.
+    final byKey = <String, List<Ingredient>>{};
+    for (final ingredient in widget.ingredients) {
+      final key = ingredient.defaultSupplierCategoryId ?? _uncategorisedKey;
+      byKey.putIfAbsent(key, () => []).add(ingredient);
+    }
+
+    // Order the group headers: dispatch suppliers first (alphabetical), then
+    // pantry, then uncategorised last — consistent with the Suppliers settings
+    // tab and the shopping panel.
+    final keys = byKey.keys.toList()
+      ..sort((a, b) {
+        if (a == _uncategorisedKey) return 1;
+        if (b == _uncategorisedKey) return -1;
+        final ca = widget.categoriesById[a];
+        final cb = widget.categoriesById[b];
+        final aPantry = ca != null && isPantryCategory(ca.code);
+        final bPantry = cb != null && isPantryCategory(cb.code);
+        if (aPantry != bPantry) return aPantry ? 1 : -1;
+        final na = ca?.name ?? '';
+        final nb = cb?.name ?? '';
+        return na.toLowerCase().compareTo(nb.toLowerCase());
+      });
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+      children: [
+        for (final key in keys) ...[
+          () {
+            final category = widget.categoriesById[key];
+            final isUncategorised = key == _uncategorisedKey;
+            return SectionHeader(
+              icon: isUncategorised
+                  ? Icons.help_outline
+                  : supplierCategoryIcon(category?.code ?? ''),
+              label: isUncategorised
+                  ? l10n.shoppingUncategorisedLabel
+                  : (category?.name ?? l10n.shoppingUncategorisedLabel),
+              countLabel: l10n.ingredientCountLabel(byKey[key]!.length),
+              expanded: _open == key,
+              onToggle: () => _toggle(key),
+            );
+          }(),
+          if (_open == key)
+            for (final ingredient in byKey[key]!)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _IngredientRow(
+                  ingredient: ingredient,
+                  coverPath: widget.coverPaths[ingredient.id],
+                  unit: widget.unitsById[ingredient.defaultUnitId],
+                  // §2.8: the supplier is now the group header, so the row
+                  // subtitle shows only the unit (no redundant category).
+                  category: null,
+                  onTap: () => context.push('/ingredients/${ingredient.id}'),
+                ),
+              ),
+          const SizedBox(height: 4),
+        ],
+      ],
     );
   }
 }

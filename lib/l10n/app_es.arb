@@ -364,5 +364,33 @@
   "photoSaveError": "No se ha podido guardar la foto.",
   "photoLoadError": "No se ha podido cargar la foto.",
   "photoRollbackWarning": "No se han podido deshacer algunos cambios de las fotos. Revisa el editor.",
-  "cameraPermissionDeniedBody": "Para hacer una foto, debes autorizar el acceso a la cámara en la configuración del teléfono."
+  "cameraPermissionDeniedBody": "Para hacer una foto, debes autorizar el acceso a la cámara en la configuración del teléfono.",
+
+  "dishCountLabel": "{count, plural, =1{1 plato} other{{count} platos}}",
+  "@dishCountLabel": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "ingredientCountLabel": "{count, plural, =1{1 ingrediente} other{{count} ingredientes}}",
+  "@ingredientCountLabel": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "menuServingsPerPerson": "{ratio} raciones por persona",
+  "@menuServingsPerPerson": {
+    "placeholders": { "ratio": { "type": "String" } }
+  },
+
+  "gettingStartedTitle": "Primeros pasos",
+  "gettingStartedStep1": "Crea un evento: tipo, formato, fecha e invitados.",
+  "gettingStartedStep2": "Rellena los catálogos de ingredientes y platos.",
+  "gettingStartedStep3": "Añade platos al menú del evento.",
+  "gettingStartedStep4": "Los platos añadidos a un evento se pueden editar sin tocar el plato del catálogo: cada evento guarda su propia copia.",
+  "gettingStartedStep5": "La pestaña Compra lo agrupa todo por proveedor.",
+
+  "helpCloseAction": "Entendido",
+  "helpEventsBody": "Aquí ves todos los eventos, agrupados por estado: en preparación, listos y pasados. Toca uno para abrirlo, o crea uno nuevo con el botón de abajo.",
+  "helpEventTabBody": "Los datos del evento: título, tipo, formato, fecha, invitados y fotos. El número de invitados escala las cantidades de los platos.",
+  "helpMenuTabBody": "Los platos del evento, por categoría. Arriba ves los totales: platos, raciones y raciones por invitado. Los platos de aquí son copias: editarlos no cambia el catálogo.\n\nAl añadir un plato, si el evento es sentado las raciones se ajustan al número de invitados; si es bufé se mantiene el valor del catálogo. Siempre puedes retocarlo. Como guía aproximada, un menú bien dimensionado suele rondar las 3-5 raciones por invitado.",
+  "helpShoppingTabBody": "Todos los ingredientes a comprar, agrupados por proveedor. Cada proveedor muestra cuántos faltan, pedidos y recibidos. Puedes añadir extras y enviar el pedido directamente.",
+  "helpDishesBody": "Tu catálogo de platos, por categoría. Cada plato tiene sus ingredientes y raciones base. Añádelos a los eventos desde la pestaña Menú.",
+  "helpIngredientsBody": "Tu catálogo de ingredientes, por proveedor. Cada ingrediente tiene una unidad y un proveedor por defecto que se usan en las listas de compra."
 }

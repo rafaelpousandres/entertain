@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_typography.dart';
+import '../../../ui/help_icon_button.dart';
 import '../../../ui/primary_button.dart';
 import '../../../ui/section_header.dart';
 import '../../photos/data/media.dart';
@@ -34,6 +35,13 @@ class EventsListScreen extends ConsumerWidget {
       backgroundColor: AppColors.bg,
       appBar: AppBar(
         title: Text(l10n.eventsScreenTitle, style: AppTypography.display),
+        actions: [
+          // Spec 012 §2.4: per-screen help pop-up.
+          HelpIconButton(
+            title: l10n.eventsScreenTitle,
+            body: l10n.helpEventsBody,
+          ),
+        ],
       ),
       body: SafeArea(
         top: false,

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_typography.dart';
+import '../../../ui/help_icon_button.dart';
 import '../../../ui/primary_button.dart';
 import '../../../ui/section_header.dart';
 import '../../photos/data/media.dart';
@@ -35,6 +36,13 @@ class DishCatalogScreen extends ConsumerWidget {
       backgroundColor: AppColors.bg,
       appBar: AppBar(
         title: Text(l10n.dishesScreenTitle, style: AppTypography.display),
+        actions: [
+          // Spec 012 §2.4: per-screen help pop-up.
+          HelpIconButton(
+            title: l10n.dishesScreenTitle,
+            body: l10n.helpDishesBody,
+          ),
+        ],
       ),
       body: SafeArea(
         top: false,
@@ -80,12 +88,12 @@ class _DishesByCategory extends StatefulWidget {
 }
 
 class _DishesByCategoryState extends State<_DishesByCategory> {
-  late final Map<DishCategory, bool> _expanded;
+  // Spec 012 §2.7: accordion — all categories collapsed by default, at most one
+  // open at a time (consistent with the shopping panel, Spec 011 §2.8).
+  DishCategory? _open;
 
-  @override
-  void initState() {
-    super.initState();
-    _expanded = {for (final c in DishCategory.values) c: true};
+  void _toggle(DishCategory category) {
+    setState(() => _open = _open == category ? null : category);
   }
 
   @override
@@ -104,12 +112,12 @@ class _DishesByCategoryState extends State<_DishesByCategory> {
             SectionHeader(
               icon: dishCategoryIcon(category),
               label: dishCategoryLabel(l10n, category),
-              count: byCategory[category]!.length,
-              expanded: _expanded[category]!,
-              onToggle: () =>
-                  setState(() => _expanded[category] = !_expanded[category]!),
+              // §2.7: count now carries the "plats" word.
+              countLabel: l10n.dishCountLabel(byCategory[category]!.length),
+              expanded: _open == category,
+              onToggle: () => _toggle(category),
             ),
-            if (_expanded[category]!)
+            if (_open == category)
               for (final dish in byCategory[category]!)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
