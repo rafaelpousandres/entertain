@@ -57,6 +57,9 @@ dependencies:
   intl_phone_field: ^3.2.0
   # Spec 011 §2.7 — local, per-device persistence of each event's last active tab.
   shared_preferences: ^2.3.2
+  # Spec 012 §2.1 — read the app version at runtime so the Settings card shows
+  # the real pubspec version instead of a hand-maintained literal.
+  package_info_plus: ^8.1.1
 
 dev_dependencies:
   flutter_test:
@@ -69,6 +72,9 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
   flutter_launcher_icons: ^0.14.4
+  # Spec 012 §2.2 — generates the native launch/splash screens (logo centred on
+  # the app background). Run `dart run flutter_native_splash:create` after edits.
+  flutter_native_splash: ^2.4.3
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -76,6 +82,12 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   generate: true
+
+  # Spec 012 §2.1 — the brand icon is loaded at runtime for the in-app logo
+  # (Settings card + header). The launcher-icon/splash tooling reads the same
+  # files directly, but `Image.asset` needs them bundled.
+  assets:
+    - assets/icon/
 
   fonts:
     - family: Fraunces
@@ -94,3 +106,14 @@ flutter_launcher_icons:
   adaptive_icon_background: "assets/icon/entertain - icon background.png"
   adaptive_icon_foreground: "assets/icon/entertain - icon foreground.png"
   min_sdk_android: 21
+
+# Spec 012 §2.2 — launch/splash screen: the brand icon centred on the app
+# background colour (AppColors.bg, #FBF5EA). The app is light-theme only, so
+# there is no dark variant. Regenerate native assets with
+# `dart run flutter_native_splash:create` after changing this block.
+flutter_native_splash:
+  color: "#FBF5EA"
+  image: "assets/icon/entertain - icon legacy.png"
+  android_12:
+    color: "#FBF5EA"
+    image: "assets/icon/entertain - icon legacy.png"

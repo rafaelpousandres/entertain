@@ -364,5 +364,33 @@
   "photoSaveError": "No s'ha pogut desar la foto.",
   "photoLoadError": "No s'ha pogut carregar la foto.",
   "photoRollbackWarning": "No s'han pogut desfer alguns canvis de les fotos. Revisa l'editor.",
-  "cameraPermissionDeniedBody": "Per fer una foto, has d'autoritzar l'accés a la càmera a la configuració del telèfon."
+  "cameraPermissionDeniedBody": "Per fer una foto, has d'autoritzar l'accés a la càmera a la configuració del telèfon.",
+
+  "dishCountLabel": "{count, plural, =1{1 plat} other{{count} plats}}",
+  "@dishCountLabel": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "ingredientCountLabel": "{count, plural, =1{1 ingredient} other{{count} ingredients}}",
+  "@ingredientCountLabel": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "menuServingsPerPerson": "{ratio} racions per persona",
+  "@menuServingsPerPerson": {
+    "placeholders": { "ratio": { "type": "String" } }
+  },
+
+  "gettingStartedTitle": "Primers passos",
+  "gettingStartedStep1": "Crea un esdeveniment: tipus, format, data i convidats.",
+  "gettingStartedStep2": "Omple els catàlegs d'ingredients i plats.",
+  "gettingStartedStep3": "Afegeix plats al menú de l'esdeveniment.",
+  "gettingStartedStep4": "Els plats afegits a un esdeveniment es poden editar sense tocar el plat del catàleg: cada esdeveniment en guarda una còpia pròpia.",
+  "gettingStartedStep5": "La pestanya Compra ho agrupa tot per proveïdor.",
+
+  "helpCloseAction": "Entesos",
+  "helpEventsBody": "Aquí veus tots els esdeveniments, agrupats per estat: en preparació, a punt i passats. Toca'n un per obrir-lo, o crea'n un de nou amb el botó de baix.",
+  "helpEventTabBody": "Les dades de l'esdeveniment: títol, tipus, format, data, convidats i fotos. El nombre de convidats escala les quantitats dels plats.",
+  "helpMenuTabBody": "Els plats de l'esdeveniment, per categoria. A dalt veus els totals: plats, racions i racions per convidat. Els plats d'aquí són còpies: editar-los no canvia el catàleg.\n\nEn afegir un plat, si l'esdeveniment és assegut les racions s'ajusten al nombre de convidats; si és bufet es manté el valor del catàleg. Sempre ho pots retocar. Com a guia aproximada, un menú ben dimensionat sol rondar les 3-5 racions per convidat.",
+  "helpShoppingTabBody": "Tots els ingredients a comprar, agrupats per proveïdor. Cada proveïdor mostra quants en falten, demanats i rebuts. Pots afegir extres i enviar la comanda directament.",
+  "helpDishesBody": "El teu catàleg de plats, per categoria. Cada plat té els seus ingredients i racions base. Afegeix-los als esdeveniments des de la pestanya Menú.",
+  "helpIngredientsBody": "El teu catàleg d'ingredients, per proveïdor. Cada ingredient té una unitat i un proveïdor per defecte que es fan servir a les llistes de compra."
 }

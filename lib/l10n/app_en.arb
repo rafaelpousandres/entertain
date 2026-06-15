@@ -518,5 +518,53 @@
   "photoRollbackWarning": "Some photo changes couldn't be reverted. Please check the editor.",
   "@photoRollbackWarning": {},
   "cameraPermissionDeniedBody": "To take a photo, you need to allow camera access in the phone's settings.",
-  "@cameraPermissionDeniedBody": {}
+  "@cameraPermissionDeniedBody": {},
+
+  "dishCountLabel": "{count, plural, =1{1 dish} other{{count} dishes}}",
+  "@dishCountLabel": {
+    "description": "Spec 012 §2.6/§2.7 — dish count shown in Menu and Dishes accordion headers.",
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "ingredientCountLabel": "{count, plural, =1{1 ingredient} other{{count} ingredients}}",
+  "@ingredientCountLabel": {
+    "description": "Spec 012 §2.8 — ingredient count shown in Ingredients accordion headers.",
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "menuServingsPerPerson": "{ratio} servings per person",
+  "@menuServingsPerPerson": {
+    "description": "Spec 012 §2.6 — servings-per-guest ratio on the Menu totals line; ratio is pre-formatted with the locale decimal separator.",
+    "placeholders": { "ratio": { "type": "String" } }
+  },
+
+  "gettingStartedTitle": "Getting started",
+  "@gettingStartedTitle": {
+    "description": "Spec 012 §2.3 — onboarding card title in Settings ▸ General."
+  },
+  "gettingStartedStep1": "Create an event: type, format, date, and guests.",
+  "@gettingStartedStep1": {},
+  "gettingStartedStep2": "Fill in your ingredient and dish catalogs.",
+  "@gettingStartedStep2": {},
+  "gettingStartedStep3": "Add dishes to the event's menu.",
+  "@gettingStartedStep3": {},
+  "gettingStartedStep4": "Dishes added to an event can be edited without changing the catalog dish — each event keeps its own copy.",
+  "@gettingStartedStep4": {},
+  "gettingStartedStep5": "The Shopping tab groups everything by supplier.",
+  "@gettingStartedStep5": {},
+
+  "helpCloseAction": "Got it",
+  "@helpCloseAction": {
+    "description": "Spec 012 §2.4 — dismiss button on the per-screen help pop-up."
+  },
+  "helpEventsBody": "All your events, grouped by status: in preparation, ready, and past. Tap one to open it, or create a new one with the button below.",
+  "@helpEventsBody": {},
+  "helpEventTabBody": "The event's details: title, type, format, date, guests, and photos. The guest count scales the dish quantities.",
+  "@helpEventTabBody": {},
+  "helpMenuTabBody": "The event's dishes, by category. The totals at the top show dishes, servings, and servings per guest. Dishes here are copies — editing them doesn't change the catalog.\n\nWhen you add a dish, a seated event scales its servings to the guest count; a buffet keeps the catalog value. You can always fine-tune. As a rough guide, a well-balanced menu lands around 3-5 servings per guest.",
+  "@helpMenuTabBody": {},
+  "helpShoppingTabBody": "Everything to buy, grouped by supplier. Each supplier shows how many are pending, ordered, and received. You can add extras and send the order directly.",
+  "@helpShoppingTabBody": {},
+  "helpDishesBody": "Your dish catalog, by category. Each dish has its ingredients and base servings. Add them to events from the Menu tab.",
+  "@helpDishesBody": {},
+  "helpIngredientsBody": "Your ingredient catalog, by supplier. Each ingredient has a default unit and supplier used in the shopping lists.",
+  "@helpIngredientsBody": {}
 }

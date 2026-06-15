@@ -8,10 +8,12 @@ import '../../../theme/app_colors.dart';
 import '../../../theme/app_typography.dart';
 import '../../../ui/app_form_field.dart';
 import '../../../ui/edit_scaffold.dart';
+import '../../../ui/help_icon_button.dart';
 import '../../../ui/primary_button.dart';
 import '../../../ui/section_header.dart';
 import '../../../ui/segmented_choice.dart';
 import '../../../ui/stepper_field.dart';
+import '../../catalog/data/dish.dart' show quantityDecimalSeparator;
 import '../../catalog/data/dish_category.dart';
 import '../../photos/data/media.dart';
 import '../../photos/data/media_providers.dart';
@@ -22,6 +24,7 @@ import '../../shopping/screens/event_shopping_panel.dart';
 import '../data/event.dart';
 import '../data/event_dish.dart';
 import '../data/event_draft.dart';
+import '../data/menu_totals.dart';
 import '../data/event_tab_store.dart';
 import '../data/event_status.dart';
 import '../data/events_providers.dart';
@@ -391,6 +394,20 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
             orElse: () => const SizedBox.shrink(),
           ),
           actions: [
+            // Spec 012 §2.4: one help pop-up per tab (Event / Menu / Shopping),
+            // tracking the active tab.
+            HelpIconButton(
+              title: switch (tab.index) {
+                0 => l10n.eventTabEvent,
+                1 => l10n.eventTabMenu,
+                _ => l10n.eventTabShopping,
+              },
+              body: switch (tab.index) {
+                0 => l10n.helpEventTabBody,
+                1 => l10n.helpMenuTabBody,
+                _ => l10n.helpShoppingTabBody,
+              },
+            ),
             // §2.3: the Esdeveniment tab's save moves into the AppBar (always
             // visible above the keyboard), shown only when there are unsaved
             // edits. Other tabs keep their own bottom actions.
@@ -782,6 +799,7 @@ class _MenuView extends ConsumerWidget {
               : _MenuByCategory(
                   dishes: dishes,
                   eventId: event.id,
+                  guestCount: event.guestCount,
                   catalogPhotos: catalogPhotos,
                 ),
         ),
@@ -817,11 +835,15 @@ class _MenuByCategory extends StatefulWidget {
   const _MenuByCategory({
     required this.dishes,
     required this.eventId,
+    required this.guestCount,
     required this.catalogPhotos,
   });
 
   final List<EventDish> dishes;
   final String eventId;
+
+  /// §2.6: the event's guest count, used for the servings-per-guest ratio.
+  final int guestCount;
 
   /// §2: catalog dish id → photo_path (null when none), for the menu thumbnails.
   final Map<String, String?> catalogPhotos;
@@ -831,12 +853,12 @@ class _MenuByCategory extends StatefulWidget {
 }
 
 class _MenuByCategoryState extends State<_MenuByCategory> {
-  late final Map<DishCategory, bool> _expanded;
+  // Spec 012 §2.6: accordion — all categories collapsed by default, at most one
+  // open at a time (consistent with the dish catalog and the shopping panel).
+  DishCategory? _open;
 
-  @override
-  void initState() {
-    super.initState();
-    _expanded = {for (final c in DishCategory.values) c: true};
+  void _toggle(DishCategory category) {
+    setState(() => _open = _open == category ? null : category);
   }
 
   @override
@@ -850,17 +872,20 @@ class _MenuByCategoryState extends State<_MenuByCategory> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // §2.6: menu totals summary above all category panels.
+        _MenuTotalsLine(dishes: widget.dishes, guestCount: widget.guestCount),
+        const SizedBox(height: 12),
         for (final category in dishCategoryOrder)
           if (byCategory[category] != null) ...[
             SectionHeader(
               icon: dishCategoryIcon(category),
               label: dishCategoryLabel(l10n, category),
-              count: byCategory[category]!.length,
-              expanded: _expanded[category]!,
-              onToggle: () =>
-                  setState(() => _expanded[category] = !_expanded[category]!),
+              // §2.6: "{N} plats · {M} racions" per category.
+              countLabel: _categoryCountLabel(l10n, byCategory[category]!),
+              expanded: _open == category,
+              onToggle: () => _toggle(category),
             ),
-            if (_expanded[category]!)
+            if (_open == category)
               Column(
                 children: [
                   for (final dish in byCategory[category]!)
@@ -881,6 +906,57 @@ class _MenuByCategoryState extends State<_MenuByCategory> {
               ),
           ],
       ],
+    );
+  }
+
+  /// §2.6 per-category header: "{N} plats · {M} racions".
+  String _categoryCountLabel(AppLocalizations l10n, List<EventDish> dishes) {
+    final servings = dishes.fold<int>(0, (sum, d) => sum + d.servings);
+    return '${l10n.dishCountLabel(dishes.length)}'
+        '${l10n.metadataSeparator}'
+        '${l10n.eventDishServings(servings)}';
+  }
+}
+
+/// §2.6 — the menu totals line shown above the category panels:
+/// "{total plats} plats · {total racions} racions · {ratio} racions per
+/// persona". The ratio is omitted when the guest count is zero.
+class _MenuTotalsLine extends StatelessWidget {
+  const _MenuTotalsLine({required this.dishes, required this.guestCount});
+
+  final List<EventDish> dishes;
+  final int guestCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final totals = MenuTotals.from(dishes, guestCount: guestCount);
+
+    final parts = <String>[
+      l10n.dishCountLabel(totals.dishCount),
+      l10n.eventDishServings(totals.servingsTotal),
+      if (totals.servingsPerGuest != null)
+        l10n.menuServingsPerPerson(
+          formatRatioOneDecimal(
+            totals.servingsPerGuest!,
+            quantityDecimalSeparator(
+              Localizations.localeOf(context).languageCode,
+            ),
+          ),
+        ),
+    ];
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceSoft,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        parts.join(l10n.metadataSeparator),
+        style: AppTypography.label.copyWith(color: AppColors.accentSecondary),
+      ),
     );
   }
 }
