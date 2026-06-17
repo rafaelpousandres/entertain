@@ -8,6 +8,7 @@ import '../../../theme/app_typography.dart';
 import '../../../ui/app_form_field.dart';
 import '../../../ui/primary_button.dart';
 import '../../../ui/segmented_choice.dart';
+import '../../../ui/single_choice_sheet.dart';
 import '../../catalog/data/catalog_providers.dart';
 import '../../catalog/data/dish.dart'
     show formatQuantity, quantityDecimalSeparator;
@@ -24,6 +25,7 @@ import '../data/shopping_aggregation.dart';
 import '../data/shopping_delta.dart';
 import '../data/shopping_models.dart';
 import '../data/shopping_providers.dart';
+import '../data/supplier_resolution.dart';
 import '../supplier_category_format.dart';
 
 /// Fixes §2.3: the unit name to print in a message line, or null when the
@@ -57,6 +59,32 @@ class _SupplierMessageScreenState extends ConsumerState<SupplierMessageScreen> {
   bool _hasOverride = false;
   MessageChannel? _overrideChannel;
   String? _overrideAddress;
+
+  /// Spec 013 §2.3: the supplier this order is addressed to. Initialised once
+  /// to the category's resolved preselection (the sole supplier, or the
+  /// default); changeable for this send only when the category has several.
+  bool _supplierInitialised = false;
+  GroupSupplierSetting? _selectedSupplier;
+
+  /// Opens the supplier chooser (only meaningful when the category has more
+  /// than one). Picking a supplier re-points the destination at it, dropping
+  /// any manual channel/address override the previous supplier carried.
+  void _chooseSupplier(List<GroupSupplierSetting> suppliers) {
+    final l10n = AppLocalizations.of(context);
+    showSingleChoiceSheet<String>(
+      context: context,
+      title: l10n.chooseSupplierTitle,
+      selectedValue: _selectedSupplier?.id,
+      options: [
+        for (final s in suppliers)
+          SingleChoiceOption(value: s.id, label: supplierDisplayLabel(l10n, s)),
+      ],
+      onSelected: (id) => setState(() {
+        _selectedSupplier = suppliers.firstWhere((s) => s.id == id);
+        _hasOverride = false;
+      }),
+    );
+  }
 
   /// Needed-by date (Fixes §2.5): the date the goods are required by — the
   /// only date shared with the supplier. Initialised once from the event (the
@@ -115,7 +143,7 @@ class _SupplierMessageScreenState extends ConsumerState<SupplierMessageScreen> {
     required List<ShoppingLine> delta,
     required List<ShoppingLine> extras,
     required Map<String, Unit> unitsById,
-    required GroupSupplierSetting? configured,
+    required GroupSupplierSetting? supplier,
     required String greeting,
     required String signature,
     required TextMessageChannel textChannel,
@@ -125,7 +153,7 @@ class _SupplierMessageScreenState extends ConsumerState<SupplierMessageScreen> {
     final messenger = ScaffoldMessenger.of(context);
     final router = GoRouter.of(context);
 
-    final destination = _destination(configured);
+    final destination = _destination(supplier);
     // Spec 010 §2.1: fold repeated ingredients before composing the message and
     // freezing the order, so the supplier receives one summed line per
     // ingredient. The per-row state transition below still uses the full delta.
@@ -178,6 +206,8 @@ class _SupplierMessageScreenState extends ConsumerState<SupplierMessageScreen> {
       await repo.createSentOrder(
         eventId: widget.eventId,
         supplierCategoryId: widget.categoryId,
+        // Spec 013 §2.4: record the concrete supplier this order went to.
+        supplierId: supplier?.id,
         channel: outcome.channel,
         address: outcome.address,
         sentAt: DateTime.now(),
@@ -357,7 +387,7 @@ class _SupplierMessageScreenState extends ConsumerState<SupplierMessageScreen> {
     final shoppingAsync = ref.watch(eventShoppingProvider(widget.eventId));
     final categoriesAsync = ref.watch(supplierCategoriesProvider(localeCode));
     final unitsAsync = ref.watch(unitsProvider(localeCode));
-    final settingsAsync = ref.watch(groupSupplierSettingsProvider);
+    final suppliersAsync = ref.watch(groupSuppliersByCategoryProvider);
     final greetingAsync = ref.watch(groupGreetingProvider);
     final signatureAsync = ref.watch(groupSignatureProvider);
     final textChannelAsync = ref.watch(groupTextMessageChannelProvider);
@@ -367,7 +397,7 @@ class _SupplierMessageScreenState extends ConsumerState<SupplierMessageScreen> {
       shoppingAsync,
       categoriesAsync,
       unitsAsync,
-      settingsAsync,
+      suppliersAsync,
       greetingAsync,
       signatureAsync,
       textChannelAsync,
@@ -403,7 +433,17 @@ class _SupplierMessageScreenState extends ConsumerState<SupplierMessageScreen> {
             final event = eventAsync.value!;
             final shopping = shoppingAsync.value!;
             final unitsById = {for (final u in unitsAsync.value!) u.id: u};
-            final configured = settingsAsync.value![widget.categoryId];
+            // Spec 013 §2.3: resolve the category's suppliers and preselect one
+            // (the sole supplier, or the default) the first time through.
+            final resolution = resolveSuppliersForCategory(
+              suppliersAsync.value![widget.categoryId] ??
+                  const <GroupSupplierSetting>[],
+              widget.categoryId,
+            );
+            if (!_supplierInitialised) {
+              _supplierInitialised = true;
+              _selectedSupplier = resolution.preselected;
+            }
             // Null greeting means "never set" — fall back to the localised
             // default ("Hola,"); an empty string means the user cleared it.
             final greeting =
@@ -461,7 +501,7 @@ class _SupplierMessageScreenState extends ConsumerState<SupplierMessageScreen> {
               locale: locale,
               l10n: l10n,
             );
-            final destination = _destination(configured);
+            final destination = _destination(_selectedSupplier);
 
             return _Composer(
               event: event,
@@ -469,10 +509,17 @@ class _SupplierMessageScreenState extends ConsumerState<SupplierMessageScreen> {
               messageBody: body,
               destinationChannel: destination.channel,
               destinationAddress: destination.address,
+              // §2.3: offer the supplier chooser only when there is a choice.
+              supplierName: resolution.isMultiple && _selectedSupplier != null
+                  ? supplierDisplayLabel(l10n, _selectedSupplier!)
+                  : null,
+              onChangeSupplier: resolution.isMultiple
+                  ? () => _chooseSupplier(resolution.suppliers)
+                  : null,
               locale: locale,
               neededByDate: _neededByDate,
               onPickNeededBy: () => _pickNeededBy(event.eventDate),
-              onChangeDestination: () => _openOverrideSheet(configured),
+              onChangeDestination: () => _openOverrideSheet(_selectedSupplier),
             );
           },
         ),
@@ -484,7 +531,6 @@ class _SupplierMessageScreenState extends ConsumerState<SupplierMessageScreen> {
               onSend: () {
                 final shopping = shoppingAsync.value!;
                 final unitsById = {for (final u in unitsAsync.value!) u.id: u};
-                final configured = settingsAsync.value![widget.categoryId];
                 final greeting =
                     greetingAsync.value ?? l10n.settingsGreetingDefault;
                 final signature = signatureAsync.value!;
@@ -504,7 +550,7 @@ class _SupplierMessageScreenState extends ConsumerState<SupplierMessageScreen> {
                   delta: delta,
                   extras: extras,
                   unitsById: unitsById,
-                  configured: configured,
+                  supplier: _selectedSupplier,
                   greeting: greeting,
                   signature: signature,
                   textChannel: textChannel,
@@ -523,6 +569,8 @@ class _Composer extends StatelessWidget {
     required this.messageBody,
     required this.destinationChannel,
     required this.destinationAddress,
+    required this.supplierName,
+    required this.onChangeSupplier,
     required this.locale,
     required this.neededByDate,
     required this.onPickNeededBy,
@@ -534,6 +582,11 @@ class _Composer extends StatelessWidget {
   final String messageBody;
   final MessageChannel? destinationChannel;
   final String? destinationAddress;
+
+  /// Spec 013 §2.3: the chosen supplier's label + a tap to change it. Both null
+  /// when the category has only one supplier (or none) — nothing to choose.
+  final String? supplierName;
+  final VoidCallback? onChangeSupplier;
   final Locale locale;
   final DateTime? neededByDate;
   final VoidCallback onPickNeededBy;
@@ -553,6 +606,57 @@ class _Composer extends StatelessWidget {
           style: AppTypography.body.copyWith(color: AppColors.textSecondary),
         ),
         const SizedBox(height: 20),
+        // §2.3: supplier chooser, shown only when the category has several.
+        if (supplierName != null && onChangeSupplier != null) ...[
+          Material(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(14),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(14),
+              onTap: onChangeSupplier,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.storefront_outlined,
+                      size: 18,
+                      color: AppColors.accentSecondary,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '${l10n.supplierLabel}: ',
+                      style: AppTypography.body.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        supplierName!,
+                        style: AppTypography.body,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const Icon(
+                      Icons.expand_more,
+                      size: 18,
+                      color: AppColors.textTertiary,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
         if (destinationText != null) ...[
           Row(
             children: [

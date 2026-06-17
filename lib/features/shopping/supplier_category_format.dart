@@ -8,6 +8,8 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../../l10n/app_localizations.dart';
+import 'data/group_supplier_setting.dart';
 import 'data/message_channel.dart';
 
 /// Outline icon for a preferent message channel (Fixes round 3 §2.2): icons
@@ -39,3 +41,30 @@ IconData supplierCategoryIcon(String code) => switch (code) {
   'pantry' => Icons.kitchen_outlined,
   _ => Icons.storefront_outlined,
 };
+
+/// Display label for a concrete supplier (Spec 013): its name when set, else
+/// its default contact address, else a localised "unnamed" placeholder — so a
+/// supplier configured with only a phone still reads as something in lists and
+/// the order-time selector.
+String supplierDisplayLabel(AppLocalizations l10n, GroupSupplierSetting s) {
+  final name = s.supplierName?.trim();
+  if (name != null && name.isNotEmpty) return name;
+  final address = s.defaultAddress?.trim();
+  if (address != null && address.isNotEmpty) return address;
+  return l10n.supplierUnnamed;
+}
+
+/// Channel + address one-liner for a supplier (list subtitles). Null when no
+/// channel is configured; the share channel has no address, so just its label.
+String? supplierChannelSummary(AppLocalizations l10n, GroupSupplierSetting s) {
+  final channel = s.channel;
+  if (channel == null) return null;
+  final label = switch (channel) {
+    MessageChannel.whatsapp => l10n.channelWhatsApp,
+    MessageChannel.email => l10n.channelEmail,
+    MessageChannel.share => l10n.channelShare,
+  };
+  if (channel == MessageChannel.share) return label;
+  final address = s.defaultAddress?.trim() ?? '';
+  return address.isEmpty ? label : '$label${l10n.metadataSeparator}$address';
+}

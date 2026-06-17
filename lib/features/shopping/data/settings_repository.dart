@@ -11,13 +11,15 @@ class SettingsRepository {
 
   final SupabaseClient _client;
 
-  /// Per-category configuration rows for the group.
+  /// Every supplier row for the group. Spec 013: a category may now have
+  /// several rows (one per concrete supplier), so callers group by
+  /// `supplierCategoryId` themselves.
   Future<List<GroupSupplierSetting>> listSettings(String groupId) async {
     final rows = await _client
         .from('group_supplier_settings')
         .select(
-          'supplier_category_id, channel, phone_address, email_address, '
-          'supplier_name',
+          'id, supplier_category_id, channel, phone_address, email_address, '
+          'supplier_name, is_default',
         )
         .eq('group_id', groupId);
     return [
@@ -26,29 +28,82 @@ class SettingsRepository {
     ];
   }
 
-  /// Inserts or updates the configuration for one category. Keyed on the
-  /// `(group_id, supplier_category_id)` unique constraint so editing the
-  /// same category repeatedly never creates duplicate rows.
+  /// Creates a concrete supplier under a category (Spec 013 §2.2). Returns its
+  /// new id. [isDefault] is set by the caller — typically true for the first
+  /// supplier of a category, false otherwise; use [setDefaultSupplier] to move
+  /// the default afterwards so the partial unique index is never violated.
   ///
   /// Fixes §2.1: phone and email are stored independently; [channel] only marks
   /// which one is the default for outgoing messages.
-  Future<void> upsertSetting({
+  Future<String> insertSupplier({
     required String groupId,
     required String supplierCategoryId,
     required MessageChannel? channel,
     required String? phoneAddress,
     required String? emailAddress,
     required String? supplierName,
+    required bool isDefault,
   }) async {
-    await _client.from('group_supplier_settings').upsert({
-      'group_id': groupId,
-      'supplier_category_id': supplierCategoryId,
-      'channel': channel?.wire,
-      'phone_address': phoneAddress,
-      'email_address': emailAddress,
-      // Spec 008 §2.3: the concrete supplier name, per group.
-      'supplier_name': supplierName,
-    }, onConflict: 'group_id,supplier_category_id');
+    final row = await _client
+        .from('group_supplier_settings')
+        .insert({
+          'group_id': groupId,
+          'supplier_category_id': supplierCategoryId,
+          'channel': channel?.wire,
+          'phone_address': phoneAddress,
+          'email_address': emailAddress,
+          'supplier_name': supplierName,
+          'is_default': isDefault,
+        })
+        .select('id')
+        .single();
+    return row['id'] as String;
+  }
+
+  /// Updates a concrete supplier's fields (not its default flag — that moves
+  /// through [setDefaultSupplier] to keep the single-default invariant).
+  Future<void> updateSupplier({
+    required String supplierId,
+    required MessageChannel? channel,
+    required String? phoneAddress,
+    required String? emailAddress,
+    required String? supplierName,
+  }) async {
+    await _client
+        .from('group_supplier_settings')
+        .update({
+          'channel': channel?.wire,
+          'phone_address': phoneAddress,
+          'email_address': emailAddress,
+          'supplier_name': supplierName,
+        })
+        .eq('id', supplierId);
+  }
+
+  Future<void> deleteSupplier(String supplierId) async {
+    await _client.from('group_supplier_settings').delete().eq('id', supplierId);
+  }
+
+  /// Makes [supplierId] the sole default for its `(group, category)`. Done in
+  /// two steps — clear the pair, then set the chosen row — so the partial
+  /// unique index (`where is_default`) is never momentarily violated by two
+  /// defaults. Passing null for [supplierId] just clears the pair's default.
+  Future<void> setDefaultSupplier({
+    required String groupId,
+    required String supplierCategoryId,
+    required String? supplierId,
+  }) async {
+    await _client
+        .from('group_supplier_settings')
+        .update({'is_default': false})
+        .eq('group_id', groupId)
+        .eq('supplier_category_id', supplierCategoryId);
+    if (supplierId != null) {
+      await _client
+          .from('group_supplier_settings')
+          .update({'is_default': true})
+          .eq('id', supplierId);
+    }
   }
 
   /// The group's stored signature (null when never set).
