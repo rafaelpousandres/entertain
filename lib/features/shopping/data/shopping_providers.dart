@@ -7,6 +7,7 @@ import 'message_channel.dart';
 import 'settings_repository.dart';
 import 'shopping_models.dart';
 import 'shopping_repository.dart';
+import 'supplier_resolution.dart';
 
 final shoppingRepositoryProvider = Provider<ShoppingRepository>((ref) {
   return ShoppingRepository(Supabase.instance.client);
@@ -37,15 +38,25 @@ final eventShoppingProvider =
   return EventShopping(lines: lines, orders: orders);
 });
 
-/// Per-category messaging configuration for the current group, keyed by
-/// `supplierCategoryId`. Invalidated after any Settings edit.
-final groupSupplierSettingsProvider =
-    FutureProvider<Map<String, GroupSupplierSetting>>((ref) async {
+/// Suppliers for the current group grouped by `supplierCategoryId` (Spec 013:
+/// a category may have several). Each list is resolution-ordered (default
+/// first, then by name). Invalidated after any Settings edit.
+final groupSuppliersByCategoryProvider =
+    FutureProvider<Map<String, List<GroupSupplierSetting>>>((ref) async {
       final groupId = await ref.watch(currentGroupIdProvider.future);
       final settings = await ref
           .watch(settingsRepositoryProvider)
           .listSettings(groupId);
-      return {for (final s in settings) s.supplierCategoryId: s};
+      final byCategory = <String, List<GroupSupplierSetting>>{};
+      for (final s in settings) {
+        byCategory.putIfAbsent(s.supplierCategoryId, () => []).add(s);
+      }
+      // Order each category's suppliers consistently with the resolver.
+      for (final entry in byCategory.entries) {
+        byCategory[entry.key] =
+            resolveSuppliersForCategory(entry.value, entry.key).suppliers;
+      }
+      return byCategory;
     });
 
 /// The group's outgoing-message signature, defaulting to the owner's

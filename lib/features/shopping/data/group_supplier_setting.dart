@@ -7,14 +7,26 @@ import 'message_channel.dart';
 
 class GroupSupplierSetting {
   const GroupSupplierSetting({
+    required this.id,
     required this.supplierCategoryId,
     this.channel,
     this.phoneAddress,
     this.emailAddress,
     this.supplierName,
+    this.isDefault = false,
   });
 
+  /// Row id — a `group_supplier_settings` row is now a concrete *supplier*
+  /// (Spec 013), so it is identified and referenced (e.g. `orders.supplier_id`)
+  /// rather than addressed only by its `(group, category)` pair.
+  final String id;
+
   final String supplierCategoryId;
+
+  /// Spec 013: the default supplier for its category, at most one per
+  /// `(group, category)` (DB-enforced by a partial unique index). When a
+  /// category has several suppliers, this one is preselected at order time.
+  final bool isDefault;
 
   /// Free-text name of the concrete supplier behind this category (Spec 008
   /// §2.3), e.g. "Peixos Samba". Per-group, optional (null when not set). Only
@@ -48,11 +60,13 @@ class GroupSupplierSetting {
 
   factory GroupSupplierSetting.fromRow(Map<String, dynamic> row) {
     return GroupSupplierSetting(
+      id: row['id'] as String,
       supplierCategoryId: row['supplier_category_id'] as String,
       channel: MessageChannelWire.parse(row['channel'] as String?),
       phoneAddress: row['phone_address'] as String?,
       emailAddress: row['email_address'] as String?,
       supplierName: row['supplier_name'] as String?,
+      isDefault: (row['is_default'] as bool?) ?? false,
     );
   }
 }

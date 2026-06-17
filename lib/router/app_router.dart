@@ -18,6 +18,7 @@ import '../features/events/screens/events_list_screen.dart';
 import '../features/shell/home_shell.dart';
 import '../features/shopping/screens/settings_screen.dart';
 import '../features/shopping/screens/supplier_category_detail_screen.dart';
+import '../features/shopping/screens/supplier_editor_screen.dart';
 import '../features/shopping/screens/supplier_message_screen.dart';
 import '../features/startup/bootstrap_gate.dart';
 
@@ -119,7 +120,7 @@ final GoRouter appRouter = GoRouter(
       ),
     ),
 
-    // Settings — supplier category detail (covers the bottom bar).
+    // Settings — supplier category detail (the category's supplier list).
     GoRoute(
       path: '/settings/category',
       builder: (context, state) => _gated(
@@ -127,6 +128,13 @@ final GoRouter appRouter = GoRouter(
           category: state.extra as SupplierCategory,
         ),
       ),
+    ),
+
+    // Settings — add / edit one concrete supplier (Spec 013).
+    GoRoute(
+      path: '/settings/supplier',
+      builder: (context, state) =>
+          _gated(SupplierEditorScreen(args: state.extra as SupplierEditorArgs)),
     ),
 
     // Dishes — create / edit.

@@ -18,6 +18,7 @@ import '../../catalog/data/catalog_providers.dart';
 import '../../catalog/data/reference_data.dart';
 import '../../events/data/events_providers.dart' show currentGroupIdProvider;
 import '../data/group_supplier_setting.dart';
+import '../data/supplier_resolution.dart';
 import '../data/message_channel.dart';
 import '../data/shopping_providers.dart';
 import '../supplier_category_format.dart';
@@ -524,18 +525,18 @@ class _SuppliersTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     final categoriesAsync = ref.watch(supplierCategoriesProvider(localeCode));
-    final settingsAsync = ref.watch(groupSupplierSettingsProvider);
+    final suppliersAsync = ref.watch(groupSuppliersByCategoryProvider);
 
-    if (categoriesAsync.hasError || settingsAsync.hasError) {
+    if (categoriesAsync.hasError || suppliersAsync.hasError) {
       return _Message(text: l10n.settingsLoadError);
     }
-    if (categoriesAsync.isLoading || settingsAsync.isLoading) {
+    if (categoriesAsync.isLoading || suppliersAsync.isLoading) {
       return const Center(
         child: CircularProgressIndicator(color: AppColors.accent),
       );
     }
 
-    final settingsMap = settingsAsync.value!;
+    final suppliersByCategory = suppliersAsync.value!;
     // Spec 008 §2.7: dispatch-capable categories first, sorted alphabetically by
     // their localised label, then the consultive Rebost (pantry) at the bottom —
     // mirroring the shopping panel's order. Rebost is a pantry section, not a
@@ -554,7 +555,9 @@ class _SuppliersTab extends ConsumerWidget {
         for (final category in categories) ...[
           _CategoryRow(
             category: category,
-            setting: settingsMap[category.id],
+            suppliers:
+                suppliersByCategory[category.id] ??
+                const <GroupSupplierSetting>[],
             onTap: () => context.push('/settings/category', extra: category),
           ),
           const SizedBox(height: 8),
@@ -567,18 +570,18 @@ class _SuppliersTab extends ConsumerWidget {
 class _CategoryRow extends StatelessWidget {
   const _CategoryRow({
     required this.category,
-    required this.setting,
+    required this.suppliers,
     required this.onTap,
   });
 
   final SupplierCategory category;
-  final GroupSupplierSetting? setting;
+  final List<GroupSupplierSetting> suppliers;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final subtitle = _channelSubtitle(l10n);
+    final subtitle = _suppliersSubtitle(l10n);
     return Material(
       color: AppColors.surface,
       borderRadius: BorderRadius.circular(14),
@@ -610,15 +613,13 @@ class _CategoryRow extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    if (subtitle != null) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        subtitle,
-                        style: AppTypography.caption,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: AppTypography.caption,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ],
                 ),
               ),
@@ -635,20 +636,16 @@ class _CategoryRow extends StatelessWidget {
     );
   }
 
-  String? _channelSubtitle(AppLocalizations l10n) {
-    final channel = setting?.channel;
-    if (channel == null) return null;
-    // Fixes §2.1: the indicator shows the default channel and its matching
-    // address (phone for WhatsApp, email for Email). Compartir (round 2 §2.3)
-    // has no address — just the channel label.
-    final label = switch (channel) {
-      MessageChannel.whatsapp => l10n.channelWhatsApp,
-      MessageChannel.email => l10n.channelEmail,
-      MessageChannel.share => l10n.channelShare,
-    };
-    if (channel == MessageChannel.share) return label;
-    final address = setting?.defaultAddress?.trim() ?? '';
-    return address.isEmpty ? label : '$label${l10n.metadataSeparator}$address';
+  /// Spec 013: summarise the category's suppliers — none, the sole/default
+  /// supplier's label, and a count when there are several.
+  String _suppliersSubtitle(AppLocalizations l10n) {
+    final resolution = resolveSuppliersForCategory(suppliers, category.id);
+    if (resolution.isEmpty) return l10n.suppliersNoneSummary;
+    final lead = resolution.preselected ?? resolution.suppliers.first;
+    final label = supplierDisplayLabel(l10n, lead);
+    if (!resolution.isMultiple) return label;
+    return '$label${l10n.metadataSeparator}'
+        '${l10n.suppliersCountLabel(resolution.suppliers.length)}';
   }
 }
 

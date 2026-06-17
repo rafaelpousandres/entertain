@@ -99,6 +99,7 @@ class ShoppingRepository {
   Future<void> createSentOrder({
     required String eventId,
     required String supplierCategoryId,
+    required String? supplierId,
     required MessageChannel? channel,
     required String? address,
     required DateTime sentAt,
@@ -110,6 +111,9 @@ class ShoppingRepository {
         .insert({
           'event_id': eventId,
           'supplier_category_id': supplierCategoryId,
+          // Spec 013 §2.4: the concrete supplier chosen at order time (null when
+          // the category has no supplier configured).
+          'supplier_id': supplierId,
           'status': 'sent',
           'sent_at': sentAt.toUtc().toIso8601String(),
           'sent_channel': channel?.wire,
