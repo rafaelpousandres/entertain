@@ -26,9 +26,17 @@ import '../widgets/unit_ordering.dart';
 /// before the form renders, so the pickers and the prefilled values are
 /// available synchronously inside the form state.
 class IngredientEditorScreen extends ConsumerWidget {
-  const IngredientEditorScreen({super.key, this.ingredientId});
+  const IngredientEditorScreen({
+    super.key,
+    this.ingredientId,
+    this.initialSupplierCategoryId,
+  });
 
   final String? ingredientId;
+
+  /// §A: supplier category to preselect for a brand-new ingredient — the
+  /// catalog's open accordion group. An editable default; ignored when editing.
+  final String? initialSupplierCategoryId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -67,6 +75,7 @@ class IngredientEditorScreen extends ConsumerWidget {
     return _IngredientForm(
       ingredientId: ingredientId,
       initial: ingredientAsync.value,
+      initialSupplierCategoryId: initialSupplierCategoryId,
       units: unitsAsync.value!,
       categories: categoriesAsync.value!,
     );
@@ -77,12 +86,14 @@ class _IngredientForm extends ConsumerStatefulWidget {
   const _IngredientForm({
     this.ingredientId,
     this.initial,
+    this.initialSupplierCategoryId,
     required this.units,
     required this.categories,
   });
 
   final String? ingredientId;
   final Ingredient? initial;
+  final String? initialSupplierCategoryId;
   final List<Unit> units;
   final List<SupplierCategory> categories;
 
@@ -114,6 +125,11 @@ class _IngredientFormState extends ConsumerState<_IngredientForm>
     _draft = widget.initial != null
         ? IngredientDraft.fromIngredient(widget.initial!)
         : IngredientDraft.empty();
+    // §A: a brand-new ingredient inherits the catalog's open group as its
+    // default supplier — an editable default the user can change below.
+    if (widget.initial == null) {
+      _draft.defaultSupplierCategoryId = widget.initialSupplierCategoryId;
+    }
     _nameController = TextEditingController(text: _draft.name);
     _prepController = TextEditingController(text: _draft.prepDescription ?? '');
     // §2.6: snapshot the ingredient's photos so a Discard can roll back photo

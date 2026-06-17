@@ -47,6 +47,14 @@
     "placeholders": { "count": { "type": "int" } }
   },
   "metadataSeparator": " · ",
+  "ingredientNameWithUnit": "{name} ({unit})",
+  "@ingredientNameWithUnit": {
+    "description": "Catalog ingredient label combining the name and its default unit, e.g. 'Parmesan (g)'.",
+    "placeholders": {
+      "name": { "type": "String" },
+      "unit": { "type": "String" }
+    }
+  },
 
   "deleteEventConfirmTitle": "Delete this event?",
   "deleteEventConfirmBody": "This event will disappear from your list.",

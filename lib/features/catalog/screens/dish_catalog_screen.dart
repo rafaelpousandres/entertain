@@ -19,11 +19,24 @@ import '../data/catalog_providers.dart';
 /// Dish catalog (Specification 004 screen 1). Lists the group's dishes
 /// grouped by category with collapsible section headers, an empty state, a
 /// "New dish" primary action and tap-to-edit rows.
-class DishCatalogScreen extends ConsumerWidget {
+///
+/// The open accordion category is held here (not inside the list widget) so
+/// the "New dish" button can preselect it in the editor (§A): a brand-new dish
+/// defaults to the open category, or the first category when all collapsed.
+class DishCatalogScreen extends ConsumerStatefulWidget {
   const DishCatalogScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DishCatalogScreen> createState() => _DishCatalogScreenState();
+}
+
+class _DishCatalogScreenState extends ConsumerState<DishCatalogScreen> {
+  // §2.7 accordion — all categories collapsed by default, at most one open at a
+  // time. Null means all collapsed.
+  DishCategory? _open;
+
+  @override
+  Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final dishesAsync = ref.watch(dishesListProvider);
     // Spec 010 §2.4: row thumbnails read the cover (first photo by position)
@@ -56,7 +69,14 @@ class DishCatalogScreen extends ConsumerWidget {
           ),
           data: (dishes) => dishes.isEmpty
               ? const _EmptyState()
-              : _DishesByCategory(dishes: dishes, coverPaths: coverPaths),
+              : _DishesByCategory(
+                  dishes: dishes,
+                  coverPaths: coverPaths,
+                  open: _open,
+                  onToggle: (category) => setState(
+                    () => _open = _open == category ? null : category,
+                  ),
+                ),
         ),
       ),
       bottomNavigationBar: Container(
@@ -68,39 +88,39 @@ class DishCatalogScreen extends ConsumerWidget {
         child: PrimaryButton(
           label: l10n.newDishAction,
           icon: Icons.add,
-          onPressed: () => context.push('/dishes/new'),
+          // §A: preselect the open accordion category (or the first category
+          // when all collapsed) as an editable default in the editor.
+          onPressed: () =>
+              context.push('/dishes/new', extra: _open ?? dishCategoryOrder.first),
         ),
       ),
     );
   }
 }
 
-class _DishesByCategory extends StatefulWidget {
-  const _DishesByCategory({required this.dishes, required this.coverPaths});
+class _DishesByCategory extends StatelessWidget {
+  const _DishesByCategory({
+    required this.dishes,
+    required this.coverPaths,
+    required this.open,
+    required this.onToggle,
+  });
 
   final List<Dish> dishes;
 
   /// Dish id → cover photo path (first by position), or absent when none.
   final Map<String, String> coverPaths;
 
-  @override
-  State<_DishesByCategory> createState() => _DishesByCategoryState();
-}
-
-class _DishesByCategoryState extends State<_DishesByCategory> {
-  // Spec 012 §2.7: accordion — all categories collapsed by default, at most one
-  // open at a time (consistent with the shopping panel, Spec 011 §2.8).
-  DishCategory? _open;
-
-  void _toggle(DishCategory category) {
-    setState(() => _open = _open == category ? null : category);
-  }
+  /// The currently open accordion category, owned by the parent so the "New
+  /// dish" action can preselect it. Null when all sections are collapsed.
+  final DishCategory? open;
+  final ValueChanged<DishCategory> onToggle;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final byCategory = <DishCategory, List<Dish>>{};
-    for (final dish in widget.dishes) {
+    for (final dish in dishes) {
       byCategory.putIfAbsent(dish.category, () => []).add(dish);
     }
 
@@ -114,16 +134,16 @@ class _DishesByCategoryState extends State<_DishesByCategory> {
               label: dishCategoryLabel(l10n, category),
               // §2.7: count now carries the "plats" word.
               countLabel: l10n.dishCountLabel(byCategory[category]!.length),
-              expanded: _open == category,
-              onToggle: () => _toggle(category),
+              expanded: open == category,
+              onToggle: () => onToggle(category),
             ),
-            if (_open == category)
+            if (open == category)
               for (final dish in byCategory[category]!)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
                   child: _DishRow(
                     dish: dish,
-                    coverPath: widget.coverPaths[dish.id],
+                    coverPath: coverPaths[dish.id],
                     onTap: () => context.push('/dishes/${dish.id}'),
                   ),
                 ),

@@ -27,14 +27,21 @@ import 'ingredient_line_editor_screen.dart';
 /// screen 2). Works on an in-memory [DishDraft]; the line editor returns
 /// line drafts that are kept in memory until the whole dish is saved.
 class DishEditorScreen extends ConsumerWidget {
-  const DishEditorScreen({super.key, this.dishId});
+  const DishEditorScreen({super.key, this.dishId, this.initialCategory});
 
   final String? dishId;
+
+  /// §A: category to preselect for a brand-new dish — the catalog's open
+  /// accordion category. An editable default; ignored when editing. Null falls
+  /// back to [DishDraft.empty]'s own default.
+  final DishCategory? initialCategory;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     if (dishId == null) {
-      return _DishForm(initial: DishDraft.empty());
+      final draft = DishDraft.empty();
+      if (initialCategory != null) draft.category = initialCategory!;
+      return _DishForm(initial: draft);
     }
 
     final l10n = AppLocalizations.of(context);
