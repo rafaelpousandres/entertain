@@ -195,9 +195,10 @@ class _EventDishLineEditorScreenState
 
   void _pickUnit(List<Unit> units) {
     final l10n = AppLocalizations.of(context);
-    final reference = _unitOf(units, _unitId);
-    if (reference == null) return;
-    final allowed = unitsForFamily(units, reference);
+    // Mirrors the catalog line editor: the unit is a recipe decision, so offer
+    // the full unit catalog (ordered by magnitude) with the current one
+    // preselected, rather than locking it to the ingredient's default family.
+    final allowed = orderUnitsForDisplay(units);
     showSingleChoiceSheet<String>(
       context: context,
       title: l10n.unitPickerTitle,
@@ -416,8 +417,9 @@ class _EventDishLineEditorScreenState
 
     final unit = _unitOf(units ?? const [], _unitId);
     final quantityError = _submitted && _parseQuantity() == null;
-    final unitAllowsChoice =
-        unit != null && unitsForFamily(units ?? const [], unit).length > 1;
+    // Any line can pick from the full unit catalog, so the chooser is offered
+    // whenever there is more than one unit to choose from.
+    final unitAllowsChoice = unit != null && (units?.length ?? 0) > 1;
     final categoriesById = {
       for (final c in categories ?? const <SupplierCategory>[]) c.id: c,
     };

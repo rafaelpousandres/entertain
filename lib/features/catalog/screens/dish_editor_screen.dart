@@ -19,6 +19,7 @@ import '../../photos/widgets/photo_carousel_section.dart';
 import '../data/catalog_providers.dart';
 import '../data/dish.dart';
 import '../data/dish_category.dart';
+import '../data/ingredient.dart';
 import '../data/reference_data.dart';
 import 'ingredient_line_editor_screen.dart';
 
@@ -282,6 +283,24 @@ class _DishFormState extends ConsumerState<_DishForm>
     final units = ref.watch(unitsProvider(localeCode)).value;
     final unitsById = {for (final u in units ?? const <Unit>[]) u.id: u};
 
+    // The supplier shown on a recipe line is the ingredient's catalog-wide
+    // default category — recipe lines carry no per-line supplier (that override
+    // lives only on event-dish lines). Resolve it so the dish card shows the
+    // supplier too, matching the event-dish ingredient card.
+    final ingredients = ref.watch(ingredientsListProvider).value;
+    final ingredientsById = {
+      for (final i in ingredients ?? const <Ingredient>[]) i.id: i,
+    };
+    final categories = ref.watch(supplierCategoriesProvider(localeCode)).value;
+    final categoriesById = {
+      for (final c in categories ?? const <SupplierCategory>[]) c.id: c,
+    };
+    SupplierCategory? supplierFor(DishLineDraft line) {
+      final categoryId = ingredientsById[line.ingredientId]
+          ?.defaultSupplierCategoryId;
+      return categoryId == null ? null : categoriesById[categoryId];
+    }
+
     return EditScaffold(
       title: widget.isEditing
           ? l10n.dishEditScreenTitle
@@ -409,6 +428,7 @@ class _DishFormState extends ConsumerState<_DishForm>
                 child: _LineRow(
                   line: _draft.lines[i],
                   unit: unitsById[_draft.lines[i].unitId],
+                  supplierCategory: supplierFor(_draft.lines[i]),
                   onTap: () => _editLine(i),
                 ),
               ),
@@ -439,10 +459,16 @@ class _DishFormState extends ConsumerState<_DishForm>
 }
 
 class _LineRow extends StatelessWidget {
-  const _LineRow({required this.line, required this.unit, required this.onTap});
+  const _LineRow({
+    required this.line,
+    required this.unit,
+    required this.supplierCategory,
+    required this.onTap,
+  });
 
   final DishLineDraft line;
   final Unit? unit;
+  final SupplierCategory? supplierCategory;
   final VoidCallback onTap;
 
   @override
@@ -456,6 +482,12 @@ class _LineRow extends StatelessWidget {
     );
     final measure = unit == null ? qty : '$qty ${unit!.name}';
     final hasNote = line.prepNote != null && line.prepNote!.trim().isNotEmpty;
+    // Same layout as the event-dish ingredient card: quantity · prep · supplier.
+    final parts = <String>[
+      measure,
+      if (hasNote) line.prepNote!.trim(),
+      if (supplierCategory != null) supplierCategory!.name,
+    ];
 
     return Material(
       color: AppColors.surface,
@@ -484,11 +516,9 @@ class _LineRow extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      hasNote
-                          ? '$measure${l10n.metadataSeparator}${line.prepNote!.trim()}'
-                          : measure,
+                      parts.join(l10n.metadataSeparator),
                       style: AppTypography.caption,
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],

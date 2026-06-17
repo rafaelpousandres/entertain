@@ -136,9 +136,10 @@ class _IngredientLineEditorScreenState
 
   void _pickUnit(List<Unit> units) {
     final l10n = AppLocalizations.of(context);
-    final reference = _unitOf(units, _unitId);
-    if (reference == null) return;
-    final allowed = unitsForFamily(units, reference);
+    // The unit is part of the recipe decision, not fixed to the ingredient's
+    // default: offer every unit (ordered by magnitude) so the line can read
+    // "100 g de tomàquet" or "3 tomàquets", with the current unit preselected.
+    final allowed = orderUnitsForDisplay(units);
     showSingleChoiceSheet<String>(
       context: context,
       title: l10n.unitPickerTitle,
@@ -258,8 +259,9 @@ class _IngredientLineEditorScreenState
 
     final unit = _unitOf(units ?? const [], _unitId);
     final quantityError = _submitted && _parseQuantity() == null;
-    final unitAllowsChoice =
-        unit != null && unitsForFamily(units ?? const [], unit).length > 1;
+    // Any line can pick from the full unit catalog, so the chooser is offered
+    // whenever there is more than one unit to choose from.
+    final unitAllowsChoice = unit != null && (units?.length ?? 0) > 1;
     final categoryId = _resolvedCategoryId(ingredients ?? const []);
     final supplierCategory = categoryId == null
         ? null

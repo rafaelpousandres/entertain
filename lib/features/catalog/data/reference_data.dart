@@ -5,9 +5,9 @@
 /// of scope for this screen group (data model §4), so they are read-only.
 library;
 
-/// Magnitude of a unit. Drives the convertible-family rule in the line
-/// editor: `mass` (g/kg) and `volume` (ml/l) convert within themselves;
-/// `count` and `package` units stand alone.
+/// Magnitude of a unit. `mass` (g/kg) and `volume` (ml/l) convert within
+/// themselves; `count` and `package` units stand alone. Used for display
+/// ordering and the countable-rounding rule when scaling servings.
 enum UnitMagnitude { mass, volume, count, package }
 
 extension UnitMagnitudeWire on UnitMagnitude {
@@ -17,12 +17,6 @@ extension UnitMagnitudeWire on UnitMagnitude {
     'count' => UnitMagnitude.count,
     _ => UnitMagnitude.package,
   };
-
-  /// Whether units of this magnitude form a convertible family (so the line
-  /// editor may offer every unit of the magnitude). `count` / `package`
-  /// units are isolated, so only the ingredient's own unit is allowed.
-  bool get isConvertibleFamily =>
-      this == UnitMagnitude.mass || this == UnitMagnitude.volume;
 }
 
 class Unit {
