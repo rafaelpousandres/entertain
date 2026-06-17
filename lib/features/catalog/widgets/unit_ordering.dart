@@ -15,25 +15,14 @@ int _compareUnits(Unit a, Unit b) {
 }
 
 /// Units ordered for a picker: grouped by magnitude (mass, volume, count,
-/// package) and then by code, so the ingredient editor's default-unit list
-/// reads in a stable, sensible order.
+/// package) and then by code, so a unit list reads in a stable, sensible
+/// order. This is the full catalog — a dish/event line may use any unit
+/// regardless of the ingredient's default, since the line is where the recipe
+/// decides how to express the amount ("100 g de tomàquet" vs "3 tomàquets",
+/// "750 ml de vi" vs "1 ampolla"). The app can't know whether a countable
+/// ingredient is solid or liquid, so it offers every unit and lets the user
+/// pick the right one.
 List<Unit> orderUnitsForDisplay(List<Unit> units) {
   final sorted = [...units]..sort(_compareUnits);
   return sorted;
-}
-
-/// Units selectable for a dish/event line given the ingredient's default
-/// unit (Specification 004 §3.6). Mass (g/kg) and volume (ml/l) convert
-/// within their family, so every unit of that magnitude is offered; count
-/// and package units are isolated, so only the ingredient's own unit is
-/// allowed.
-List<Unit> unitsForFamily(List<Unit> all, Unit defaultUnit) {
-  if (defaultUnit.magnitude.isConvertibleFamily) {
-    final family = all
-        .where((u) => u.magnitude == defaultUnit.magnitude)
-        .toList()
-      ..sort(_compareUnits);
-    return family;
-  }
-  return [defaultUnit];
 }
