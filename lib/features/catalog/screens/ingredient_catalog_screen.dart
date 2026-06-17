@@ -17,14 +17,61 @@ import '../data/catalog_providers.dart';
 import '../data/ingredient.dart';
 import '../data/reference_data.dart';
 
+/// Key for the bucket of ingredients with no supplier category.
+const String _uncategorisedGroupKey = '__uncategorised__';
+
+/// Orders the supplier-group keys for the ingredient accordion: dispatch
+/// suppliers first (alphabetical), then the pantry, then uncategorised last —
+/// consistent with the Suppliers settings tab and the shopping panel. Only
+/// groups that actually contain ingredients are returned. Shared by the list
+/// rendering and the "New ingredient" preselect (§A).
+List<String> orderedIngredientGroupKeys(
+  List<Ingredient> ingredients,
+  Map<String, SupplierCategory> categoriesById,
+) {
+  final keys = <String>{
+    for (final i in ingredients)
+      i.defaultSupplierCategoryId ?? _uncategorisedGroupKey,
+  };
+  return keys.toList()
+    ..sort((a, b) {
+      if (a == _uncategorisedGroupKey) return 1;
+      if (b == _uncategorisedGroupKey) return -1;
+      final ca = categoriesById[a];
+      final cb = categoriesById[b];
+      final aPantry = ca != null && isPantryCategory(ca.code);
+      final bPantry = cb != null && isPantryCategory(cb.code);
+      if (aPantry != bPantry) return aPantry ? 1 : -1;
+      final na = ca?.name ?? '';
+      final nb = cb?.name ?? '';
+      return na.toLowerCase().compareTo(nb.toLowerCase());
+    });
+}
+
 /// Ingredient catalog (Specification 004 screen 4). Lists the group's
 /// ingredients with their default unit and supplier category, with an empty
 /// state, a "New ingredient" primary action and tap-to-edit rows.
-class IngredientCatalogScreen extends ConsumerWidget {
+///
+/// The open accordion group is held here (not inside the list widget) so the
+/// "New ingredient" button can preselect its supplier in the editor (§A): a
+/// brand-new ingredient defaults to the open group's supplier, or the first
+/// group's supplier when all collapsed.
+class IngredientCatalogScreen extends ConsumerStatefulWidget {
   const IngredientCatalogScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<IngredientCatalogScreen> createState() =>
+      _IngredientCatalogScreenState();
+}
+
+class _IngredientCatalogScreenState
+    extends ConsumerState<IngredientCatalogScreen> {
+  /// Group key currently open, or null when all are collapsed. The
+  /// uncategorised group uses [_uncategorisedGroupKey].
+  String? _open;
+
+  @override
+  Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final localeCode = Localizations.localeOf(context).languageCode;
     final ingredientsAsync = ref.watch(ingredientsListProvider);
@@ -75,6 +122,9 @@ class IngredientCatalogScreen extends ConsumerWidget {
               unitsById: unitsById,
               categoriesById: categoriesById,
               coverPaths: coverPaths,
+              open: _open,
+              onToggle: (key) =>
+                  setState(() => _open = _open == key ? null : key),
             );
           },
         ),
@@ -88,7 +138,28 @@ class IngredientCatalogScreen extends ConsumerWidget {
         child: PrimaryButton(
           label: l10n.newIngredientAction,
           icon: Icons.add,
-          onPressed: () => context.push('/ingredients/new'),
+          // §A: preselect the open group's supplier (or the first group's when
+          // all collapsed) as an editable default in the editor. The
+          // uncategorised group maps to "no supplier" (null).
+          onPressed: () {
+            String? key = _open;
+            if (key == null) {
+              final ingredients =
+                  ref.read(ingredientsListProvider).value ?? const <Ingredient>[];
+              final byId = {
+                for (final c
+                    in ref.read(supplierCategoriesProvider(localeCode)).value ??
+                        const <SupplierCategory>[])
+                  c.id: c,
+              };
+              final ordered = orderedIngredientGroupKeys(ingredients, byId);
+              key = ordered.isEmpty ? null : ordered.first;
+            }
+            final supplierCategoryId = key == _uncategorisedGroupKey
+                ? null
+                : key;
+            context.push('/ingredients/new', extra: supplierCategoryId);
+          },
         ),
       ),
     );
@@ -99,12 +170,14 @@ class IngredientCatalogScreen extends ConsumerWidget {
 /// (all collapsed by default, one open at a time), mirroring the dish catalog
 /// and the shopping panel. Dispatch-capable suppliers come first sorted by
 /// name, then the consultive pantry, then any uncategorised ingredients.
-class _IngredientsBySupplier extends StatefulWidget {
+class _IngredientsBySupplier extends StatelessWidget {
   const _IngredientsBySupplier({
     required this.ingredients,
     required this.unitsById,
     required this.categoriesById,
     required this.coverPaths,
+    required this.open,
+    required this.onToggle,
   });
 
   /// Ingredients pre-sorted by name (from `ingredientsListProvider`); the
@@ -114,20 +187,11 @@ class _IngredientsBySupplier extends StatefulWidget {
   final Map<String, SupplierCategory> categoriesById;
   final Map<String, String> coverPaths;
 
-  @override
-  State<_IngredientsBySupplier> createState() => _IngredientsBySupplierState();
-}
-
-class _IngredientsBySupplierState extends State<_IngredientsBySupplier> {
-  /// Group key currently open, or null when all are collapsed. The
-  /// uncategorised group uses [_uncategorisedKey].
-  String? _open;
-
-  static const String _uncategorisedKey = '__uncategorised__';
-
-  void _toggle(String key) {
-    setState(() => _open = _open == key ? null : key);
-  }
+  /// The currently open group key, owned by the parent so the "New ingredient"
+  /// action can preselect its supplier. Null when all sections are collapsed;
+  /// the uncategorised group uses [_uncategorisedGroupKey].
+  final String? open;
+  final ValueChanged<String> onToggle;
 
   @override
   Widget build(BuildContext context) {
@@ -137,35 +201,21 @@ class _IngredientsBySupplierState extends State<_IngredientsBySupplier> {
     // "Uncategorised" bucket). Insertion order keeps the name sort within each
     // group.
     final byKey = <String, List<Ingredient>>{};
-    for (final ingredient in widget.ingredients) {
-      final key = ingredient.defaultSupplierCategoryId ?? _uncategorisedKey;
+    for (final ingredient in ingredients) {
+      final key = ingredient.defaultSupplierCategoryId ?? _uncategorisedGroupKey;
       byKey.putIfAbsent(key, () => []).add(ingredient);
     }
 
-    // Order the group headers: dispatch suppliers first (alphabetical), then
-    // pantry, then uncategorised last — consistent with the Suppliers settings
-    // tab and the shopping panel.
-    final keys = byKey.keys.toList()
-      ..sort((a, b) {
-        if (a == _uncategorisedKey) return 1;
-        if (b == _uncategorisedKey) return -1;
-        final ca = widget.categoriesById[a];
-        final cb = widget.categoriesById[b];
-        final aPantry = ca != null && isPantryCategory(ca.code);
-        final bPantry = cb != null && isPantryCategory(cb.code);
-        if (aPantry != bPantry) return aPantry ? 1 : -1;
-        final na = ca?.name ?? '';
-        final nb = cb?.name ?? '';
-        return na.toLowerCase().compareTo(nb.toLowerCase());
-      });
+    // Order the group headers consistently with the "New ingredient" preselect.
+    final keys = orderedIngredientGroupKeys(ingredients, categoriesById);
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
       children: [
         for (final key in keys) ...[
           () {
-            final category = widget.categoriesById[key];
-            final isUncategorised = key == _uncategorisedKey;
+            final category = categoriesById[key];
+            final isUncategorised = key == _uncategorisedGroupKey;
             return SectionHeader(
               icon: isUncategorised
                   ? Icons.help_outline
@@ -174,18 +224,18 @@ class _IngredientsBySupplierState extends State<_IngredientsBySupplier> {
                   ? l10n.shoppingUncategorisedLabel
                   : (category?.name ?? l10n.shoppingUncategorisedLabel),
               countLabel: l10n.ingredientCountLabel(byKey[key]!.length),
-              expanded: _open == key,
-              onToggle: () => _toggle(key),
+              expanded: open == key,
+              onToggle: () => onToggle(key),
             );
           }(),
-          if (_open == key)
+          if (open == key)
             for (final ingredient in byKey[key]!)
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: _IngredientRow(
                   ingredient: ingredient,
-                  coverPath: widget.coverPaths[ingredient.id],
-                  unit: widget.unitsById[ingredient.defaultUnitId],
+                  coverPath: coverPaths[ingredient.id],
+                  unit: unitsById[ingredient.defaultUnitId],
                   // §2.8: the supplier is now the group header, so the row
                   // subtitle shows only the unit (no redundant category).
                   category: null,
@@ -217,11 +267,15 @@ class _IngredientRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final parts = <String>[
-      if (unit != null) unit!.name,
-      if (category != null) category!.name,
-    ];
-    final subtitle = parts.join(l10n.metadataSeparator);
+    // §2.8.a: the default unit reads inline with the name, in parentheses
+    // ("Parmesano (g)"), since there is no quantity here. Lines that carry a
+    // quantity ("200 g") are unaffected — those live on the dish/event editors.
+    final title = unit == null
+        ? ingredient.name
+        : l10n.ingredientNameWithUnit(ingredient.name, unit!.name);
+    // The supplier is the group header in this catalog, so the subtitle holds
+    // only a category when one is explicitly passed (none here today).
+    final subtitle = category == null ? '' : category!.name;
 
     return Material(
       color: AppColors.surface,
@@ -254,7 +308,7 @@ class _IngredientRow extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      ingredient.name,
+                      title,
                       style: AppTypography.body,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,

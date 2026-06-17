@@ -47,6 +47,7 @@
     "placeholders": { "count": { "type": "int" } }
   },
   "metadataSeparator": " · ",
+  "ingredientNameWithUnit": "{name} ({unit})",
 
   "deleteEventConfirmTitle": "¿Eliminar el evento?",
   "deleteEventConfirmBody": "Este evento desaparecerá de tu lista.",

@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 
 import '../features/catalog/data/dish.dart';
+import '../features/catalog/data/dish_category.dart';
 import '../features/catalog/screens/dish_catalog_screen.dart';
 import '../features/catalog/screens/dish_editor_screen.dart';
 import '../features/catalog/screens/ingredient_catalog_screen.dart';
@@ -131,7 +132,13 @@ final GoRouter appRouter = GoRouter(
     // Dishes — create / edit.
     GoRoute(
       path: '/dishes/new',
-      builder: (context, state) => _gated(const DishEditorScreen()),
+      builder: (context, state) => _gated(
+        DishEditorScreen(
+          initialCategory: state.extra is DishCategory
+              ? state.extra as DishCategory
+              : null,
+        ),
+      ),
     ),
     GoRoute(
       path: '/dishes/:id',
@@ -142,7 +149,13 @@ final GoRouter appRouter = GoRouter(
     // Ingredients — create / edit.
     GoRoute(
       path: '/ingredients/new',
-      builder: (context, state) => _gated(const IngredientEditorScreen()),
+      builder: (context, state) => _gated(
+        IngredientEditorScreen(
+          initialSupplierCategoryId: state.extra is String
+              ? state.extra as String
+              : null,
+        ),
+      ),
     ),
     GoRoute(
       path: '/ingredients/:id',
