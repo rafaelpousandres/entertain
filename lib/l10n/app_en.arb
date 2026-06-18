@@ -309,6 +309,19 @@
   "@supplierMessageNeededBy": {
     "placeholders": { "date": { "type": "String" } }
   },
+  "supplierMessageNeededByWithTime": "Needed by {date} at {time}",
+  "@supplierMessageNeededByWithTime": {
+    "placeholders": {
+      "date": { "type": "String" },
+      "time": { "type": "String" }
+    }
+  },
+  "supplierMessageNeededByTimeLabel": "Time (optional)",
+  "@supplierMessageNeededByTimeLabel": {},
+  "supplierMessageAddTime": "Add time",
+  "@supplierMessageAddTime": {},
+  "suppliersPantrySummary": "Things you already have at home",
+  "@suppliersPantrySummary": {},
   "supplierMessageConfirmSentTitle": "Did you send the message?",
   "@supplierMessageConfirmSentTitle": {},
   "supplierMessageConfirmSentBody": "Confirm the message was actually sent to the supplier before we mark this order as sent.",

@@ -639,6 +639,9 @@ class _CategoryRow extends StatelessWidget {
   /// Spec 013: summarise the category's suppliers — none, the sole/default
   /// supplier's label, and a count when there are several.
   String _suppliersSubtitle(AppLocalizations l10n) {
+    // Spec 015 §2: the Rebost (pantry) holds things already at home — the
+    // supplier concept does not apply, so it never reads "Cap proveïdor".
+    if (isPantryCategory(category.code)) return l10n.suppliersPantrySummary;
     final resolution = resolveSuppliersForCategory(suppliers, category.id);
     if (resolution.isEmpty) return l10n.suppliersNoneSummary;
     final lead = resolution.preselected ?? resolution.suppliers.first;

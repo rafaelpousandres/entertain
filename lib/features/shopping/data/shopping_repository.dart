@@ -104,6 +104,7 @@ class ShoppingRepository {
     required String? address,
     required DateTime sentAt,
     required DateTime? neededByDate,
+    required String? neededByTime,
     required List<AggregatedShoppingLine> items,
   }) async {
     final order = await _client
@@ -123,6 +124,8 @@ class ShoppingRepository {
           'needed_by_date': neededByDate == null
               ? null
               : _dateOnly(neededByDate),
+          // Spec 015 §1: optional time-of-day; null means "date only".
+          'needed_by_time': neededByTime,
         })
         .select('id')
         .single();

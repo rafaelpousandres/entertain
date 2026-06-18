@@ -21,6 +21,7 @@ import '../data/ingredient_state.dart';
 import '../data/message_channel.dart';
 import '../data/message_composer.dart';
 import '../data/message_dispatcher.dart';
+import '../data/needed_by_format.dart';
 import '../data/shopping_aggregation.dart';
 import '../data/shopping_delta.dart';
 import '../data/shopping_models.dart';
@@ -91,6 +92,10 @@ class _SupplierMessageScreenState extends ConsumerState<SupplierMessageScreen> {
   /// day before its date, if any) and editable before sending.
   bool _neededByInitialised = false;
   DateTime? _neededByDate;
+
+  /// Spec 015 §1: an optional time on the needed-by date. Null → date only;
+  /// only meaningful when a date is set.
+  TimeOfDay? _neededByTime;
 
   bool _sending = false;
 
@@ -212,6 +217,10 @@ class _SupplierMessageScreenState extends ConsumerState<SupplierMessageScreen> {
         address: outcome.address,
         sentAt: DateTime.now(),
         neededByDate: _neededByDate,
+        // §1: store the time as a Postgres `time` value, or null for date-only.
+        neededByTime: _neededByTime == null
+            ? null
+            : '${formatNeededByTime(_neededByTime!)}:00',
         items: aggregated,
       );
       // Spec 007 §3.2: every line in the sent order moves to `ordered`, here
@@ -330,12 +339,10 @@ class _SupplierMessageScreenState extends ConsumerState<SupplierMessageScreen> {
   }
 
   /// The needed-by sentence shared with the supplier, e.g. "Per al dia 5 de
-  /// juny", or empty when the user left the date unset (Fixes §2.5).
-  String _neededBySentence(Locale locale, AppLocalizations l10n) {
-    final date = _neededByDate;
-    if (date == null) return '';
-    return l10n.supplierMessageNeededBy(formatDayMonth(date, locale));
-  }
+  /// juny" (or "… a les 13:00" with a time), or empty when the date is unset
+  /// (Fixes §2.5 / Spec 015 §1).
+  String _neededBySentence(Locale locale, AppLocalizations l10n) =>
+      neededBySentence(l10n, locale, _neededByDate, _neededByTime);
 
   /// §2.11 — this supplier's extras (the phantom-dish piggyback items), raw and
   /// unaggregated, in their stored order.
@@ -375,6 +382,17 @@ class _SupplierMessageScreenState extends ConsumerState<SupplierMessageScreen> {
     setState(
       () => _neededByDate = DateTime(picked.year, picked.month, picked.day),
     );
+  }
+
+  /// Spec 015 §1: pick the optional time. Only reachable once a date is set; an
+  /// empty pick (dismiss) leaves it unchanged, and a dedicated clear removes it.
+  Future<void> _pickNeededByTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _neededByTime ?? const TimeOfDay(hour: 9, minute: 0),
+    );
+    if (picked == null) return;
+    setState(() => _neededByTime = picked);
   }
 
   @override
@@ -518,7 +536,11 @@ class _SupplierMessageScreenState extends ConsumerState<SupplierMessageScreen> {
                   : null,
               locale: locale,
               neededByDate: _neededByDate,
+              neededByTime: _neededByTime,
               onPickNeededBy: () => _pickNeededBy(event.eventDate),
+              onPickNeededByTime: _pickNeededByTime,
+              onClearNeededByTime: () =>
+                  setState(() => _neededByTime = null),
               onChangeDestination: () => _openOverrideSheet(_selectedSupplier),
             );
           },
@@ -573,7 +595,10 @@ class _Composer extends StatelessWidget {
     required this.onChangeSupplier,
     required this.locale,
     required this.neededByDate,
+    required this.neededByTime,
     required this.onPickNeededBy,
+    required this.onPickNeededByTime,
+    required this.onClearNeededByTime,
     required this.onChangeDestination,
   });
 
@@ -589,7 +614,10 @@ class _Composer extends StatelessWidget {
   final VoidCallback? onChangeSupplier;
   final Locale locale;
   final DateTime? neededByDate;
+  final TimeOfDay? neededByTime;
   final VoidCallback onPickNeededBy;
+  final VoidCallback onPickNeededByTime;
+  final VoidCallback onClearNeededByTime;
   final VoidCallback onChangeDestination;
 
   @override
@@ -727,6 +755,70 @@ class _Composer extends StatelessWidget {
             ),
           ),
         ),
+        // §1: optional time, offered only once a date is set (a time without a
+        // date is meaningless). Empty → "Add time"; set → the time + a clear.
+        if (neededByDate != null) ...[
+          const SizedBox(height: 8),
+          Material(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(14),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(14),
+              onTap: onPickNeededByTime,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.schedule_outlined,
+                      size: 18,
+                      color: AppColors.accentSecondary,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        neededByTime == null
+                            ? l10n.supplierMessageAddTime
+                            : formatNeededByTime(neededByTime!),
+                        style: AppTypography.body.copyWith(
+                          color: neededByTime == null
+                              ? AppColors.textTertiary
+                              : AppColors.textPrimary,
+                        ),
+                      ),
+                    ),
+                    if (neededByTime != null)
+                      InkWell(
+                        onTap: onClearNeededByTime,
+                        borderRadius: BorderRadius.circular(20),
+                        child: const Padding(
+                          padding: EdgeInsets.all(2),
+                          child: Icon(
+                            Icons.close,
+                            size: 18,
+                            color: AppColors.disabled,
+                          ),
+                        ),
+                      )
+                    else
+                      const Icon(
+                        Icons.edit_outlined,
+                        size: 18,
+                        color: AppColors.disabled,
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
         const SizedBox(height: 16),
         Text(
           l10n.supplierMessagePreviewLabel,

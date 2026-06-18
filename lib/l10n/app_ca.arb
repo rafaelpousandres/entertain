@@ -260,6 +260,10 @@
   "supplierMessagePreviewLabel": "Missatge",
   "supplierMessageNeededByLabel": "Data de necessitat",
   "supplierMessageNeededByEmpty": "Tria una data",
+  "supplierMessageNeededByWithTime": "Per al dia {date} a les {time}",
+  "supplierMessageNeededByTimeLabel": "Hora (opcional)",
+  "supplierMessageAddTime": "Afegeix hora",
+  "suppliersPantrySummary": "Coses que ja tens a casa",
   "supplierMessageNeededBy": "Per al dia {date}",
   "@supplierMessageNeededBy": {
     "placeholders": { "date": { "type": "String" } }
