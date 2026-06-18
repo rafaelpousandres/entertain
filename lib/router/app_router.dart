@@ -11,11 +11,13 @@ import '../features/catalog/screens/ingredient_line_editor_screen.dart';
 import '../features/catalog/data/reference_data.dart';
 import '../features/events/screens/add_dish_to_menu_screen.dart';
 import '../features/events/screens/add_drink_to_menu_screen.dart';
+import '../features/events/screens/edit_event_drink_screen.dart';
 import '../features/events/screens/event_detail_screen.dart';
 import '../features/events/screens/event_dish_detail_screen.dart';
 import '../features/events/screens/event_dish_line_editor_screen.dart';
 import '../features/events/screens/event_form_screen.dart';
 import '../features/events/screens/events_list_screen.dart';
+import '../features/events/data/event_drink.dart';
 import '../features/shell/home_shell.dart';
 import '../features/shopping/screens/settings_screen.dart';
 import '../features/shopping/screens/supplier_category_detail_screen.dart';
@@ -112,6 +114,16 @@ final GoRouter appRouter = GoRouter(
         EventDishDetailScreen(
           eventId: state.pathParameters['id']!,
           eventDishId: state.pathParameters['eventDishId']!,
+        ),
+      ),
+    ),
+    // Spec 017 §A.3 — edit a drink's per-event unit quantity (explicit save).
+    GoRoute(
+      path: '/events/:id/drinks/:eventDrinkId/edit',
+      builder: (context, state) => _gated(
+        EditEventDrinkScreen(
+          eventId: state.pathParameters['id']!,
+          drink: state.extra as EventDrink,
         ),
       ),
     ),

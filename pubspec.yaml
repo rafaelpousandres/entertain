@@ -107,19 +107,14 @@ flutter_launcher_icons:
   adaptive_icon_foreground: "assets/icon/entertain - icon foreground.png"
   min_sdk_android: 21
 
-# Spec 012 §2.2 — launch/splash screen: the brand icon centred on the app
-# background colour (AppColors.bg, #FBF5EA). The app is light-theme only, so
-# there is no dark variant. Regenerate native assets with
+# Spec 017 §A.2 — the native splash is a PLAIN cream background, no logo. The
+# Android 12+ circle mask was clipping the artwork and there was a size jump to
+# the in-app overlay; removing the native logo fixes both. The brand logo now
+# appears only via the in-app overlay (lib/app.dart, _SplashOverlay), on the
+# same #FBF5EA background, so the handover shows only the logo appearing with no
+# colour jump. Regenerate native assets with
 # `dart run flutter_native_splash:create` after changing this block.
-#
-# Spec 016 §5.3 — Android 12+ masks the splash icon to a circle, so the full-
-# bleed legacy artwork was clipped (the outer chairs cut off). The android_12
-# image now uses the adaptive *foreground* asset, which carries the same
-# safe-zone padding as the launcher icon (~66%), so the artwork sits inside the
-# circle uncropped. Pre-12 keeps the legacy full-bleed image (no circle mask).
 flutter_native_splash:
   color: "#FBF5EA"
-  image: "assets/icon/entertain - icon legacy.png"
   android_12:
     color: "#FBF5EA"
-    image: "assets/icon/entertain - icon foreground.png"
