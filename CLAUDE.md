@@ -71,7 +71,7 @@ document.
 
 ## Tech stack
 
-> **Flutter is a deliberate legacy exception, not the project default.** Per the
+- **Flutter is a deliberate legacy exception, not the project default.** Per the
 > Development conventions (§4, v0.2), new serious platforms (Talaia, Helm) use the
 > unified TypeScript stack (React + React Native + NestJS). Entertain stays on
 > Flutter and **is not migrated** — this is a settled decision, not a pending task.
