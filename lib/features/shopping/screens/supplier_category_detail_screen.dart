@@ -7,6 +7,7 @@ import '../../../theme/app_colors.dart';
 import '../../../theme/app_typography.dart';
 import '../../../ui/app_form_field.dart';
 import '../../../ui/edit_scaffold.dart';
+import '../../../ui/help_icon_button.dart';
 import '../../../ui/secondary_button.dart';
 import '../../catalog/data/catalog_providers.dart';
 import '../../catalog/data/reference_data.dart';
@@ -209,6 +210,13 @@ class _SupplierCategoryDetailScreenState
       // Only user categories have something to save at the category level (the
       // name); suppliers are saved in their own editor.
       onSave: (_isUser && !_busy) ? _saveName : null,
+      // Spec 017 §B.2: explain multiple suppliers + the default.
+      trailingActions: [
+        HelpIconButton(
+          title: widget.category.name,
+          body: l10n.helpSuppliersBody,
+        ),
+      ],
       body: suppliersAsync.when(
         loading: () => const Center(
           child: CircularProgressIndicator(color: AppColors.accent),

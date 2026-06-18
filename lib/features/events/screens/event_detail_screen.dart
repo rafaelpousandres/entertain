@@ -24,11 +24,11 @@ import '../../photos/widgets/photo_carousel_section.dart';
 import '../../photos/widgets/photo_image.dart';
 import '../../shopping/screens/event_shopping_panel.dart';
 import '../data/event.dart';
-import '../../../ui/secondary_button.dart';
 import '../../shopping/data/shopping_providers.dart' show eventShoppingProvider;
 import '../data/event_dish.dart';
 import '../data/event_drink.dart';
 import '../data/event_draft.dart';
+import '../data/menu_add_target.dart';
 import '../data/menu_totals.dart';
 import '../data/event_tab_store.dart';
 import '../data/event_status.dart';
@@ -75,6 +75,10 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
   final _titleController = TextEditingController();
   final _locationController = TextEditingController();
   final _notesController = TextEditingController();
+  // Spec 017 §A.1: which Menu section is open, lifted here so the single bottom
+  // "add" button can follow it (drinks open → beguda; else → plat). The menu
+  // accordion (one section open at a time) reports its state into this.
+  final ValueNotifier<bool> _menuDrinksOpen = ValueNotifier(false);
   late EventDraft _draft;
   bool _seeded = false;
   bool _saving = false;
@@ -122,6 +126,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
     _titleController.dispose();
     _locationController.dispose();
     _notesController.dispose();
+    _menuDrinksOpen.dispose();
     super.dispose();
   }
 
@@ -492,7 +497,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
                 controller: tab,
                 children: [
                   _buildEventTab(event, locale),
-                  _MenuView(event: event),
+                  _MenuView(event: event, drinksOpen: _menuDrinksOpen),
                   EventShoppingPanel(eventId: event.id),
                 ],
               );
@@ -511,16 +516,28 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
   }
 
   Widget? _buildBottomBar(Event event, AppLocalizations l10n) {
-    // §2.3: the Esdeveniment save now lives in the AppBar (always visible above
-    // the keyboard); Menú keeps its "Afegeix plat" action; Compra has none (the
-    // panel owns its per-section actions).
+    // §2.3: the Esdeveniment save lives in the AppBar; Compra has none (the panel
+    // owns its per-section actions). Spec 017 §A.1: the Menú action is contextual
+    // to the open accordion section — drinks open → "Afegeix beguda", otherwise
+    // "Afegeix plat" — so there is one add affordance, not two.
     if (_tab!.index == 1) {
-      return _ActionBar(
-        child: PrimaryButton(
-          label: l10n.addDishToMenuAction,
-          icon: Icons.add,
-          onPressed: () => context.push('/events/${event.id}/add-dish'),
-        ),
+      return ValueListenableBuilder<bool>(
+        valueListenable: _menuDrinksOpen,
+        builder: (context, drinksOpen, _) {
+          final target = menuAddTargetFor(drinksSectionOpen: drinksOpen);
+          final isDrink = target == MenuAddTarget.drink;
+          return _ActionBar(
+            child: PrimaryButton(
+              label: isDrink
+                  ? l10n.addDrinkToMenuAction
+                  : l10n.addDishToMenuAction,
+              icon: Icons.add,
+              onPressed: () => context.push(
+                '/events/${event.id}/${isDrink ? 'add-drink' : 'add-dish'}',
+              ),
+            ),
+          );
+        },
       );
     }
     return null;
@@ -762,9 +779,12 @@ class _ActionBar extends StatelessWidget {
 }
 
 class _MenuView extends ConsumerWidget {
-  const _MenuView({required this.event});
+  const _MenuView({required this.event, required this.drinksOpen});
 
   final Event event;
+
+  /// §A.1: reports which Menu section is open up to the screen's bottom action.
+  final ValueNotifier<bool> drinksOpen;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -812,6 +832,7 @@ class _MenuView extends ConsumerWidget {
             eventId: event.id,
             guestCount: event.guestCount,
             catalogPhotos: catalogPhotos,
+            drinksOpen: drinksOpen,
           ),
       ],
     );
@@ -848,6 +869,7 @@ class _MenuByCategory extends ConsumerStatefulWidget {
     required this.eventId,
     required this.guestCount,
     required this.catalogPhotos,
+    required this.drinksOpen,
   });
 
   final List<EventDish> dishes;
@@ -861,6 +883,10 @@ class _MenuByCategory extends ConsumerStatefulWidget {
 
   /// §2: catalog dish id → photo_path (null when none), for the menu thumbnails.
   final Map<String, String?> catalogPhotos;
+
+  /// §A.1: set to true while the Begudes section is the open one, so the
+  /// screen's bottom add button switches to "Afegeix beguda".
+  final ValueNotifier<bool> drinksOpen;
 
   @override
   ConsumerState<_MenuByCategory> createState() => _MenuByCategoryState();
@@ -878,6 +904,7 @@ class _MenuByCategoryState extends ConsumerState<_MenuByCategory> {
       _open = _open == category ? null : category;
       _drinksOpen = false;
     });
+    widget.drinksOpen.value = _drinksOpen;
   }
 
   void _toggleDrinks() {
@@ -885,6 +912,7 @@ class _MenuByCategoryState extends ConsumerState<_MenuByCategory> {
       _drinksOpen = !_drinksOpen;
       _open = null;
     });
+    widget.drinksOpen.value = _drinksOpen;
   }
 
   Future<void> _removeDrink(EventDrink drink) async {
@@ -930,55 +958,6 @@ class _MenuByCategoryState extends ConsumerState<_MenuByCategory> {
     ref.invalidate(eventReadinessProvider);
   }
 
-  /// Spec 016 §3.2: the drink's per-event unit quantity is adjustable (no guest
-  /// scaling). A compact sheet with a stepper, persisted live so the shopping
-  /// line follows.
-  Future<void> _editDrinkQuantity(EventDrink drink) async {
-    final l10n = AppLocalizations.of(context);
-    var quantity = drink.quantity;
-    await showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: AppColors.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
-      ),
-      builder: (sheetContext) => StatefulBuilder(
-        builder: (sheetContext, setSheetState) => Padding(
-          padding: EdgeInsets.fromLTRB(
-            20,
-            20,
-            20,
-            20 + MediaQuery.of(sheetContext).viewInsets.bottom,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                capitalizeFirst(drink.name),
-                style: AppTypography.sectionTitle,
-              ),
-              const SizedBox(height: 16),
-              FieldLabel(
-                label: l10n.drinkQuantityLabel,
-                child: StepperField(
-                  value: quantity,
-                  onChanged: (v) async {
-                    setSheetState(() => quantity = v);
-                    await ref
-                        .read(eventsRepositoryProvider)
-                        .updateEventDrinkQuantity(drink.id, v);
-                    ref.invalidate(eventDrinksProvider(widget.eventId));
-                    ref.invalidate(eventShoppingProvider(widget.eventId));
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -1040,19 +1019,19 @@ class _MenuByCategoryState extends ConsumerState<_MenuByCategory> {
               for (final drink in widget.drinks)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
+                  // Spec 017 §A.3: editing the quantity is now an explicit-save
+                  // screen, not an on-the-fly bottom sheet.
                   child: _DrinkRow(
                     drink: drink,
-                    onTap: () => _editDrinkQuantity(drink),
+                    onTap: () => context.push(
+                      '/events/${widget.eventId}/drinks/${drink.id}/edit',
+                      extra: drink,
+                    ),
                     onRemove: () => _removeDrink(drink),
                   ),
                 ),
-              const SizedBox(height: 8),
-              SecondaryButton(
-                label: l10n.addDrinkToMenuAction,
-                icon: Icons.add,
-                onPressed: () =>
-                    context.push('/events/${widget.eventId}/add-drink'),
-              ),
+              // §A.1: no inline "Afegeix beguda" here — the screen's bottom
+              // button becomes "Afegeix beguda" while this section is open.
               const SizedBox(height: 4),
             ],
           ),

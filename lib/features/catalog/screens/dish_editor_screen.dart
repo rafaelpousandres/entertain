@@ -8,6 +8,7 @@ import '../../../theme/app_typography.dart';
 import '../../../ui/app_form_field.dart';
 import '../../../ui/single_choice_sheet.dart';
 import '../../../ui/edit_scaffold.dart';
+import '../../../ui/help_icon_button.dart';
 import '../../../ui/secondary_button.dart';
 import '../../../ui/segmented_choice.dart';
 import '../../../ui/stepper_field.dart';
@@ -355,6 +356,13 @@ class _DishFormState extends ConsumerState<_DishForm>
       onSave: _busy ? null : _save,
       onDiscard: _discardPhotos,
       trailingActions: [
+        // Spec 017 §B.2: explain the cooked/bought toggle.
+        HelpIconButton(
+          title: widget.isEditing
+              ? l10n.dishEditScreenTitle
+              : l10n.dishNewScreenTitle,
+          body: l10n.helpDishEditorBody,
+        ),
         if (widget.isEditing)
           PopupMenuButton<_OverflowAction>(
             icon: const Icon(Icons.more_vert),

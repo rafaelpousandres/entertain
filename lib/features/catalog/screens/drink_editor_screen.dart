@@ -7,6 +7,7 @@ import '../../../theme/app_colors.dart';
 import '../../../theme/app_typography.dart';
 import '../../../ui/app_form_field.dart';
 import '../../../ui/edit_scaffold.dart';
+import '../../../ui/help_icon_button.dart';
 import '../../../ui/single_choice_sheet.dart';
 import '../../events/data/events_providers.dart' show currentGroupIdProvider;
 import '../../photos/data/media.dart';
@@ -315,6 +316,13 @@ class _DrinkFormState extends ConsumerState<_DrinkForm>
       onSave: _busy ? null : _save,
       onDiscard: _discardPhotos,
       trailingActions: [
+        // Spec 017 §B.2: explain denomination + no scaling.
+        HelpIconButton(
+          title: widget.isEditing
+              ? l10n.drinkEditScreenTitle
+              : l10n.drinkNewScreenTitle,
+          body: l10n.helpDrinkEditorBody,
+        ),
         if (widget.isEditing)
           PopupMenuButton<_OverflowAction>(
             icon: const Icon(Icons.more_vert),
