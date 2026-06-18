@@ -157,3 +157,15 @@ Decisió (**Nivell 1 + default per categoria**, Spec 013):
 - [ ] Fixar el contracte de sortida de l'importador (Fase 1, importador).
 - [ ] Política de drets per font (Fase 1, importador).
 - [ ] Estratègia de mapeig ingredient↔catàleg i unitat↔canònica (Fase 1, importador).
+
+### Limitació coneguda: un proveïdor per categoria-comanda (Nivell 1)
+
+Amb el model de la Spec 013 (Nivell 1), per a una comanda concreta es tria **un** proveïdor de la categoria i **tot** el que es demana d'aquella categoria va a aquell proveïdor. **No** es pot repartir una mateixa categoria entre dos proveïdors dins del mateix esdeveniment (ex.: la sípia a La Samba i el lluç a Ocean Catch per al mateix sopar).
+
+Decisió: **acceptar la limitació per ara**. El cas habitual és que tota una categoria va al mateix proveïdor; repartir-la dins un mateix esdeveniment és poc freqüent. No s'hi actua especulativament.
+
+Opcions de resolució futures, si l'ús real ho demana:
+- **Nivell 2** — proveïdor preferit per ingredient dins la categoria. Resol el cas, afegeix UI/complexitat per ingredient.
+- **Repartir a la comanda** — a la pantalla de generar comanda d'una categoria amb >1 proveïdor, assignar cada línia a un proveïdor. Potent però d'UI complexa.
+
+Revisar només si l'ús demostra que el cas passa prou sovint per molestar.
