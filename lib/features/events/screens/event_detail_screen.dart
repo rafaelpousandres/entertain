@@ -13,8 +13,10 @@ import '../../../ui/primary_button.dart';
 import '../../../ui/section_header.dart';
 import '../../../ui/segmented_choice.dart';
 import '../../../ui/stepper_field.dart';
+import '../../catalog/data/denomination.dart';
 import '../../catalog/data/dish.dart' show quantityDecimalSeparator;
 import '../../catalog/data/dish_category.dart';
+import '../../../util/text_case.dart';
 import '../../photos/data/media.dart';
 import '../../photos/data/media_providers.dart';
 import '../../photos/data/photo_storage.dart';
@@ -928,11 +930,12 @@ class _MenuByCategoryState extends ConsumerState<_MenuByCategory> {
     ref.invalidate(eventReadinessProvider);
   }
 
-  /// §2.3: the drink's per-event servings are adjustable. A compact sheet with a
-  /// stepper, persisted live so the shopping line follows.
-  Future<void> _editDrinkServings(EventDrink drink) async {
+  /// Spec 016 §3.2: the drink's per-event unit quantity is adjustable (no guest
+  /// scaling). A compact sheet with a stepper, persisted live so the shopping
+  /// line follows.
+  Future<void> _editDrinkQuantity(EventDrink drink) async {
     final l10n = AppLocalizations.of(context);
-    var servings = drink.servings;
+    var quantity = drink.quantity;
     await showModalBottomSheet<void>(
       context: context,
       backgroundColor: AppColors.surface,
@@ -951,17 +954,20 @@ class _MenuByCategoryState extends ConsumerState<_MenuByCategory> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(drink.name, style: AppTypography.sectionTitle),
+              Text(
+                capitalizeFirst(drink.name),
+                style: AppTypography.sectionTitle,
+              ),
               const SizedBox(height: 16),
               FieldLabel(
-                label: l10n.dishBaseServingsLabel,
+                label: l10n.drinkQuantityLabel,
                 child: StepperField(
-                  value: servings,
+                  value: quantity,
                   onChanged: (v) async {
-                    setSheetState(() => servings = v);
+                    setSheetState(() => quantity = v);
                     await ref
                         .read(eventsRepositoryProvider)
-                        .updateEventDrinkServings(drink.id, v);
+                        .updateEventDrinkQuantity(drink.id, v);
                     ref.invalidate(eventDrinksProvider(widget.eventId));
                     ref.invalidate(eventShoppingProvider(widget.eventId));
                   },
@@ -1036,7 +1042,7 @@ class _MenuByCategoryState extends ConsumerState<_MenuByCategory> {
                   padding: const EdgeInsets.only(bottom: 8),
                   child: _DrinkRow(
                     drink: drink,
-                    onTap: () => _editDrinkServings(drink),
+                    onTap: () => _editDrinkQuantity(drink),
                     onRemove: () => _removeDrink(drink),
                   ),
                 ),
@@ -1063,8 +1069,9 @@ class _MenuByCategoryState extends ConsumerState<_MenuByCategory> {
   }
 }
 
-/// A drink row in the event Menu's Begudes section (Spec 014): name + its
-/// scaled servings, tap to adjust servings, with a remove action.
+/// A drink row in the event Menu's Begudes section (Spec 014/016): name + its
+/// unit quantity ("2 ampolles"), tap to adjust the quantity, with a remove
+/// action.
 class _DrinkRow extends StatelessWidget {
   const _DrinkRow({
     required this.drink,
@@ -1099,14 +1106,18 @@ class _DrinkRow extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      drink.name,
+                      capitalizeFirst(drink.name),
                       style: AppTypography.body,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      l10n.eventDishServings(drink.servings),
+                      denominationCount(
+                        l10n,
+                        drink.denomination,
+                        drink.quantity,
+                      ),
                       style: AppTypography.caption,
                     ),
                   ],

@@ -17,6 +17,7 @@ import '../../photos/data/media_providers.dart';
 import '../../photos/data/photo_edit_session_host.dart';
 import '../../photos/data/photo_storage.dart';
 import '../../photos/widgets/photo_carousel_section.dart';
+import '../../shopping/supplier_category_format.dart';
 import '../data/catalog_providers.dart';
 import '../data/dish.dart';
 import '../data/dish_category.dart';
@@ -97,8 +98,6 @@ class _DishFormState extends ConsumerState<_DishForm>
   late final TextEditingController _descriptionController;
   late final TextEditingController _preparationController;
   // Spec 014 §2.1: bought-dish fields (used only when acquisitionMode is bought).
-  late final TextEditingController _purchaseUnitController;
-  late final TextEditingController _servingsPerUnitController;
   late final DishDraft _draft;
 
   bool _saving = false;
@@ -121,14 +120,6 @@ class _DishFormState extends ConsumerState<_DishForm>
     _preparationController = TextEditingController(
       text: _draft.preparation ?? '',
     );
-    _purchaseUnitController = TextEditingController(
-      text: _draft.purchaseUnit ?? '',
-    );
-    _servingsPerUnitController = TextEditingController(
-      text: _draft.servingsPerUnit == null
-          ? ''
-          : formatServingsPerUnit(_draft.servingsPerUnit!),
-    );
     // §2.6: snapshot the dish's photos so a Discard can roll back photo changes
     // made during this edit (photos exist only once the dish does).
     if (widget.isEditing) {
@@ -141,8 +132,6 @@ class _DishFormState extends ConsumerState<_DishForm>
     _nameController.dispose();
     _descriptionController.dispose();
     _preparationController.dispose();
-    _purchaseUnitController.dispose();
-    _servingsPerUnitController.dispose();
     super.dispose();
   }
 
@@ -170,6 +159,16 @@ class _DishFormState extends ConsumerState<_DishForm>
         _draft.lines[index] = result.line!;
       }
     });
+  }
+
+  /// Spec 016 §2.2: the system "Plats preparats" category id, used as the
+  /// editable default supplier when a dish is first switched to bought. Null
+  /// when the category list hasn't loaded or the seed is absent.
+  String? _presetBoughtSupplierId(List<SupplierCategory>? categories) {
+    for (final c in categories ?? const <SupplierCategory>[]) {
+      if (c.code == preparedDishesCategoryCode) return c.id;
+    }
+    return null;
   }
 
   /// §2.1: supplier-category picker for a bought dish.
@@ -203,13 +202,6 @@ class _DishFormState extends ConsumerState<_DishForm>
     _draft.name = _nameController.text;
     _draft.description = _descriptionController.text;
     _draft.preparation = _preparationController.text;
-    // §2.1: the bought-only fields are read here; DishDraft.toRow nulls them when
-    // cooked, and the repository preserves hidden ingredient lines on a bought
-    // dish (no data loss when toggling).
-    _draft.purchaseUnit = _purchaseUnitController.text;
-    _draft.servingsPerUnit = double.tryParse(
-      _servingsPerUnitController.text.trim().replaceAll(',', '.'),
-    );
 
     if (_draft.name.trim().isEmpty) {
       setState(() => _nameError = l10n.dishNameRequired);
@@ -466,8 +458,8 @@ class _DishFormState extends ConsumerState<_DishForm>
           ),
           const SizedBox(height: 16),
           // §2.1: cooked / bought toggle. Bought hides the ingredients section
-          // and shows supplier + purchase-unit fields instead; switching does
-          // not delete the (hidden) ingredient lines.
+          // and the preparation field, and shows the supplier category instead;
+          // switching does not delete the (hidden) ingredient lines.
           FieldLabel(
             label: l10n.dishAcquisitionLabel,
             child: SegmentedChoice<DishAcquisitionMode>(
@@ -475,6 +467,14 @@ class _DishFormState extends ConsumerState<_DishForm>
               onChanged: (v) => setState(() {
                 _dirty = true;
                 _draft.acquisitionMode = v;
+                // Spec 016 §2.2: preselect the system "Plats preparats" category
+                // as an editable default the first time a dish becomes bought.
+                if (v == DishAcquisitionMode.bought &&
+                    _draft.supplierCategoryId == null) {
+                  _draft.supplierCategoryId = _presetBoughtSupplierId(
+                    categories,
+                  );
+                }
               }),
               options: [
                 SegmentedChoiceOption(
@@ -503,36 +503,6 @@ class _DishFormState extends ConsumerState<_DishForm>
                         _draft.supplierCategoryId = null;
                       }),
               ),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: FieldLabel(
-                    label: l10n.purchaseUnitLabel,
-                    child: AppTextField(
-                      controller: _purchaseUnitController,
-                      hintText: l10n.purchaseUnitHint,
-                      onChanged: (_) => _dirty = true,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: FieldLabel(
-                    label: l10n.servingsPerUnitLabel,
-                    child: AppTextField(
-                      controller: _servingsPerUnitController,
-                      hintText: l10n.servingsPerUnitHint,
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                      ),
-                      onChanged: (_) => _dirty = true,
-                    ),
-                  ),
-                ),
-              ],
             ),
           ] else ...[
             const SizedBox(height: 24),
@@ -563,18 +533,21 @@ class _DishFormState extends ConsumerState<_DishForm>
           ],
           // Fixes §2.2: the preparation goes below the ingredient lines so the
           // editor follows a recipe's natural reading order (title →
-          // description → metadata → ingredients → preparation).
-          const SizedBox(height: 24),
-          FieldLabel(
-            label: l10n.dishPreparationLabel,
-            child: AppTextField(
-              controller: _preparationController,
-              hintText: l10n.dishPreparationHint,
-              maxLines: 8,
-              textInputAction: TextInputAction.newline,
-              onChanged: (_) => _dirty = true,
+          // description → metadata → ingredients → preparation). Spec 016 §2.2:
+          // hidden for a bought dish — a ready-made dish has no preparation.
+          if (!_draft.isBought) ...[
+            const SizedBox(height: 24),
+            FieldLabel(
+              label: l10n.dishPreparationLabel,
+              child: AppTextField(
+                controller: _preparationController,
+                hintText: l10n.dishPreparationHint,
+                maxLines: 8,
+                textInputAction: TextInputAction.newline,
+                onChanged: (_) => _dirty = true,
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );

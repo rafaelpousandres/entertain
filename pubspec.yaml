@@ -111,9 +111,15 @@ flutter_launcher_icons:
 # background colour (AppColors.bg, #FBF5EA). The app is light-theme only, so
 # there is no dark variant. Regenerate native assets with
 # `dart run flutter_native_splash:create` after changing this block.
+#
+# Spec 016 §5.3 — Android 12+ masks the splash icon to a circle, so the full-
+# bleed legacy artwork was clipped (the outer chairs cut off). The android_12
+# image now uses the adaptive *foreground* asset, which carries the same
+# safe-zone padding as the launcher icon (~66%), so the artwork sits inside the
+# circle uncropped. Pre-12 keeps the legacy full-bleed image (no circle mask).
 flutter_native_splash:
   color: "#FBF5EA"
   image: "assets/icon/entertain - icon legacy.png"
   android_12:
     color: "#FBF5EA"
-    image: "assets/icon/entertain - icon legacy.png"
+    image: "assets/icon/entertain - icon foreground.png"

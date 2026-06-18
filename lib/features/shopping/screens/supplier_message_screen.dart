@@ -324,7 +324,8 @@ class _SupplierMessageScreenState extends ConsumerState<SupplierMessageScreen> {
             shoppingUnitName(
               kind: line.kind,
               unitId: line.unitId,
-              purchaseUnitLabel: line.purchaseUnitLabel,
+              denomination: line.denomination,
+              count: line.quantity.round(),
               unitsById: unitsById,
               l10n: l10n,
             ),
@@ -339,7 +340,8 @@ class _SupplierMessageScreenState extends ConsumerState<SupplierMessageScreen> {
             shoppingUnitName(
               kind: extra.kind,
               unitId: extra.unitId,
-              purchaseUnitLabel: extra.purchaseUnitLabel,
+              denomination: extra.denomination,
+              count: extra.quantity.round(),
               unitsById: unitsById,
               l10n: l10n,
             ),
@@ -799,7 +801,7 @@ class _Composer extends StatelessWidget {
                       child: Text(
                         neededByTime == null
                             ? l10n.supplierMessageAddTime
-                            : formatNeededByTime(neededByTime!),
+                            : formatNeededByTimeDisplay(neededByTime!),
                         style: AppTypography.body.copyWith(
                           color: neededByTime == null
                               ? AppColors.textTertiary

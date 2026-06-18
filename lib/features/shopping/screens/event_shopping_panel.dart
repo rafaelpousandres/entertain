@@ -25,6 +25,7 @@ import '../data/shopping_models.dart';
 import '../data/shopping_providers.dart';
 import '../ingredient_state_format.dart';
 import '../shopping_line_format.dart';
+import '../../../util/text_case.dart';
 import '../supplier_category_format.dart';
 
 /// Event shopping panel (Specification 005 §2.3 + 007 §3.4): the event's
@@ -118,7 +119,8 @@ class _EventShoppingPanelState extends ConsumerState<EventShoppingPanel> {
           shoppingUnitName(
             kind: line.kind,
             unitId: line.unitId,
-            purchaseUnitLabel: line.purchaseUnitLabel,
+            denomination: line.denomination,
+            count: line.quantity.round(),
             unitsById: unitsById,
             l10n: l10n,
           ),
@@ -133,7 +135,8 @@ class _EventShoppingPanelState extends ConsumerState<EventShoppingPanel> {
           shoppingUnitName(
             kind: extra.kind,
             unitId: extra.unitId,
-            purchaseUnitLabel: extra.purchaseUnitLabel,
+            denomination: extra.denomination,
+            count: extra.quantity.round(),
             unitsById: unitsById,
             l10n: l10n,
           ),
@@ -993,11 +996,17 @@ class _LineRow extends StatelessWidget {
         Localizations.localeOf(context).languageCode,
       ),
     );
-    // Spec 014: a purchase line shows its free-text unit ("3 safates") or a
-    // localised "racions"; an ingredient line shows its unit name.
-    final unitName = line.isPurchaseItem
-        ? (line.purchaseUnitLabel ?? l10n.shoppingServingsUnit)
-        : unit?.name;
+    // Spec 016: a bought-dish line shows a bare count ("3"); a drink shows its
+    // denomination noun ("2 ampolles"); an ingredient shows its unit name.
+    final unitName = shoppingUnitName(
+      kind: line.kind,
+      unitId: line.unitId,
+      denomination: line.denomination,
+      count: line.quantity.round(),
+      unitsById: unit == null ? const {} : {unit!.id: unit!},
+      l10n: l10n,
+      omitGenericUnit: false,
+    );
     final measure = unitName == null ? qty : '$qty $unitName';
     return Material(
       color: AppColors.surface,
@@ -1015,7 +1024,11 @@ class _LineRow extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  line.ingredientName,
+                  // Spec 016 §5.2: purchase-line names (drinks / prepared dishes)
+                  // display capitalised, like ingredient names.
+                  line.isPurchaseItem
+                      ? capitalizeFirst(line.ingredientName)
+                      : line.ingredientName,
                   style: AppTypography.body,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,

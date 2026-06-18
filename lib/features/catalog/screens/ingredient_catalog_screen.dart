@@ -17,35 +17,19 @@ import '../data/ingredient.dart';
 import '../data/reference_data.dart';
 
 /// Key for the bucket of ingredients with no supplier category.
-const String _uncategorisedGroupKey = '__uncategorised__';
+const String _uncategorisedGroupKey = uncategorisedGroupKey;
 
-/// Orders the supplier-group keys for the ingredient accordion: dispatch
-/// suppliers first (alphabetical), then the pantry, then uncategorised last —
-/// consistent with the Suppliers settings tab and the shopping panel. Only
-/// groups that actually contain ingredients are returned. Shared by the list
-/// rendering and the "New ingredient" preselect (§A).
+/// Orders the supplier-group keys for the ingredient accordion. Delegates to the
+/// shared [orderedSupplierGroupKeys] (Spec 016 §4b) so Ingredients and Begudes
+/// stay consistent: dispatch suppliers first (alphabetical), then the pantry,
+/// then uncategorised last.
 List<String> orderedIngredientGroupKeys(
   List<Ingredient> ingredients,
   Map<String, SupplierCategory> categoriesById,
-) {
-  final keys = <String>{
-    for (final i in ingredients)
-      i.defaultSupplierCategoryId ?? _uncategorisedGroupKey,
-  };
-  return keys.toList()
-    ..sort((a, b) {
-      if (a == _uncategorisedGroupKey) return 1;
-      if (b == _uncategorisedGroupKey) return -1;
-      final ca = categoriesById[a];
-      final cb = categoriesById[b];
-      final aPantry = ca != null && isPantryCategory(ca.code);
-      final bPantry = cb != null && isPantryCategory(cb.code);
-      if (aPantry != bPantry) return aPantry ? 1 : -1;
-      final na = ca?.name ?? '';
-      final nb = cb?.name ?? '';
-      return na.toLowerCase().compareTo(nb.toLowerCase());
-    });
-}
+) => orderedSupplierGroupKeys(
+  [for (final i in ingredients) i.defaultSupplierCategoryId],
+  categoriesById,
+);
 
 /// Ingredient catalog (Specification 004 screen 4). Lists the group's
 /// ingredients with their default unit and supplier category, with an empty

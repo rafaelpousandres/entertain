@@ -22,6 +22,19 @@ void main() {
     });
   });
 
+  group('formatNeededByTimeDisplay (Spec 016 §5.4 — appends the hour mark)', () {
+    test('appends "h" to the 24-hour time', () {
+      expect(
+        formatNeededByTimeDisplay(const TimeOfDay(hour: 13, minute: 0)),
+        '13:00h',
+      );
+      expect(
+        formatNeededByTimeDisplay(const TimeOfDay(hour: 9, minute: 5)),
+        '09:05h',
+      );
+    });
+  });
+
   group('neededBySentence', () {
     late AppLocalizations l10n;
     const locale = Locale('en');
@@ -54,8 +67,9 @@ void main() {
         date,
         const TimeOfDay(hour: 13, minute: 0),
       );
-      expect(sentence, l10n.supplierMessageNeededByWithTime(dayMonth, '13:00'));
-      expect(sentence.contains('13:00'), isTrue);
+      // Spec 016 §5.4: the displayed time carries the hour mark ("13:00h").
+      expect(sentence, l10n.supplierMessageNeededByWithTime(dayMonth, '13:00h'));
+      expect(sentence.contains('13:00h'), isTrue);
       // The with-time sentence is distinct from the date-only one.
       expect(sentence, isNot(neededBySentence(l10n, locale, date, null)));
     });

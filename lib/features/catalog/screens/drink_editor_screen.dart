@@ -8,25 +8,35 @@ import '../../../theme/app_typography.dart';
 import '../../../ui/app_form_field.dart';
 import '../../../ui/edit_scaffold.dart';
 import '../../../ui/single_choice_sheet.dart';
-import '../../../ui/stepper_field.dart';
 import '../../events/data/events_providers.dart' show currentGroupIdProvider;
 import '../../photos/data/media.dart';
 import '../../photos/data/media_providers.dart';
 import '../../photos/data/photo_edit_session_host.dart';
 import '../../photos/data/photo_storage.dart';
 import '../../photos/widgets/photo_carousel_section.dart';
+import '../../shopping/supplier_category_format.dart';
 import '../data/catalog_providers.dart';
-import '../data/dish.dart' show formatServingsPerUnit;
+import '../data/denomination.dart';
 import '../data/drink.dart';
 import '../data/reference_data.dart';
 
-/// Create / edit a catalog drink (Spec 014 §2.2). The bought-item shape without
-/// ingredients: name, supplier category, base servings, an optional purchase
-/// unit + servings-per-unit, and photos.
+/// Create / edit a catalog drink (Spec 014 §2.2, refined by Spec 016 §3.2). The
+/// units-only shape: name, supplier category (preselected to the system
+/// "Begudes" category), a denomination (bottle, can, …), and photos. No
+/// servings, no scaling.
 class DrinkEditorScreen extends ConsumerWidget {
-  const DrinkEditorScreen({super.key, this.drinkId});
+  const DrinkEditorScreen({
+    super.key,
+    this.drinkId,
+    this.initialSupplierCategoryId,
+  });
 
   final String? drinkId;
+
+  /// §4b: supplier category to preselect for a brand-new drink — the catalog's
+  /// open accordion category. An editable default; ignored when editing. Null
+  /// falls back to the system "Begudes" category.
+  final String? initialSupplierCategoryId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -58,16 +68,23 @@ class DrinkEditorScreen extends ConsumerWidget {
       drinkId: drinkId,
       initial: drinkAsync.value,
       categories: categoriesAsync.value!,
+      initialSupplierCategoryId: initialSupplierCategoryId,
     );
   }
 }
 
 class _DrinkForm extends ConsumerStatefulWidget {
-  const _DrinkForm({this.drinkId, this.initial, required this.categories});
+  const _DrinkForm({
+    this.drinkId,
+    this.initial,
+    required this.categories,
+    this.initialSupplierCategoryId,
+  });
 
   final String? drinkId;
   final Drink? initial;
   final List<SupplierCategory> categories;
+  final String? initialSupplierCategoryId;
 
   bool get isEditing => drinkId != null;
 
@@ -78,8 +95,6 @@ class _DrinkForm extends ConsumerStatefulWidget {
 class _DrinkFormState extends ConsumerState<_DrinkForm>
     with PhotoEditSessionHost<_DrinkForm> {
   late final TextEditingController _nameController;
-  late final TextEditingController _purchaseUnitController;
-  late final TextEditingController _servingsPerUnitController;
   late DrinkDraft _draft;
 
   bool _saving = false;
@@ -90,25 +105,28 @@ class _DrinkFormState extends ConsumerState<_DrinkForm>
 
   bool get _busy => _saving || _deleting;
 
-  void _markDirty() {
-    if (!_dirty) setState(() => _dirty = true);
-  }
-
   @override
   void initState() {
     super.initState();
     _draft = widget.initial != null
         ? DrinkDraft.fromDrink(widget.initial!)
         : DrinkDraft.empty();
+    // §4b: a brand-new drink preselects the catalog's open accordion category
+    // when one was passed; otherwise (Spec 016 §3.2) the system "Begudes"
+    // category. Both are editable defaults.
+    if (!widget.isEditing && _draft.supplierCategoryId == null) {
+      if (widget.initialSupplierCategoryId != null) {
+        _draft.supplierCategoryId = widget.initialSupplierCategoryId;
+      } else {
+        for (final c in widget.categories) {
+          if (c.code == beveragesCategoryCode) {
+            _draft.supplierCategoryId = c.id;
+            break;
+          }
+        }
+      }
+    }
     _nameController = TextEditingController(text: _draft.name);
-    _purchaseUnitController = TextEditingController(
-      text: _draft.purchaseUnit ?? '',
-    );
-    _servingsPerUnitController = TextEditingController(
-      text: _draft.servingsPerUnit == null
-          ? ''
-          : formatServingsPerUnit(_draft.servingsPerUnit!),
-    );
     if (widget.isEditing) {
       initPhotoSession(MediaEntityType.drink, widget.drinkId!);
     }
@@ -117,8 +135,6 @@ class _DrinkFormState extends ConsumerState<_DrinkForm>
   @override
   void dispose() {
     _nameController.dispose();
-    _purchaseUnitController.dispose();
-    _servingsPerUnitController.dispose();
     super.dispose();
   }
 
@@ -153,16 +169,34 @@ class _DrinkFormState extends ConsumerState<_DrinkForm>
     );
   }
 
+  /// Spec 016 §3.3: pick the drink's denomination from the predefined list,
+  /// shown by localised singular ("ampolla", "llauna", …).
+  void _pickDenomination() {
+    final l10n = AppLocalizations.of(context);
+    showSingleChoiceSheet<String>(
+      context: context,
+      title: l10n.drinkDenominationLabel,
+      selectedValue: _draft.denomination,
+      options: [
+        for (final d in Denomination.values)
+          SingleChoiceOption(
+            value: d.wire,
+            label: denominationName(l10n, d.wire),
+          ),
+      ],
+      onSelected: (code) => setState(() {
+        _dirty = true;
+        _draft.denomination = code;
+      }),
+    );
+  }
+
   Future<void> _save() async {
     final l10n = AppLocalizations.of(context);
     final messenger = ScaffoldMessenger.of(context);
 
     setState(() => _submitted = true);
     _draft.name = _nameController.text;
-    _draft.purchaseUnit = _purchaseUnitController.text;
-    _draft.servingsPerUnit = double.tryParse(
-      _servingsPerUnitController.text.trim().replaceAll(',', '.'),
-    );
 
     if (_draft.name.trim().isEmpty) {
       setState(() => _nameError = l10n.drinkNameRequired);
@@ -358,44 +392,12 @@ class _DrinkFormState extends ConsumerState<_DrinkForm>
           ),
           const SizedBox(height: 16),
           FieldLabel(
-            label: l10n.dishBaseServingsLabel,
-            child: StepperField(
-              value: _draft.baseServings,
-              onChanged: (v) => setState(() {
-                _dirty = true;
-                _draft.baseServings = v;
-              }),
+            label: l10n.drinkDenominationLabel,
+            child: FormFieldTile(
+              onTap: _pickDenomination,
+              placeholder: l10n.drinkDenominationLabel,
+              value: denominationName(l10n, _draft.denomination),
             ),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: FieldLabel(
-                  label: l10n.purchaseUnitLabel,
-                  child: AppTextField(
-                    controller: _purchaseUnitController,
-                    hintText: l10n.purchaseUnitHint,
-                    onChanged: (_) => _markDirty(),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: FieldLabel(
-                  label: l10n.servingsPerUnitLabel,
-                  child: AppTextField(
-                    controller: _servingsPerUnitController,
-                    hintText: l10n.servingsPerUnitHint,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    onChanged: (_) => _markDirty(),
-                  ),
-                ),
-              ),
-            ],
           ),
         ],
       ),

@@ -1,66 +1,63 @@
-/// Quantity rule for a prepared-dish / drink purchase line (Spec 014 §2.5).
+/// Single shopping line for a prepared (bought) dish or a drink (Spec 014 §2.5,
+/// refined by Spec 016).
 ///
-/// A bought item is one shopping line. If it defines a purchase unit and how
-/// many servings that unit provides, the line shows **units to buy** =
-/// `ceil(scaledServings / servingsPerUnit)` (e.g. "3 safates"); otherwise it
-/// shows the **scaled servings** and the user judges how much to ask for.
+/// Both are one shopping line that never decomposes into ingredients and never
+/// merges with another item, but they quantify differently now:
+///   * a **bought dish** shows units to buy =
+///     `ceil(servings / servingsPerUnit)` (e.g. "3 × Canelons");
+///   * a **drink** shows a manually-set unit count with its denomination
+///     (e.g. "2 ampolles de Vi negre"), no servings, no scaling.
 library;
 
 import 'ingredient_state.dart';
 import 'shopping_models.dart';
 
-class PurchaseQuantity {
-  const PurchaseQuantity(this.quantity, this.unitLabel);
-
-  /// Units to buy when [unitLabel] is set, else the scaled servings.
-  final double quantity;
-
-  /// The free-text purchase unit (e.g. "safates"), or null when the quantity
-  /// is expressed in servings — the UI then appends a localised "racions".
-  final String? unitLabel;
+/// Units to buy for a bought dish from its event snapshot:
+/// `ceil(servings / servingsPerUnit)`. Falls back to [servings] when there is
+/// no per-unit snapshot (defensive — bought dishes always carry one).
+int boughtDishUnits(int servings, double? servingsPerUnit) {
+  if (servingsPerUnit == null || servingsPerUnit <= 0) return servings;
+  return (servings / servingsPerUnit).ceil();
 }
 
-PurchaseQuantity purchaseLineQuantity({
-  required int servings,
-  required String? purchaseUnit,
-  required double? servingsPerUnit,
-}) {
-  final unit = purchaseUnit?.trim();
-  if (unit != null &&
-      unit.isNotEmpty &&
-      servingsPerUnit != null &&
-      servingsPerUnit > 0) {
-    final units = (servings / servingsPerUnit).ceil();
-    return PurchaseQuantity(units.toDouble(), unit);
-  }
-  return PurchaseQuantity(servings.toDouble(), null);
-}
-
-/// Builds the single purchase [ShoppingLine] for a bought dish or a drink from
-/// its already-scaled [servings] snapshot. `ingredientId` is left null so the
-/// aggregation key falls back to the unique line id — a purchase line never
-/// merges with another item.
-ShoppingLine purchaseShoppingLine({
+/// The single purchase [ShoppingLine] for a bought dish. Shown as a bare count
+/// with the dish name (no unit label), so the panel/message read "3 × Canelons"
+/// / "3 canelons". `ingredientId` is null so it never aggregates.
+ShoppingLine boughtDishShoppingLine({
   required String id,
-  required ShoppingLineKind kind,
   required String name,
   required String? supplierCategoryId,
   required int servings,
-  required String? purchaseUnit,
   required double? servingsPerUnit,
   required IngredientState state,
 }) {
-  final q = purchaseLineQuantity(
-    servings: servings,
-    purchaseUnit: purchaseUnit,
-    servingsPerUnit: servingsPerUnit,
-  );
   return ShoppingLine(
     id: id,
     ingredientName: name,
-    quantity: q.quantity,
-    kind: kind,
-    purchaseUnitLabel: q.unitLabel,
+    quantity: boughtDishUnits(servings, servingsPerUnit).toDouble(),
+    kind: ShoppingLineKind.preparedDish,
+    supplierCategoryId: supplierCategoryId,
+    state: state,
+  );
+}
+
+/// The single purchase [ShoppingLine] for a drink: the manual unit [quantity]
+/// plus its [denomination] code, rendered "2 ampolles de Vi negre". Never
+/// aggregates.
+ShoppingLine drinkShoppingLine({
+  required String id,
+  required String name,
+  required String? supplierCategoryId,
+  required int quantity,
+  required String denomination,
+  required IngredientState state,
+}) {
+  return ShoppingLine(
+    id: id,
+    ingredientName: name,
+    quantity: quantity.toDouble(),
+    kind: ShoppingLineKind.drink,
+    denomination: denomination,
     supplierCategoryId: supplierCategoryId,
     state: state,
   );

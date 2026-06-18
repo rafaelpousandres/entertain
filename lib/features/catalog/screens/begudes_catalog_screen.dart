@@ -12,6 +12,7 @@ import '../../photos/data/media_providers.dart';
 import '../../photos/data/photo_storage.dart';
 import '../../photos/widgets/photo_image.dart';
 import '../../shopping/supplier_category_format.dart';
+import '../../../util/text_case.dart';
 import '../data/catalog_providers.dart';
 import '../data/drink.dart';
 import '../data/reference_data.dart';
@@ -20,7 +21,7 @@ import '../data/reference_data.dart';
 /// CatalogShell. Lists the group's drinks grouped by supplier category in an
 /// accordion (consistent with the dish and ingredient catalogs), with an empty
 /// state, a "New drink" action and tap-to-edit rows.
-const String _uncategorisedKey = '__uncategorised__';
+const String _uncategorisedKey = uncategorisedGroupKey;
 
 class BegudesCatalogScreen extends ConsumerStatefulWidget {
   const BegudesCatalogScreen({super.key});
@@ -81,7 +82,27 @@ class _BegudesCatalogScreenState extends ConsumerState<BegudesCatalogScreen> {
         child: PrimaryButton(
           label: l10n.newDrinkAction,
           icon: Icons.add,
-          onPressed: () => context.push('/drinks/new'),
+          // §4b: preselect the open group's supplier (or the first group's when
+          // all collapsed) as an editable default, exactly as Plats/Ingredients
+          // do. The uncategorised group maps to "no supplier" (null).
+          onPressed: () {
+            String? key = _open;
+            if (key == null) {
+              final drinks = drinksAsync.value ?? const <Drink>[];
+              final byId = {
+                for (final c
+                    in categoriesAsync.value ?? const <SupplierCategory>[])
+                  c.id: c,
+              };
+              final ordered = orderedSupplierGroupKeys(
+                [for (final d in drinks) d.supplierCategoryId],
+                byId,
+              );
+              key = ordered.isEmpty ? null : ordered.first;
+            }
+            final supplierCategoryId = key == _uncategorisedKey ? null : key;
+            context.push('/drinks/new', extra: supplierCategoryId);
+          },
         ),
       ),
     );
@@ -112,15 +133,13 @@ class _DrinksBySupplier extends StatelessWidget {
           .putIfAbsent(drink.supplierCategoryId ?? _uncategorisedKey, () => [])
           .add(drink);
     }
-    // Categories first (alphabetical), uncategorised last.
-    final keys = byKey.keys.toList()
-      ..sort((a, b) {
-        if (a == _uncategorisedKey) return 1;
-        if (b == _uncategorisedKey) return -1;
-        final na = categoriesById[a]?.name ?? '';
-        final nb = categoriesById[b]?.name ?? '';
-        return na.toLowerCase().compareTo(nb.toLowerCase());
-      });
+    // §4b: dispatch suppliers first (alphabetical), then Rebost (pantry), then
+    // the "Sense categoria" bucket last — same ordering as the Ingredients
+    // catalog, via the shared helper.
+    final keys = orderedSupplierGroupKeys(
+      [for (final d in drinks) d.supplierCategoryId],
+      categoriesById,
+    );
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
@@ -196,7 +215,8 @@ class _DrinkRow extends StatelessWidget {
               ],
               Expanded(
                 child: Text(
-                  drink.name,
+                  // Spec 016 §5.2: drink names display capitalised like ingredients.
+                  capitalizeFirst(drink.name),
                   style: AppTypography.body,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
