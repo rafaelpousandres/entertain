@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'event.dart';
 import 'event_dish.dart';
 import 'event_dish_line.dart';
+import 'event_drink.dart';
 import 'events_repository.dart';
 
 final _supabaseClientProvider = Provider<SupabaseClient>((ref) {
@@ -58,6 +59,21 @@ final eventDishByIdProvider = FutureProvider.family<EventDish, String>((
   eventDishId,
 ) async {
   return ref.watch(eventsRepositoryProvider).fetchEventDish(eventDishId);
+});
+
+/// Drinks attached to an event (Spec 014), for the Menu's Begudes section.
+final eventDrinksProvider = FutureProvider.family<List<EventDrink>, String>((
+  ref,
+  eventId,
+) async {
+  return ref.watch(eventsRepositoryProvider).listEventDrinks(eventId);
+});
+
+final eventDrinkByIdProvider = FutureProvider.family<EventDrink, String>((
+  ref,
+  eventDrinkId,
+) async {
+  return ref.watch(eventsRepositoryProvider).fetchEventDrink(eventDrinkId);
 });
 
 /// The editable ingredient lines of a per-event dish. Invalidated after any

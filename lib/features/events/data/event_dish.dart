@@ -7,6 +7,7 @@
 /// catalog from the moment it is created.
 library;
 
+import '../../catalog/data/dish.dart' show DishAcquisitionMode, DishAcquisitionModeWire;
 import '../../catalog/data/dish_category.dart';
 
 export '../../catalog/data/dish_category.dart'
@@ -20,6 +21,10 @@ class EventDish {
     required this.servings,
     required this.sortOrder,
     this.sourceDishId,
+    this.acquisitionMode = DishAcquisitionMode.cooked,
+    this.supplierCategoryId,
+    this.purchaseUnit,
+    this.servingsPerUnit,
   });
 
   final String id;
@@ -32,6 +37,16 @@ class EventDish {
   /// `on delete set null`, and a soft-deleted catalog dish keeps it.
   final String? sourceDishId;
 
+  /// Spec 014 §2.1: snapshot of how the dish is obtained. A `bought` event-dish
+  /// is a single purchase line in Shopping; a `cooked` one explodes into its
+  /// ingredient lines as before (these bought-only fields stay null).
+  final DishAcquisitionMode acquisitionMode;
+  final String? supplierCategoryId;
+  final String? purchaseUnit;
+  final double? servingsPerUnit;
+
+  bool get isBought => acquisitionMode == DishAcquisitionMode.bought;
+
   factory EventDish.fromRow(Map<String, dynamic> row) {
     return EventDish(
       id: row['id'] as String,
@@ -40,9 +55,16 @@ class EventDish {
       servings: (row['servings'] as num?)?.toInt() ?? 0,
       sortOrder: (row['sort_order'] as num?)?.toInt() ?? 0,
       sourceDishId: row['source_dish_id'] as String?,
+      acquisitionMode: DishAcquisitionModeWire.parse(
+        row['acquisition_mode'] as String?,
+      ),
+      supplierCategoryId: row['supplier_category_id'] as String?,
+      purchaseUnit: row['purchase_unit'] as String?,
+      servingsPerUnit: (row['servings_per_unit'] as num?)?.toDouble(),
     );
   }
 
   static const String selectColumns =
-      'id, dish_name, category, servings, sort_order, source_dish_id';
+      'id, dish_name, category, servings, sort_order, source_dish_id, '
+      'acquisition_mode, supplier_category_id, purchase_unit, servings_per_unit';
 }

@@ -12,7 +12,9 @@ library;
 enum MediaEntityType {
   event('event'),
   dish('dish'),
-  ingredient('ingredient');
+  ingredient('ingredient'),
+  // Spec 014 §2.2: drinks are a photo-bearing catalog entity too.
+  drink('drink');
 
   const MediaEntityType(this.wire);
 
@@ -36,6 +38,7 @@ extension MediaEntityTypeBucket on MediaEntityType {
     MediaEntityType.event => 'event-photos',
     MediaEntityType.dish => 'dish-photos',
     MediaEntityType.ingredient => 'ingredient-photos',
+    MediaEntityType.drink => 'drink-photos',
   };
 }
 

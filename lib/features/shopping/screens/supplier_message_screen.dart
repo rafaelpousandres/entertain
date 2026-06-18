@@ -27,6 +27,7 @@ import '../data/shopping_delta.dart';
 import '../data/shopping_models.dart';
 import '../data/shopping_providers.dart';
 import '../data/supplier_resolution.dart';
+import '../shopping_line_format.dart';
 import '../supplier_category_format.dart';
 
 /// Fixes §2.3: the unit name to print in a message line, or null when the
@@ -227,7 +228,7 @@ class _SupplierMessageScreenState extends ConsumerState<SupplierMessageScreen> {
       // at the call site after the confirmation — the dispatcher stays unaware
       // of the state machine (Spec §5).
       await repo.updateLineStates([
-        for (final line in delta) line.id,
+        for (final line in delta) ShoppingLineRef(line.id, line.kind),
       ], IngredientState.ordered);
       ref.invalidate(eventShoppingProvider(widget.eventId));
       // Spec 008 §2.4: sending moves lines to `ordered`, which can change the
@@ -295,7 +296,7 @@ class _SupplierMessageScreenState extends ConsumerState<SupplierMessageScreen> {
   }) {
     String itemLine(
       double quantity,
-      String unitId,
+      String? unitName,
       String ingredientName,
       String? prepNote,
     ) => composeItemLine(
@@ -303,9 +304,9 @@ class _SupplierMessageScreenState extends ConsumerState<SupplierMessageScreen> {
         quantity,
         decimalSeparator: quantityDecimalSeparator(locale.languageCode),
       ),
-      // Fixes §2.3: a unit flagged omit_in_display drops out (and the
-      // connector with it) by reusing the no-unit path → "3 ous".
-      unit: _displayUnit(unitsById[unitId]),
+      // Fixes §2.3: a unit flagged omit_in_display drops out (and the connector
+      // with it) → "3 ous". Spec 014: purchase lines carry their own label.
+      unit: unitName,
       connector: l10n.messageItemConnector,
       ingredientName: ingredientName,
       prepNote: prepNote,
@@ -320,7 +321,13 @@ class _SupplierMessageScreenState extends ConsumerState<SupplierMessageScreen> {
         for (final line in items)
           itemLine(
             line.quantity,
-            line.unitId,
+            shoppingUnitName(
+              kind: line.kind,
+              unitId: line.unitId,
+              purchaseUnitLabel: line.purchaseUnitLabel,
+              unitsById: unitsById,
+              l10n: l10n,
+            ),
             line.ingredientName,
             line.prepNote,
           ),
@@ -329,7 +336,13 @@ class _SupplierMessageScreenState extends ConsumerState<SupplierMessageScreen> {
         for (final extra in extras)
           itemLine(
             extra.quantity,
-            extra.unitId,
+            shoppingUnitName(
+              kind: extra.kind,
+              unitId: extra.unitId,
+              purchaseUnitLabel: extra.purchaseUnitLabel,
+              unitsById: unitsById,
+              l10n: l10n,
+            ),
             extra.ingredientName,
             extra.prepNote,
           ),

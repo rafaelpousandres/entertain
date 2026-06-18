@@ -6,6 +6,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_typography.dart';
 import '../../../ui/app_form_field.dart';
+import '../../../ui/single_choice_sheet.dart';
 import '../../../ui/edit_scaffold.dart';
 import '../../../ui/secondary_button.dart';
 import '../../../ui/segmented_choice.dart';
@@ -95,6 +96,9 @@ class _DishFormState extends ConsumerState<_DishForm>
   late final TextEditingController _nameController;
   late final TextEditingController _descriptionController;
   late final TextEditingController _preparationController;
+  // Spec 014 §2.1: bought-dish fields (used only when acquisitionMode is bought).
+  late final TextEditingController _purchaseUnitController;
+  late final TextEditingController _servingsPerUnitController;
   late final DishDraft _draft;
 
   bool _saving = false;
@@ -117,6 +121,14 @@ class _DishFormState extends ConsumerState<_DishForm>
     _preparationController = TextEditingController(
       text: _draft.preparation ?? '',
     );
+    _purchaseUnitController = TextEditingController(
+      text: _draft.purchaseUnit ?? '',
+    );
+    _servingsPerUnitController = TextEditingController(
+      text: _draft.servingsPerUnit == null
+          ? ''
+          : formatServingsPerUnit(_draft.servingsPerUnit!),
+    );
     // §2.6: snapshot the dish's photos so a Discard can roll back photo changes
     // made during this edit (photos exist only once the dish does).
     if (widget.isEditing) {
@@ -129,6 +141,8 @@ class _DishFormState extends ConsumerState<_DishForm>
     _nameController.dispose();
     _descriptionController.dispose();
     _preparationController.dispose();
+    _purchaseUnitController.dispose();
+    _servingsPerUnitController.dispose();
     super.dispose();
   }
 
@@ -158,6 +172,29 @@ class _DishFormState extends ConsumerState<_DishForm>
     });
   }
 
+  /// §2.1: supplier-category picker for a bought dish.
+  void _pickDishSupplier(List<SupplierCategory> categories) {
+    final l10n = AppLocalizations.of(context);
+    showSingleChoiceSheet<String>(
+      context: context,
+      title: l10n.supplierPickerTitle,
+      selectedValue: _draft.supplierCategoryId,
+      clearLabel: l10n.supplierNoneLabel,
+      onCleared: () => setState(() {
+        _dirty = true;
+        _draft.supplierCategoryId = null;
+      }),
+      options: [
+        for (final c in categories)
+          SingleChoiceOption(value: c.id, label: c.name),
+      ],
+      onSelected: (id) => setState(() {
+        _dirty = true;
+        _draft.supplierCategoryId = id;
+      }),
+    );
+  }
+
   Future<void> _save() async {
     final l10n = AppLocalizations.of(context);
     final messenger = ScaffoldMessenger.of(context);
@@ -166,6 +203,13 @@ class _DishFormState extends ConsumerState<_DishForm>
     _draft.name = _nameController.text;
     _draft.description = _descriptionController.text;
     _draft.preparation = _preparationController.text;
+    // §2.1: the bought-only fields are read here; DishDraft.toRow nulls them when
+    // cooked, and the repository preserves hidden ingredient lines on a bought
+    // dish (no data loss when toggling).
+    _draft.purchaseUnit = _purchaseUnitController.text;
+    _draft.servingsPerUnit = double.tryParse(
+      _servingsPerUnitController.text.trim().replaceAll(',', '.'),
+    );
 
     if (_draft.name.trim().isEmpty) {
       setState(() => _nameError = l10n.dishNameRequired);
@@ -420,31 +464,103 @@ class _DishFormState extends ConsumerState<_DishForm>
               }),
             ),
           ),
-          const SizedBox(height: 24),
-          Text(
-            l10n.dishIngredientsSectionTitle,
-            style: AppTypography.sectionTitle,
-          ),
-          const SizedBox(height: 8),
-          if (_draft.lines.isEmpty)
-            _LinesEmpty()
-          else
-            for (var i = 0; i < _draft.lines.length; i++)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: _LineRow(
-                  line: _draft.lines[i],
-                  unit: unitsById[_draft.lines[i].unitId],
-                  supplierCategory: supplierFor(_draft.lines[i]),
-                  onTap: () => _editLine(i),
+          const SizedBox(height: 16),
+          // §2.1: cooked / bought toggle. Bought hides the ingredients section
+          // and shows supplier + purchase-unit fields instead; switching does
+          // not delete the (hidden) ingredient lines.
+          FieldLabel(
+            label: l10n.dishAcquisitionLabel,
+            child: SegmentedChoice<DishAcquisitionMode>(
+              value: _draft.acquisitionMode,
+              onChanged: (v) => setState(() {
+                _dirty = true;
+                _draft.acquisitionMode = v;
+              }),
+              options: [
+                SegmentedChoiceOption(
+                  DishAcquisitionMode.cooked,
+                  l10n.dishAcquisitionCooked,
                 ),
-              ),
-          const SizedBox(height: 12),
-          SecondaryButton(
-            label: l10n.addIngredientLineAction,
-            icon: Icons.add,
-            onPressed: _busy ? null : _addLine,
+                SegmentedChoiceOption(
+                  DishAcquisitionMode.bought,
+                  l10n.dishAcquisitionBought,
+                ),
+              ],
+            ),
           ),
+          if (_draft.isBought) ...[
+            const SizedBox(height: 16),
+            FieldLabel(
+              label: l10n.lineSupplierCategoryLabel,
+              child: FormFieldTile(
+                onTap: () => _pickDishSupplier(categories ?? const []),
+                placeholder: l10n.lineSupplierCategoryHint,
+                value: categoriesById[_draft.supplierCategoryId]?.name,
+                onClear: _draft.supplierCategoryId == null
+                    ? null
+                    : () => setState(() {
+                        _dirty = true;
+                        _draft.supplierCategoryId = null;
+                      }),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: FieldLabel(
+                    label: l10n.purchaseUnitLabel,
+                    child: AppTextField(
+                      controller: _purchaseUnitController,
+                      hintText: l10n.purchaseUnitHint,
+                      onChanged: (_) => _dirty = true,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: FieldLabel(
+                    label: l10n.servingsPerUnitLabel,
+                    child: AppTextField(
+                      controller: _servingsPerUnitController,
+                      hintText: l10n.servingsPerUnitHint,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      onChanged: (_) => _dirty = true,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ] else ...[
+            const SizedBox(height: 24),
+            Text(
+              l10n.dishIngredientsSectionTitle,
+              style: AppTypography.sectionTitle,
+            ),
+            const SizedBox(height: 8),
+            if (_draft.lines.isEmpty)
+              _LinesEmpty()
+            else
+              for (var i = 0; i < _draft.lines.length; i++)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: _LineRow(
+                    line: _draft.lines[i],
+                    unit: unitsById[_draft.lines[i].unitId],
+                    supplierCategory: supplierFor(_draft.lines[i]),
+                    onTap: () => _editLine(i),
+                  ),
+                ),
+            const SizedBox(height: 12),
+            SecondaryButton(
+              label: l10n.addIngredientLineAction,
+              icon: Icons.add,
+              onPressed: _busy ? null : _addLine,
+            ),
+          ],
           // Fixes §2.2: the preparation goes below the ingredient lines so the
           // editor follows a recipe's natural reading order (title →
           // description → metadata → ingredients → preparation).

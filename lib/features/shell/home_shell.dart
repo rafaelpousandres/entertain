@@ -20,13 +20,14 @@ class HomeShell extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
 
+    // Spec 014: the catalogs (Plats · Ingredients · Begudes) are grouped under
+    // one "Catàleg" destination, so the bottom nav stays at three icons.
     final destinations = <_Destination>[
       _Destination(icon: Icons.event_outlined, label: l10n.navEvents),
       _Destination(
         icon: Icons.restaurant_menu_outlined,
-        label: l10n.navDishes,
+        label: l10n.navCatalog,
       ),
-      _Destination(icon: Icons.eco_outlined, label: l10n.navIngredients),
       _Destination(icon: Icons.settings_outlined, label: l10n.navSettings),
     ];
 

@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../events/data/events_providers.dart' show currentGroupIdProvider;
 import 'catalog_repository.dart';
 import 'dish.dart';
+import 'drink.dart';
 import 'ingredient.dart';
 import 'reference_data.dart';
 
@@ -56,6 +57,17 @@ final dishesListProvider = FutureProvider<List<Dish>>((ref) async {
 
 final dishByIdProvider = FutureProvider.family<Dish, String>((ref, id) async {
   return ref.watch(catalogRepositoryProvider).fetchDish(id);
+});
+
+/// Active (not soft-deleted) drinks for the current group, by name (Spec 014).
+final drinksListProvider = FutureProvider<List<Drink>>((ref) async {
+  final repo = ref.watch(catalogRepositoryProvider);
+  final groupId = await ref.watch(currentGroupIdProvider.future);
+  return repo.listDrinks(groupId);
+});
+
+final drinkByIdProvider = FutureProvider.family<Drink, String>((ref, id) async {
+  return ref.watch(catalogRepositoryProvider).fetchDrink(id);
 });
 
 /// Recipe lines of a dish, used to seed the dish editor in edit mode.
