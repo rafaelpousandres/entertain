@@ -24,6 +24,7 @@ import '../data/shopping_delta.dart';
 import '../data/shopping_models.dart';
 import '../data/shopping_providers.dart';
 import '../ingredient_state_format.dart';
+import '../shopping_line_format.dart';
 import '../supplier_category_format.dart';
 
 /// Event shopping panel (Specification 005 §2.3 + 007 §3.4): the event's
@@ -94,7 +95,7 @@ class _EventShoppingPanelState extends ConsumerState<EventShoppingPanel> {
 
     String itemLine(
       double quantity,
-      String unitId,
+      String? unitName,
       String ingredientName,
       String? prepNote,
     ) => composeItemLine(
@@ -102,10 +103,7 @@ class _EventShoppingPanelState extends ConsumerState<EventShoppingPanel> {
         quantity,
         decimalSeparator: quantityDecimalSeparator(locale.languageCode),
       ),
-      // A unit flagged omit_in_display drops out with its connector → "3 ous".
-      unit: (unitsById[unitId]?.omitInDisplay ?? true)
-          ? null
-          : unitsById[unitId]?.name,
+      unit: unitName,
       connector: l10n.messageItemConnector,
       ingredientName: ingredientName,
       prepNote: prepNote,
@@ -117,7 +115,13 @@ class _EventShoppingPanelState extends ConsumerState<EventShoppingPanel> {
       for (final line in toOrderLines)
         itemLine(
           line.quantity,
-          line.unitId,
+          shoppingUnitName(
+            kind: line.kind,
+            unitId: line.unitId,
+            purchaseUnitLabel: line.purchaseUnitLabel,
+            unitsById: unitsById,
+            l10n: l10n,
+          ),
           line.ingredientName,
           line.prepNote,
         ),
@@ -126,7 +130,13 @@ class _EventShoppingPanelState extends ConsumerState<EventShoppingPanel> {
       for (final extra in extras)
         itemLine(
           extra.quantity,
-          extra.unitId,
+          shoppingUnitName(
+            kind: extra.kind,
+            unitId: extra.unitId,
+            purchaseUnitLabel: extra.purchaseUnitLabel,
+            unitsById: unitsById,
+            l10n: l10n,
+          ),
           extra.ingredientName,
           extra.prepNote,
         ),
@@ -134,7 +144,7 @@ class _EventShoppingPanelState extends ConsumerState<EventShoppingPanel> {
 
     await Clipboard.setData(ClipboardData(text: text));
     await ref.read(shoppingRepositoryProvider).updateLineStates([
-      for (final line in toOrderLines) ...line.sourceIds,
+      for (final line in toOrderLines) ...line.refs,
     ], IngredientState.ordered);
     ref.invalidate(eventShoppingProvider(widget.eventId));
     _refreshEventStatus();
@@ -163,16 +173,16 @@ class _EventShoppingPanelState extends ConsumerState<EventShoppingPanel> {
     if (picked == null || picked == line.state) return;
     await ref
         .read(shoppingRepositoryProvider)
-        .updateLineStates(line.sourceIds, picked);
+        .updateLineStates(line.refs, picked);
     ref.invalidate(eventShoppingProvider(widget.eventId));
     _refreshEventStatus();
   }
 
-  Future<void> _markAllReceived(List<String> orderedLineIds) async {
-    if (orderedLineIds.isEmpty) return;
+  Future<void> _markAllReceived(List<ShoppingLineRef> orderedRefs) async {
+    if (orderedRefs.isEmpty) return;
     await ref
         .read(shoppingRepositoryProvider)
-        .updateLineStates(orderedLineIds, IngredientState.received);
+        .updateLineStates(orderedRefs, IngredientState.received);
     ref.invalidate(eventShoppingProvider(widget.eventId));
     _refreshEventStatus();
   }
@@ -217,7 +227,8 @@ class _EventShoppingPanelState extends ConsumerState<EventShoppingPanel> {
           ingredientId: extra.ingredientId,
           ingredientName: extra.ingredientName,
           quantity: extra.quantity,
-          unitId: extra.unitId,
+          // Extras are ingredient lines, so they always carry a real unit id.
+          unitId: extra.unitId!,
           prepNote: extra.prepNote,
           supplierCategoryId: extra.supplierCategoryId,
           sortOrder: 0,
@@ -628,7 +639,7 @@ class _CategorySection extends StatelessWidget {
   final VoidCallback onSend;
   final void Function(AggregatedShoppingLine line, {required bool isPantry})
   onChangeState;
-  final void Function(List<String> orderedLineIds) onMarkAllReceived;
+  final void Function(List<ShoppingLineRef> orderedRefs) onMarkAllReceived;
   final void Function(
     List<AggregatedShoppingLine> toOrderLines,
     List<ShoppingLine> extras,
@@ -651,7 +662,7 @@ class _CategorySection extends StatelessWidget {
     // touches every folded row (Spec 010 §2.1).
     final orderedIds = [
       for (final line in lines)
-        if (line.state == IngredientState.ordered) ...line.sourceIds,
+        if (line.state == IngredientState.ordered) ...line.refs,
     ];
     final toOrderLines = [
       for (final line in lines)
@@ -756,7 +767,7 @@ class _UncategorisedSection extends StatelessWidget {
   final VoidCallback onToggleExpanded;
   final void Function(AggregatedShoppingLine line, {required bool isPantry})
   onChangeState;
-  final void Function(List<String> orderedLineIds) onMarkAllReceived;
+  final void Function(List<ShoppingLineRef> orderedRefs) onMarkAllReceived;
 
   @override
   Widget build(BuildContext context) {
@@ -766,7 +777,7 @@ class _UncategorisedSection extends StatelessWidget {
     final orderedCount = counts[IngredientState.ordered] ?? 0;
     final orderedIds = [
       for (final line in lines)
-        if (line.state == IngredientState.ordered) ...line.sourceIds,
+        if (line.state == IngredientState.ordered) ...line.refs,
     ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -982,7 +993,12 @@ class _LineRow extends StatelessWidget {
         Localizations.localeOf(context).languageCode,
       ),
     );
-    final measure = unit == null ? qty : '$qty ${unit!.name}';
+    // Spec 014: a purchase line shows its free-text unit ("3 safates") or a
+    // localised "racions"; an ingredient line shows its unit name.
+    final unitName = line.isPurchaseItem
+        ? (line.purchaseUnitLabel ?? l10n.shoppingServingsUnit)
+        : unit?.name;
+    final measure = unitName == null ? qty : '$qty $unitName';
     return Material(
       color: AppColors.surface,
       borderRadius: BorderRadius.circular(14),

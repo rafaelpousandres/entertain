@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../events/data/serving_scale.dart';
 import 'ingredient_state.dart';
 import 'message_channel.dart';
+import 'purchase_line.dart';
 import 'shopping_aggregation.dart';
 import 'shopping_models.dart';
 
@@ -31,10 +32,66 @@ class ShoppingRepository {
         )
         .eq('event_dishes.event_id', eventId)
         .order('sort_order', ascending: true);
-    return [
+    final ingredientLines = [
       for (final r in rows as List)
         _shoppingLineFromRow(r as Map<String, dynamic>),
     ];
+
+    // Spec 014 §2.5: bought dishes and drinks join the same pipeline as single
+    // purchase lines (one per item, grouped by supplier, never merged). Cooked
+    // dishes are excluded here — their shopping lines come from the ingredients
+    // above, so their event_dishes.state is never read (no phantom line).
+    final boughtDishes = await _client
+        .from('event_dishes')
+        .select(
+          'id, dish_name, supplier_category_id, purchase_unit, '
+          'servings_per_unit, servings, state',
+        )
+        .eq('event_id', eventId)
+        .eq('is_extras', false)
+        .eq('acquisition_mode', 'bought');
+    final drinks = await _client
+        .from('event_drinks')
+        .select(
+          'id, drink_name, supplier_category_id, purchase_unit, '
+          'servings_per_unit, servings, state',
+        )
+        .eq('event_id', eventId);
+
+    final purchaseLines = [
+      for (final r in boughtDishes as List)
+        _purchaseLineFromRow(
+          r as Map<String, dynamic>,
+          ShoppingLineKind.preparedDish,
+          'dish_name',
+        ),
+      for (final r in drinks as List)
+        _purchaseLineFromRow(
+          r as Map<String, dynamic>,
+          ShoppingLineKind.drink,
+          'drink_name',
+        ),
+    ];
+
+    return [...ingredientLines, ...purchaseLines];
+  }
+
+  /// Builds the single purchase [ShoppingLine] for a bought-dish / drink row.
+  static ShoppingLine _purchaseLineFromRow(
+    Map<String, dynamic> row,
+    ShoppingLineKind kind,
+    String nameKey,
+  ) {
+    return purchaseShoppingLine(
+      id: row['id'] as String,
+      kind: kind,
+      name: row[nameKey] as String,
+      supplierCategoryId: row['supplier_category_id'] as String?,
+      servings: (row['servings'] as num?)?.toInt() ?? 0,
+      purchaseUnit: row['purchase_unit'] as String?,
+      servingsPerUnit: (row['servings_per_unit'] as num?)?.toDouble(),
+      state: IngredientState.parse(row['state'] as String?),
+    );
   }
 
   /// Builds a [ShoppingLine] with its quantity already scaled to the owning
@@ -160,16 +217,33 @@ class ShoppingRepository {
   /// Moves a set of lines to a new state in one round-trip — used by the
   /// "send → ordered" transition (Spec 007 §3.2) and the per-supplier bulk
   /// "mark all as received" action (Spec 007 §3.3). No-op for an empty list.
+  ///
+  /// Spec 014: refs carry the line's kind, so the update is routed to the right
+  /// table — ingredient lines on `event_dish_ingredients`, bought-dish lines on
+  /// `event_dishes`, drink lines on `event_drinks` — with one round-trip per
+  /// table actually present in the batch.
   Future<void> updateLineStates(
-    List<String> lineIds,
+    List<ShoppingLineRef> refs,
     IngredientState state,
   ) async {
-    if (lineIds.isEmpty) return;
-    await _client
-        .from('event_dish_ingredients')
-        .update({'state': state.wire})
-        .inFilter('id', lineIds);
+    if (refs.isEmpty) return;
+    final idsByTable = <String, List<String>>{};
+    for (final ref in refs) {
+      idsByTable.putIfAbsent(_tableForKind(ref.kind), () => []).add(ref.id);
+    }
+    for (final entry in idsByTable.entries) {
+      await _client
+          .from(entry.key)
+          .update({'state': state.wire})
+          .inFilter('id', entry.value);
+    }
   }
+
+  static String _tableForKind(ShoppingLineKind kind) => switch (kind) {
+    ShoppingLineKind.ingredient => 'event_dish_ingredients',
+    ShoppingLineKind.preparedDish => 'event_dishes',
+    ShoppingLineKind.drink => 'event_drinks',
+  };
 
   /// `YYYY-MM-DD` for a `date` column, taking the local calendar date.
   static String _dateOnly(DateTime date) {

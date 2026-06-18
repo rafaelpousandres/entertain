@@ -14,25 +14,53 @@ library;
 import 'ingredient_state.dart';
 import 'message_channel.dart';
 
+/// What an event item is, for the shopping pipeline (Spec 014 §2.5). An
+/// `ingredient` line comes from `event_dish_ingredients` and scales/aggregates
+/// as before; `preparedDish` and `drink` are single purchase lines built from a
+/// bought `event_dishes` / an `event_drinks` row, never decomposed or merged.
+enum ShoppingLineKind { ingredient, preparedDish, drink }
+
+/// A row id paired with its [ShoppingLineKind], so a state change knows which
+/// table to update: `event_dish_ingredients` (ingredient) or the bought
+/// `event_dishes` / `event_drinks` row (purchase lines, Spec 014).
+class ShoppingLineRef {
+  const ShoppingLineRef(this.id, this.kind);
+  final String id;
+  final ShoppingLineKind kind;
+}
+
 class ShoppingLine {
   const ShoppingLine({
     required this.id,
     required this.ingredientName,
     required this.quantity,
-    required this.unitId,
     required this.state,
+    this.unitId,
+    this.kind = ShoppingLineKind.ingredient,
+    this.purchaseUnitLabel,
     this.ingredientId,
     this.prepNote,
     this.supplierCategoryId,
     this.isExtra = false,
   });
 
-  /// The originating `event_dish_ingredients.id`.
+  /// The originating row id: `event_dish_ingredients.id` for ingredients, or the
+  /// `event_dishes` / `event_drinks` id for a purchase line.
   final String id;
   final String? ingredientId;
   final String ingredientName;
   final double quantity;
-  final String unitId;
+
+  /// `units.id` for ingredient lines; null for purchase lines, which carry a
+  /// free-text [purchaseUnitLabel] instead (or none, showing scaled servings).
+  final String? unitId;
+
+  final ShoppingLineKind kind;
+
+  /// Free-text purchase unit for a prepared-dish / drink line (e.g. "safates"),
+  /// or null when the line is expressed in scaled servings.
+  final String? purchaseUnitLabel;
+
   final String? prepNote;
 
   /// Effective supplier assignment for this line; null lines are not part of
@@ -49,6 +77,9 @@ class ShoppingLine {
   /// other), are excluded from status counters, and render with an "Extra"
   /// badge instead of a state.
   final bool isExtra;
+
+  /// A prepared-dish / drink purchase line (vs. an ingredient line).
+  bool get isPurchaseItem => kind != ShoppingLineKind.ingredient;
 
   factory ShoppingLine.fromRow(Map<String, dynamic> row) {
     return ShoppingLine(

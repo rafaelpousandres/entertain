@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'dish.dart';
+import 'drink.dart';
 import 'ingredient.dart';
 import 'reference_data.dart';
 
@@ -248,7 +249,8 @@ class CatalogRepository {
         .select(Dish.selectColumns)
         .single();
     final dish = Dish.fromRow(row);
-    await _replaceLines(dish.id, draft.lines);
+    // §2.1: only a cooked dish owns ingredient lines.
+    if (!draft.isBought) await _replaceLines(dish.id, draft.lines);
     return dish;
   }
 
@@ -259,7 +261,10 @@ class CatalogRepository {
         .eq('id', id)
         .select(Dish.selectColumns)
         .single();
-    await _replaceLines(id, draft.lines);
+    // §2.1: a bought dish keeps its (hidden) ingredient lines untouched, so
+    // switching the toggle back to cooked restores them — no data loss. Only a
+    // cooked dish replaces its lines from the editor.
+    if (!draft.isBought) await _replaceLines(id, draft.lines);
     return Dish.fromRow(row);
   }
 
@@ -317,5 +322,60 @@ class CatalogRepository {
         {...lines[i].toRow(sortOrder: i), 'dish_id': dishId},
     ];
     await _client.from('dish_ingredients').insert(payload);
+  }
+
+  // --- Drinks (Spec 014 §2.2) -------------------------------------------
+  // A drink is the bought-item shape without ingredients, so its CRUD mirrors
+  // dishes minus the recipe lines.
+
+  Future<List<Drink>> listDrinks(String groupId) async {
+    final rows = await _client
+        .from('drinks')
+        .select(Drink.selectColumns)
+        .eq('group_id', groupId)
+        .filter('deleted_at', 'is', null)
+        .order('name', ascending: true);
+    return (rows as List)
+        .map((r) => Drink.fromRow(r as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<Drink> fetchDrink(String id) async {
+    final row = await _client
+        .from('drinks')
+        .select(Drink.selectColumns)
+        .eq('id', id)
+        .filter('deleted_at', 'is', null)
+        .maybeSingle();
+    if (row == null) {
+      throw StateError('Drink not found.');
+    }
+    return Drink.fromRow(row);
+  }
+
+  Future<Drink> createDrink(DrinkDraft draft, {required String groupId}) async {
+    final row = await _client
+        .from('drinks')
+        .insert({...draft.toRow(), 'group_id': groupId})
+        .select(Drink.selectColumns)
+        .single();
+    return Drink.fromRow(row);
+  }
+
+  Future<Drink> updateDrink(String id, DrinkDraft draft) async {
+    final row = await _client
+        .from('drinks')
+        .update(draft.toRow())
+        .eq('id', id)
+        .select(Drink.selectColumns)
+        .single();
+    return Drink.fromRow(row);
+  }
+
+  Future<void> deleteDrink(String id) async {
+    await _client
+        .from('drinks')
+        .update({'deleted_at': DateTime.now().toUtc().toIso8601String()})
+        .eq('id', id);
   }
 }

@@ -3,13 +3,14 @@ import 'package:go_router/go_router.dart';
 
 import '../features/catalog/data/dish.dart';
 import '../features/catalog/data/dish_category.dart';
-import '../features/catalog/screens/dish_catalog_screen.dart';
+import '../features/catalog/screens/catalog_shell.dart';
 import '../features/catalog/screens/dish_editor_screen.dart';
-import '../features/catalog/screens/ingredient_catalog_screen.dart';
+import '../features/catalog/screens/drink_editor_screen.dart';
 import '../features/catalog/screens/ingredient_editor_screen.dart';
 import '../features/catalog/screens/ingredient_line_editor_screen.dart';
 import '../features/catalog/data/reference_data.dart';
 import '../features/events/screens/add_dish_to_menu_screen.dart';
+import '../features/events/screens/add_drink_to_menu_screen.dart';
 import '../features/events/screens/event_detail_screen.dart';
 import '../features/events/screens/event_dish_detail_screen.dart';
 import '../features/events/screens/event_dish_line_editor_screen.dart';
@@ -53,19 +54,19 @@ final GoRouter appRouter = GoRouter(
             ),
           ],
         ),
+        // Spec 014: the three catalogs (Plats · Ingredients · Begudes) live
+        // under one "Catàleg" destination as tabs of CatalogShell.
         StatefulShellBranch(
           routes: [
             GoRoute(
-              path: '/dishes',
-              builder: (context, state) => const DishCatalogScreen(),
-            ),
-          ],
-        ),
-        StatefulShellBranch(
-          routes: [
-            GoRoute(
-              path: '/ingredients',
-              builder: (context, state) => const IngredientCatalogScreen(),
+              path: '/catalog',
+              builder: (context, state) => CatalogShell(
+                initialIndex: switch (state.uri.queryParameters['tab']) {
+                  'ingredients' => 1,
+                  'drinks' => 2,
+                  _ => 0,
+                },
+              ),
             ),
           ],
         ),
@@ -99,6 +100,11 @@ final GoRouter appRouter = GoRouter(
       path: '/events/:id/add-dish',
       builder: (context, state) =>
           _gated(AddDishToMenuScreen(eventId: state.pathParameters['id']!)),
+    ),
+    GoRoute(
+      path: '/events/:id/add-drink',
+      builder: (context, state) =>
+          _gated(AddDrinkToMenuScreen(eventId: state.pathParameters['id']!)),
     ),
     GoRoute(
       path: '/events/:id/dishes/:eventDishId',
@@ -170,6 +176,27 @@ final GoRouter appRouter = GoRouter(
       builder: (context, state) => _gated(
         IngredientEditorScreen(ingredientId: state.pathParameters['id']!),
       ),
+    ),
+
+    // Drinks — create / edit (Spec 014).
+    GoRoute(
+      path: '/drinks/new',
+      builder: (context, state) => _gated(const DrinkEditorScreen()),
+    ),
+    GoRoute(
+      path: '/drinks/:id',
+      builder: (context, state) =>
+          _gated(DrinkEditorScreen(drinkId: state.pathParameters['id']!)),
+    ),
+
+    // Legacy catalog list deep links → the grouped Catàleg tab (Spec 014).
+    GoRoute(
+      path: '/dishes',
+      redirect: (context, state) => '/catalog?tab=dishes',
+    ),
+    GoRoute(
+      path: '/ingredients',
+      redirect: (context, state) => '/catalog?tab=ingredients',
     ),
 
     // Ingredient line editor — a transient sub-editor of the dish editor.

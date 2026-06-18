@@ -22,6 +22,7 @@ class PhotoStorage {
   static const String dishBucket = 'dish-photos';
   static const String ingredientBucket = 'ingredient-photos';
   static const String eventBucket = 'event-photos';
+  static const String drinkBucket = 'drink-photos';
 
   /// Compresses a picked image file into a JPEG at quality 85 (Spec §2.2.2).
   /// `image_picker` has already bounded the longest side to 1600 px on pick;

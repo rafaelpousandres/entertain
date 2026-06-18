@@ -22,7 +22,10 @@ import '../../photos/widgets/photo_carousel_section.dart';
 import '../../photos/widgets/photo_image.dart';
 import '../../shopping/screens/event_shopping_panel.dart';
 import '../data/event.dart';
+import '../../../ui/secondary_button.dart';
+import '../../shopping/data/shopping_providers.dart' show eventShoppingProvider;
 import '../data/event_dish.dart';
+import '../data/event_drink.dart';
 import '../data/event_draft.dart';
 import '../data/menu_totals.dart';
 import '../data/event_tab_store.dart';
@@ -765,6 +768,8 @@ class _MenuView extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     final dishesAsync = ref.watch(eventDishesProvider(event.id));
+    // Spec 014: drinks are a parallel section of the menu.
+    final drinksAsync = ref.watch(eventDrinksProvider(event.id));
 
     // §2: photos for menu rows mirror the catalog. A menu dish is a snapshot,
     // so its photo is the cover (first by position) of the catalog dish it came
@@ -775,34 +780,37 @@ class _MenuView extends ConsumerWidget {
         ref.watch(entityCoverPathsProvider(MediaEntityType.dish)).value ??
         const <String, String>{};
 
+    final loading = dishesAsync.isLoading || drinksAsync.isLoading;
+    final hasError = dishesAsync.hasError || drinksAsync.hasError;
+
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
       children: [
-        dishesAsync.when(
-          loading: () => const Padding(
+        if (loading)
+          const Padding(
             padding: EdgeInsets.symmetric(vertical: 32),
             child: Center(
               child: CircularProgressIndicator(color: AppColors.accent),
             ),
-          ),
-          error: (_, _) => Padding(
+          )
+        else if (hasError)
+          Padding(
             padding: const EdgeInsets.symmetric(vertical: 24),
             child: Text(
               l10n.eventsLoadError,
-              style: AppTypography.body.copyWith(
-                color: AppColors.textSecondary,
-              ),
+              style: AppTypography.body.copyWith(color: AppColors.textSecondary),
             ),
+          )
+        else if (dishesAsync.value!.isEmpty && drinksAsync.value!.isEmpty)
+          const _MenuEmpty()
+        else
+          _MenuByCategory(
+            dishes: dishesAsync.value!,
+            drinks: drinksAsync.value!,
+            eventId: event.id,
+            guestCount: event.guestCount,
+            catalogPhotos: catalogPhotos,
           ),
-          data: (dishes) => dishes.isEmpty
-              ? const _MenuEmpty()
-              : _MenuByCategory(
-                  dishes: dishes,
-                  eventId: event.id,
-                  guestCount: event.guestCount,
-                  catalogPhotos: catalogPhotos,
-                ),
-        ),
       ],
     );
   }
@@ -831,15 +839,19 @@ class _MenuEmpty extends StatelessWidget {
   }
 }
 
-class _MenuByCategory extends StatefulWidget {
+class _MenuByCategory extends ConsumerStatefulWidget {
   const _MenuByCategory({
     required this.dishes,
+    required this.drinks,
     required this.eventId,
     required this.guestCount,
     required this.catalogPhotos,
   });
 
   final List<EventDish> dishes;
+
+  /// Spec 014: the event's drinks, shown in their own Begudes section.
+  final List<EventDrink> drinks;
   final String eventId;
 
   /// §2.6: the event's guest count, used for the servings-per-guest ratio.
@@ -849,16 +861,117 @@ class _MenuByCategory extends StatefulWidget {
   final Map<String, String?> catalogPhotos;
 
   @override
-  State<_MenuByCategory> createState() => _MenuByCategoryState();
+  ConsumerState<_MenuByCategory> createState() => _MenuByCategoryState();
 }
 
-class _MenuByCategoryState extends State<_MenuByCategory> {
+class _MenuByCategoryState extends ConsumerState<_MenuByCategory> {
   // Spec 012 §2.6: accordion — all categories collapsed by default, at most one
   // open at a time (consistent with the dish catalog and the shopping panel).
+  // Spec 014: the Begudes section joins the same single-open accordion.
   DishCategory? _open;
+  bool _drinksOpen = false;
 
   void _toggle(DishCategory category) {
-    setState(() => _open = _open == category ? null : category);
+    setState(() {
+      _open = _open == category ? null : category;
+      _drinksOpen = false;
+    });
+  }
+
+  void _toggleDrinks() {
+    setState(() {
+      _drinksOpen = !_drinksOpen;
+      _open = null;
+    });
+  }
+
+  Future<void> _removeDrink(EventDrink drink) async {
+    final l10n = AppLocalizations.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        title: Text(
+          l10n.removeDrinkConfirmTitle,
+          style: AppTypography.sectionTitle,
+        ),
+        content: Text(
+          l10n.removeDrinkConfirmBody,
+          style: AppTypography.body.copyWith(color: AppColors.textSecondary),
+        ),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(
+              l10n.cancelAction,
+              style: AppTypography.button.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(
+              l10n.removeDrinkAction,
+              style: AppTypography.button.copyWith(color: AppColors.danger),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await ref.read(eventsRepositoryProvider).deleteEventDrink(drink.id);
+    ref.invalidate(eventDrinksProvider(widget.eventId));
+    ref.invalidate(eventShoppingProvider(widget.eventId));
+    ref.invalidate(eventReadinessProvider);
+  }
+
+  /// §2.3: the drink's per-event servings are adjustable. A compact sheet with a
+  /// stepper, persisted live so the shopping line follows.
+  Future<void> _editDrinkServings(EventDrink drink) async {
+    final l10n = AppLocalizations.of(context);
+    var servings = drink.servings;
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
+      ),
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (sheetContext, setSheetState) => Padding(
+          padding: EdgeInsets.fromLTRB(
+            20,
+            20,
+            20,
+            20 + MediaQuery.of(sheetContext).viewInsets.bottom,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(drink.name, style: AppTypography.sectionTitle),
+              const SizedBox(height: 16),
+              FieldLabel(
+                label: l10n.dishBaseServingsLabel,
+                child: StepperField(
+                  value: servings,
+                  onChanged: (v) async {
+                    setSheetState(() => servings = v);
+                    await ref
+                        .read(eventsRepositoryProvider)
+                        .updateEventDrinkServings(drink.id, v);
+                    ref.invalidate(eventDrinksProvider(widget.eventId));
+                    ref.invalidate(eventShoppingProvider(widget.eventId));
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -872,7 +985,8 @@ class _MenuByCategoryState extends State<_MenuByCategory> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // §2.6: menu totals summary above all category panels.
+        // §2.6: menu totals summary above all category panels. Spec 014 §2.4:
+        // this counts dishes only (bought + cooked), never drinks.
         _MenuTotalsLine(dishes: widget.dishes, guestCount: widget.guestCount),
         const SizedBox(height: 12),
         for (final category in dishCategoryOrder)
@@ -905,6 +1019,37 @@ class _MenuByCategoryState extends State<_MenuByCategory> {
                 ],
               ),
           ],
+        // Spec 014 §2.3: the Begudes section, always shown so a drink can be
+        // added. Its own "Afegeix beguda" button; excluded from food totals.
+        SectionHeader(
+          icon: Icons.local_bar_outlined,
+          label: l10n.menuDrinksSectionLabel,
+          countLabel: l10n.drinkCountLabel(widget.drinks.length),
+          expanded: _drinksOpen,
+          onToggle: _toggleDrinks,
+        ),
+        if (_drinksOpen)
+          Column(
+            children: [
+              for (final drink in widget.drinks)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: _DrinkRow(
+                    drink: drink,
+                    onTap: () => _editDrinkServings(drink),
+                    onRemove: () => _removeDrink(drink),
+                  ),
+                ),
+              const SizedBox(height: 8),
+              SecondaryButton(
+                label: l10n.addDrinkToMenuAction,
+                icon: Icons.add,
+                onPressed: () =>
+                    context.push('/events/${widget.eventId}/add-drink'),
+              ),
+              const SizedBox(height: 4),
+            ],
+          ),
       ],
     );
   }
@@ -915,6 +1060,72 @@ class _MenuByCategoryState extends State<_MenuByCategory> {
     return '${l10n.dishCountLabel(dishes.length)}'
         '${l10n.metadataSeparator}'
         '${l10n.eventDishServings(servings)}';
+  }
+}
+
+/// A drink row in the event Menu's Begudes section (Spec 014): name + its
+/// scaled servings, tap to adjust servings, with a remove action.
+class _DrinkRow extends StatelessWidget {
+  const _DrinkRow({
+    required this.drink,
+    required this.onTap,
+    required this.onRemove,
+  });
+
+  final EventDrink drink;
+  final VoidCallback onTap;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return Material(
+      color: AppColors.surface,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      drink.name,
+                      style: AppTypography.body,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      l10n.eventDishServings(drink.servings),
+                      style: AppTypography.caption,
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                icon: const Icon(
+                  Icons.delete_outline,
+                  color: AppColors.disabled,
+                  size: 20,
+                ),
+                tooltip: l10n.removeDrinkAction,
+                onPressed: onRemove,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 

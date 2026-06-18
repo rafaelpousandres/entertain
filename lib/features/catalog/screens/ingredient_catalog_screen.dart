@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_typography.dart';
-import '../../../ui/help_icon_button.dart';
 import '../../../ui/primary_button.dart';
 import '../../../ui/section_header.dart';
 import '../../photos/data/media.dart';
@@ -83,18 +82,9 @@ class _IngredientCatalogScreenState
         ref.watch(entityCoverPathsProvider(MediaEntityType.ingredient)).value ??
         const <String, String>{};
 
+    // Spec 014: app-bar-less — hosted as a tab inside CatalogShell.
     return Scaffold(
       backgroundColor: AppColors.bg,
-      appBar: AppBar(
-        title: Text(l10n.ingredientsScreenTitle, style: AppTypography.display),
-        actions: [
-          // Spec 012 §2.4: per-screen help pop-up.
-          HelpIconButton(
-            title: l10n.ingredientsScreenTitle,
-            body: l10n.helpIngredientsBody,
-          ),
-        ],
-      ),
       body: SafeArea(
         top: false,
         child: ingredientsAsync.when(

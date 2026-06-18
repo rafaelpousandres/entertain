@@ -11,65 +11,65 @@ import '../../photos/data/media.dart';
 import '../../photos/data/media_providers.dart';
 import '../../photos/data/photo_storage.dart';
 import '../../photos/widgets/photo_image.dart';
-import '../data/dish.dart';
-import '../data/dish_category.dart';
+import '../../shopping/supplier_category_format.dart';
 import '../data/catalog_providers.dart';
+import '../data/drink.dart';
+import '../data/reference_data.dart';
 
-/// Dish catalog (Specification 004 screen 1). Lists the group's dishes
-/// grouped by category with collapsible section headers, an empty state, a
-/// "New dish" primary action and tap-to-edit rows.
-///
-/// The open accordion category is held here (not inside the list widget) so
-/// the "New dish" button can preselect it in the editor (§A): a brand-new dish
-/// defaults to the open category, or the first category when all collapsed.
-class DishCatalogScreen extends ConsumerStatefulWidget {
-  const DishCatalogScreen({super.key});
+/// Drinks catalog (Spec 014 §2.2). App-bar-less — hosted as the Begudes tab of
+/// CatalogShell. Lists the group's drinks grouped by supplier category in an
+/// accordion (consistent with the dish and ingredient catalogs), with an empty
+/// state, a "New drink" action and tap-to-edit rows.
+const String _uncategorisedKey = '__uncategorised__';
+
+class BegudesCatalogScreen extends ConsumerStatefulWidget {
+  const BegudesCatalogScreen({super.key});
 
   @override
-  ConsumerState<DishCatalogScreen> createState() => _DishCatalogScreenState();
+  ConsumerState<BegudesCatalogScreen> createState() =>
+      _BegudesCatalogScreenState();
 }
 
-class _DishCatalogScreenState extends ConsumerState<DishCatalogScreen> {
-  // §2.7 accordion — all categories collapsed by default, at most one open at a
-  // time. Null means all collapsed.
-  DishCategory? _open;
+class _BegudesCatalogScreenState extends ConsumerState<BegudesCatalogScreen> {
+  String? _open;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final dishesAsync = ref.watch(dishesListProvider);
-    // Spec 010 §2.4: row thumbnails read the cover (first photo by position)
-    // from the polymorphic media table.
+    final localeCode = Localizations.localeOf(context).languageCode;
+    final drinksAsync = ref.watch(drinksListProvider);
+    final categoriesAsync = ref.watch(supplierCategoriesProvider(localeCode));
     final coverPaths =
-        ref.watch(entityCoverPathsProvider(MediaEntityType.dish)).value ??
+        ref.watch(entityCoverPathsProvider(MediaEntityType.drink)).value ??
         const <String, String>{};
 
-    // Spec 014: this catalog now lives as a tab inside CatalogShell, which
-    // owns the AppBar (title + help) and the TabBar; the screen is app-bar-less
-    // and keeps its own "New dish" bottom action (the open-category preselect
-    // logic lives here).
     return Scaffold(
       backgroundColor: AppColors.bg,
       body: SafeArea(
         top: false,
-        child: dishesAsync.when(
+        child: drinksAsync.when(
           loading: () => const Center(
             child: CircularProgressIndicator(color: AppColors.accent),
           ),
           error: (_, _) => _LoadError(
-            message: l10n.dishesLoadError,
-            onRetry: () => ref.invalidate(dishesListProvider),
+            message: l10n.drinksLoadError,
+            onRetry: () => ref.invalidate(drinksListProvider),
           ),
-          data: (dishes) => dishes.isEmpty
-              ? const _EmptyState()
-              : _DishesByCategory(
-                  dishes: dishes,
-                  coverPaths: coverPaths,
-                  open: _open,
-                  onToggle: (category) => setState(
-                    () => _open = _open == category ? null : category,
-                  ),
-                ),
+          data: (drinks) {
+            if (drinks.isEmpty) return const _EmptyState();
+            final categoriesById = {
+              for (final c in categoriesAsync.value ?? const <SupplierCategory>[])
+                c.id: c,
+            };
+            return _DrinksBySupplier(
+              drinks: drinks,
+              categoriesById: categoriesById,
+              coverPaths: coverPaths,
+              open: _open,
+              onToggle: (key) =>
+                  setState(() => _open = _open == key ? null : key),
+            );
+          },
         ),
       ),
       bottomNavigationBar: Container(
@@ -79,78 +79,93 @@ class _DishCatalogScreenState extends ConsumerState<DishCatalogScreen> {
           border: Border(top: BorderSide(color: AppColors.border, width: 1)),
         ),
         child: PrimaryButton(
-          label: l10n.newDishAction,
+          label: l10n.newDrinkAction,
           icon: Icons.add,
-          // §A: preselect the open accordion category (or the first category
-          // when all collapsed) as an editable default in the editor.
-          onPressed: () =>
-              context.push('/dishes/new', extra: _open ?? dishCategoryOrder.first),
+          onPressed: () => context.push('/drinks/new'),
         ),
       ),
     );
   }
 }
 
-class _DishesByCategory extends StatelessWidget {
-  const _DishesByCategory({
-    required this.dishes,
+class _DrinksBySupplier extends StatelessWidget {
+  const _DrinksBySupplier({
+    required this.drinks,
+    required this.categoriesById,
     required this.coverPaths,
     required this.open,
     required this.onToggle,
   });
 
-  final List<Dish> dishes;
-
-  /// Dish id → cover photo path (first by position), or absent when none.
+  final List<Drink> drinks;
+  final Map<String, SupplierCategory> categoriesById;
   final Map<String, String> coverPaths;
-
-  /// The currently open accordion category, owned by the parent so the "New
-  /// dish" action can preselect it. Null when all sections are collapsed.
-  final DishCategory? open;
-  final ValueChanged<DishCategory> onToggle;
+  final String? open;
+  final ValueChanged<String> onToggle;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final byCategory = <DishCategory, List<Dish>>{};
-    for (final dish in dishes) {
-      byCategory.putIfAbsent(dish.category, () => []).add(dish);
+    final byKey = <String, List<Drink>>{};
+    for (final drink in drinks) {
+      byKey
+          .putIfAbsent(drink.supplierCategoryId ?? _uncategorisedKey, () => [])
+          .add(drink);
     }
+    // Categories first (alphabetical), uncategorised last.
+    final keys = byKey.keys.toList()
+      ..sort((a, b) {
+        if (a == _uncategorisedKey) return 1;
+        if (b == _uncategorisedKey) return -1;
+        final na = categoriesById[a]?.name ?? '';
+        final nb = categoriesById[b]?.name ?? '';
+        return na.toLowerCase().compareTo(nb.toLowerCase());
+      });
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
       children: [
-        for (final category in dishCategoryOrder)
-          if (byCategory[category] != null) ...[
-            SectionHeader(
-              icon: dishCategoryIcon(category),
-              label: dishCategoryLabel(l10n, category),
-              // §2.7: count now carries the "plats" word.
-              countLabel: l10n.dishCountLabel(byCategory[category]!.length),
-              expanded: open == category,
-              onToggle: () => onToggle(category),
-            ),
-            if (open == category)
-              for (final dish in byCategory[category]!)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: _DishRow(
-                    dish: dish,
-                    coverPath: coverPaths[dish.id],
-                    onTap: () => context.push('/dishes/${dish.id}'),
-                  ),
+        for (final key in keys) ...[
+          () {
+            final category = categoriesById[key];
+            final isUncategorised = key == _uncategorisedKey;
+            return SectionHeader(
+              icon: isUncategorised
+                  ? Icons.help_outline
+                  : supplierCategoryIcon(category?.code ?? ''),
+              label: isUncategorised
+                  ? l10n.shoppingUncategorisedLabel
+                  : (category?.name ?? l10n.shoppingUncategorisedLabel),
+              countLabel: l10n.drinkCountLabel(byKey[key]!.length),
+              expanded: open == key,
+              onToggle: () => onToggle(key),
+            );
+          }(),
+          if (open == key)
+            for (final drink in byKey[key]!)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _DrinkRow(
+                  drink: drink,
+                  coverPath: coverPaths[drink.id],
+                  onTap: () => context.push('/drinks/${drink.id}'),
                 ),
-            const SizedBox(height: 4),
-          ],
+              ),
+          const SizedBox(height: 4),
+        ],
       ],
     );
   }
 }
 
-class _DishRow extends StatelessWidget {
-  const _DishRow({required this.dish, required this.coverPath, required this.onTap});
+class _DrinkRow extends StatelessWidget {
+  const _DrinkRow({
+    required this.drink,
+    required this.coverPath,
+    required this.onTap,
+  });
 
-  final Dish dish;
+  final Drink drink;
   final String? coverPath;
   final VoidCallback onTap;
 
@@ -170,11 +185,10 @@ class _DishRow extends StatelessWidget {
           ),
           child: Row(
             children: [
-              // Spec 010 §2.4: inline cover thumbnail when the dish has a photo.
               if (coverPath != null) ...[
                 RowPhotoThumb(
                   photoRef: (
-                    bucket: PhotoStorage.dishBucket,
+                    bucket: PhotoStorage.drinkBucket,
                     path: coverPath!,
                   ),
                 ),
@@ -182,7 +196,7 @@ class _DishRow extends StatelessWidget {
               ],
               Expanded(
                 child: Text(
-                  dish.name,
+                  drink.name,
                   style: AppTypography.body,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -221,20 +235,20 @@ class _EmptyState extends StatelessWidget {
                 shape: BoxShape.circle,
               ),
               child: const Icon(
-                Icons.restaurant_outlined,
+                Icons.local_bar_outlined,
                 color: AppColors.accentSecondary,
                 size: 26,
               ),
             ),
             const SizedBox(height: 16),
             Text(
-              l10n.dishesEmptyTitle,
+              l10n.drinksEmptyTitle,
               style: AppTypography.sectionTitle,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
             Text(
-              l10n.dishesEmptyBody,
+              l10n.drinksEmptyBody,
               style: AppTypography.body.copyWith(color: AppColors.textSecondary),
               textAlign: TextAlign.center,
             ),

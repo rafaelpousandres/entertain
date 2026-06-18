@@ -4,6 +4,7 @@ import 'event.dart';
 import 'event_dish.dart';
 import 'event_dish_line.dart';
 import 'event_draft.dart';
+import 'event_drink.dart';
 
 /// Thin data-access wrapper around the `events` table. Keeps the Supabase
 /// SDK calls in one place so screens and providers can stay declarative.
@@ -254,7 +255,10 @@ class EventsRepository {
         .single();
     final dish = await _client
         .from('dishes')
-        .select('name, category, base_servings')
+        .select(
+          'name, category, base_servings, acquisition_mode, '
+          'supplier_category_id, purchase_unit, servings_per_unit',
+        )
         .eq('id', dishId)
         .single();
     final sourceLines = await _client
@@ -288,6 +292,13 @@ class EventsRepository {
           'category': dish['category'],
           'servings': servings,
           'sort_order': (existing as List).length,
+          // Spec 014 §2.3: snapshot how the dish is obtained. A bought dish has
+          // no ingredient lines, so the copy below is a no-op for it; its single
+          // purchase line is derived in Shopping from these snapshot fields.
+          'acquisition_mode': dish['acquisition_mode'],
+          'supplier_category_id': dish['supplier_category_id'],
+          'purchase_unit': dish['purchase_unit'],
+          'servings_per_unit': dish['servings_per_unit'],
         })
         .select('id')
         .single();
@@ -317,6 +328,87 @@ class EventsRepository {
         }(),
     ];
     await _client.from('event_dish_ingredients').insert(payload);
+  }
+
+  // --- Drinks on an event (Spec 014 §2.3) -------------------------------
+
+  /// Drinks attached to an event, ordered by `sort_order`.
+  Future<List<EventDrink>> listEventDrinks(String eventId) async {
+    final rows = await _client
+        .from('event_drinks')
+        .select(EventDrink.selectColumns)
+        .eq('event_id', eventId)
+        .order('sort_order', ascending: true);
+    return (rows as List)
+        .map((r) => EventDrink.fromRow(r as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<EventDrink> fetchEventDrink(String eventDrinkId) async {
+    final row = await _client
+        .from('event_drinks')
+        .select(EventDrink.selectColumns)
+        .eq('id', eventDrinkId)
+        .maybeSingle();
+    if (row == null) {
+      throw StateError('Event drink not found.');
+    }
+    return EventDrink.fromRow(row);
+  }
+
+  /// Copy on add for a drink (mirror of [addDishToEvent], no ingredients).
+  /// §2.3: drinks scale to the guest count by default (everyone drinks; the
+  /// seated/buffet distinction is a food concept), editable per event after.
+  Future<void> addDrinkToEvent({
+    required String eventId,
+    required String drinkId,
+  }) async {
+    final event = await _client
+        .from('events')
+        .select('guest_count')
+        .eq('id', eventId)
+        .single();
+    final drink = await _client
+        .from('drinks')
+        .select(
+          'name, base_servings, supplier_category_id, purchase_unit, '
+          'servings_per_unit',
+        )
+        .eq('id', drinkId)
+        .single();
+    final existing = await _client
+        .from('event_drinks')
+        .select('id')
+        .eq('event_id', eventId);
+
+    final guestCount = (event['guest_count'] as num?)?.toInt() ?? 0;
+    final baseServings = (drink['base_servings'] as num?)?.toInt() ?? 4;
+    final servings = defaultEventDrinkServings(guestCount, baseServings);
+
+    await _client.from('event_drinks').insert({
+      'event_id': eventId,
+      'source_drink_id': drinkId,
+      'drink_name': drink['name'],
+      'supplier_category_id': drink['supplier_category_id'],
+      'purchase_unit': drink['purchase_unit'],
+      'servings_per_unit': drink['servings_per_unit'],
+      'servings': servings,
+      'sort_order': (existing as List).length,
+    });
+  }
+
+  Future<void> updateEventDrinkServings(
+    String eventDrinkId,
+    int servings,
+  ) async {
+    await _client
+        .from('event_drinks')
+        .update({'servings': servings})
+        .eq('id', eventDrinkId);
+  }
+
+  Future<void> deleteEventDrink(String eventDrinkId) async {
+    await _client.from('event_drinks').delete().eq('id', eventDrinkId);
   }
 
   /// Duplicates an event as a starting point for a new one (Spec 009 §2.1).
