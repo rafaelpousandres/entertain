@@ -260,6 +260,10 @@
   "supplierMessagePreviewLabel": "Mensaje",
   "supplierMessageNeededByLabel": "Fecha de necesidad",
   "supplierMessageNeededByEmpty": "Elige una fecha",
+  "supplierMessageNeededByWithTime": "Para el día {date} a las {time}",
+  "supplierMessageNeededByTimeLabel": "Hora (opcional)",
+  "supplierMessageAddTime": "Añadir hora",
+  "suppliersPantrySummary": "Cosas que ya tienes en casa",
   "supplierMessageNeededBy": "Para el día {date}",
   "@supplierMessageNeededBy": {
     "placeholders": { "date": { "type": "String" } }
