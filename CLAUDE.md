@@ -71,6 +71,11 @@ document.
 
 ## Tech stack
 
+> **Flutter is a deliberate legacy exception, not the project default.** Per the
+> Development conventions (§4, v0.2), new serious platforms (Talaia, Helm) use the
+> unified TypeScript stack (React + React Native + NestJS). Entertain stays on
+> Flutter and **is not migrated** — this is a settled decision, not a pending task.
+
 - **Framework:** Flutter (Dart), a single codebase for Android and iOS.
 - **Backend:** Supabase — PostgreSQL, Auth, Storage, Edge Functions; EU region.
 - **Authentication:** anonymous first, upgradable to a real account with no
@@ -112,8 +117,8 @@ managed on claude.ai). When in doubt, consult them; do not improvise.
 - **Development plan** — vision, phases, and scope of each phase.
 - **Data model** — full schema for the complete vision.
 - **Design system** — colors, typography, components, UI patterns.
-- **Development conventions** — canonical reusable document; this `CLAUDE.md`
-  is an operational extract of it adapted to `entertain`.
+- **Development conventions** — canonical reusable document (v0.2); this
+    `CLAUDE.md` is an operational extract of it adapted to `entertain`.
 - **Specifications** — the concrete brief for each feature or phase.
 
 ---
