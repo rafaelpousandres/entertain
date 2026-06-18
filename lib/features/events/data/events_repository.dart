@@ -257,7 +257,7 @@ class EventsRepository {
         .from('dishes')
         .select(
           'name, category, base_servings, acquisition_mode, '
-          'supplier_category_id, purchase_unit, servings_per_unit',
+          'supplier_category_id',
         )
         .eq('id', dishId)
         .single();
@@ -282,6 +282,7 @@ class EventsRepository {
     final servings = (event['format'] as String?) == 'seated'
         ? guestCount
         : baseServings;
+    final isBought = (dish['acquisition_mode'] as String?) == 'bought';
 
     final eventDish = await _client
         .from('event_dishes')
@@ -297,8 +298,11 @@ class EventsRepository {
           // purchase line is derived in Shopping from these snapshot fields.
           'acquisition_mode': dish['acquisition_mode'],
           'supplier_category_id': dish['supplier_category_id'],
-          'purchase_unit': dish['purchase_unit'],
-          'servings_per_unit': dish['servings_per_unit'],
+          // Spec 016 §2.1: freeze the per-unit value (base_servings = "servings
+          // one unit provides") as the immutable snapshot, so the bought line's
+          // units = ceil(servings / servings_per_unit) survive catalog edits.
+          // Null for cooked dishes (they explode into ingredient lines instead).
+          'servings_per_unit': isBought ? baseServings : null,
         })
         .select('id')
         .single();
@@ -357,23 +361,15 @@ class EventsRepository {
   }
 
   /// Copy on add for a drink (mirror of [addDishToEvent], no ingredients).
-  /// §2.3: drinks scale to the guest count by default (everyone drinks; the
-  /// seated/buffet distinction is a food concept), editable per event after.
+  /// Spec 016 §3: a drink is units-only — no servings, no guest scaling. The
+  /// quantity defaults to [defaultEventDrinkQuantity] and is edited per event.
   Future<void> addDrinkToEvent({
     required String eventId,
     required String drinkId,
   }) async {
-    final event = await _client
-        .from('events')
-        .select('guest_count')
-        .eq('id', eventId)
-        .single();
     final drink = await _client
         .from('drinks')
-        .select(
-          'name, base_servings, supplier_category_id, purchase_unit, '
-          'servings_per_unit',
-        )
+        .select('name, supplier_category_id, denomination')
         .eq('id', drinkId)
         .single();
     final existing = await _client
@@ -381,29 +377,24 @@ class EventsRepository {
         .select('id')
         .eq('event_id', eventId);
 
-    final guestCount = (event['guest_count'] as num?)?.toInt() ?? 0;
-    final baseServings = (drink['base_servings'] as num?)?.toInt() ?? 4;
-    final servings = defaultEventDrinkServings(guestCount, baseServings);
-
     await _client.from('event_drinks').insert({
       'event_id': eventId,
       'source_drink_id': drinkId,
       'drink_name': drink['name'],
       'supplier_category_id': drink['supplier_category_id'],
-      'purchase_unit': drink['purchase_unit'],
-      'servings_per_unit': drink['servings_per_unit'],
-      'servings': servings,
+      'denomination': drink['denomination'],
+      'quantity': defaultEventDrinkQuantity,
       'sort_order': (existing as List).length,
     });
   }
 
-  Future<void> updateEventDrinkServings(
+  Future<void> updateEventDrinkQuantity(
     String eventDrinkId,
-    int servings,
+    int quantity,
   ) async {
     await _client
         .from('event_drinks')
-        .update({'servings': servings})
+        .update({'quantity': quantity})
         .eq('id', eventDrinkId);
   }
 

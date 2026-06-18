@@ -1,55 +1,55 @@
 /// Read model for an `event_drinks` row — the per-event snapshot of a catalog
-/// drink (Spec 014 §2.3). Mirror of [EventDish] for drinks: an immutable copy,
-/// scaled to the guest count, that becomes a single purchase line in Shopping.
+/// drink (Spec 014 §2.3, refined by Spec 016 §3). Units-only: a drink does not
+/// have servings and does not scale by guests. The user sets the **quantity of
+/// units** directly; it becomes a single purchase line in Shopping.
 ///
 /// `sourceDrinkId` is provenance only (used to flag a drink already in the
 /// menu); the snapshot never re-reads the catalog.
 library;
 
-/// §2.3: a drink added to an event scales to the **guest count** by default
-/// (everyone drinks; the seated/buffet distinction is a food concept), falling
-/// back to the catalog drink's base servings when the event has no guests yet.
-int defaultEventDrinkServings(int guestCount, int baseServings) =>
-    guestCount > 0 ? guestCount : baseServings;
+import '../../catalog/data/denomination.dart';
+
+/// The default unit quantity for a drink added to an event (no guest scaling —
+/// Spec 016 §3.1). Matches the `event_drinks.quantity` column default.
+const int defaultEventDrinkQuantity = 1;
 
 class EventDrink {
   const EventDrink({
     required this.id,
     required this.name,
-    required this.servings,
+    required this.quantity,
     required this.sortOrder,
     this.sourceDrinkId,
     this.supplierCategoryId,
-    this.purchaseUnit,
-    this.servingsPerUnit,
+    this.denomination = 'bottle',
   });
 
   final String id;
   final String name;
-  final int servings;
+
+  /// Number of units to buy, set manually (no guest scaling, Spec 016 §3.1).
+  final int quantity;
   final int sortOrder;
   final String? sourceDrinkId;
 
   /// Snapshot of the drink's supplier category (resolved to a concrete supplier
-  /// at order time, Spec 013) and its optional purchase unit / servings-per-unit.
+  /// at order time, Spec 013) and its denomination code.
   final String? supplierCategoryId;
-  final String? purchaseUnit;
-  final double? servingsPerUnit;
+  final String denomination;
 
   factory EventDrink.fromRow(Map<String, dynamic> row) {
     return EventDrink(
       id: row['id'] as String,
       name: row['drink_name'] as String,
-      servings: (row['servings'] as num?)?.toInt() ?? 0,
+      quantity: (row['quantity'] as num?)?.toInt() ?? defaultEventDrinkQuantity,
       sortOrder: (row['sort_order'] as num?)?.toInt() ?? 0,
       sourceDrinkId: row['source_drink_id'] as String?,
       supplierCategoryId: row['supplier_category_id'] as String?,
-      purchaseUnit: row['purchase_unit'] as String?,
-      servingsPerUnit: (row['servings_per_unit'] as num?)?.toDouble(),
+      denomination: parseDenomination(row['denomination'] as String?).wire,
     );
   }
 
   static const String selectColumns =
-      'id, drink_name, servings, sort_order, source_drink_id, '
-      'supplier_category_id, purchase_unit, servings_per_unit';
+      'id, drink_name, quantity, sort_order, source_drink_id, '
+      'supplier_category_id, denomination';
 }

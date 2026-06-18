@@ -192,71 +192,95 @@ class EventDishDetailScreen extends ConsumerWidget {
                   servings: dish.servings,
                 ),
                 const SizedBox(height: 20),
-                Text(
-                  l10n.dishIngredientsSectionTitle,
-                  style: AppTypography.sectionTitle,
-                ),
-                const SizedBox(height: 8),
-                linesAsync.when(
-                  loading: () => const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 24),
-                    child: Center(
-                      child: CircularProgressIndicator(color: AppColors.accent),
+                // Spec 016 §2.4: a bought dish has no ingredients — show its
+                // "Plat preparat" info instead of the (empty) ingredients
+                // section and the add-ingredient action.
+                if (dish.isBought) ...[
+                  Text(
+                    l10n.preparedDishSectionTitle,
+                    style: AppTypography.sectionTitle,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    dish.supplierCategoryId == null
+                        ? l10n.preparedDishNoIngredients
+                        : '${categoriesById[dish.supplierCategoryId]?.name ?? l10n.preparedDishSectionTitle}'
+                              '${l10n.metadataSeparator}'
+                              '${l10n.preparedDishNoIngredients}',
+                    style: AppTypography.body.copyWith(
+                      color: AppColors.textSecondary,
                     ),
                   ),
-                  error: (_, _) => Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    child: Text(
-                      l10n.eventsLoadError,
-                      style: AppTypography.body.copyWith(
-                        color: AppColors.textSecondary,
+                ] else ...[
+                  Text(
+                    l10n.dishIngredientsSectionTitle,
+                    style: AppTypography.sectionTitle,
+                  ),
+                  const SizedBox(height: 8),
+                  linesAsync.when(
+                    loading: () => const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 24),
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          color: AppColors.accent,
+                        ),
                       ),
                     ),
-                  ),
-                  data: (lines) => lines.isEmpty
-                      ? const _LinesEmpty()
-                      : Column(
-                          children: [
-                            for (final line in lines)
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 8),
-                                child: _LineRow(
-                                  line: line,
-                                  servings: dish.servings,
-                                  unit: unitsById[line.unitId],
-                                  supplierCategory:
-                                      line.supplierCategoryId == null
-                                      ? null
-                                      : categoriesById[line.supplierCategoryId],
-                                  onTap: () => context.push(
-                                    '/event-dish-line-editor',
-                                    extra: EventDishLineEditorArgs(
-                                      eventId: eventId,
-                                      eventDishId: eventDishId,
-                                      line: line,
-                                      sourceDishId: dish.sourceDishId,
+                    error: (_, _) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      child: Text(
+                        l10n.eventsLoadError,
+                        style: AppTypography.body.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ),
+                    data: (lines) => lines.isEmpty
+                        ? const _LinesEmpty()
+                        : Column(
+                            children: [
+                              for (final line in lines)
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 8),
+                                  child: _LineRow(
+                                    line: line,
+                                    servings: dish.servings,
+                                    unit: unitsById[line.unitId],
+                                    supplierCategory:
+                                        line.supplierCategoryId == null
+                                        ? null
+                                        : categoriesById[line
+                                              .supplierCategoryId],
+                                    onTap: () => context.push(
+                                      '/event-dish-line-editor',
+                                      extra: EventDishLineEditorArgs(
+                                        eventId: eventId,
+                                        eventDishId: eventDishId,
+                                        line: line,
+                                        sourceDishId: dish.sourceDishId,
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                          ],
-                        ),
-                ),
-                const SizedBox(height: 12),
-                // §2.2: add a brand-new ad-hoc line to this event's copy. The
-                // editor offers to also promote it to the catalog recipe.
-                SecondaryButton(
-                  label: l10n.addIngredientLineAction,
-                  icon: Icons.add,
-                  onPressed: () => context.push(
-                    '/event-dish-line-editor',
-                    extra: EventDishLineEditorArgs(
-                      eventId: eventId,
-                      eventDishId: eventDishId,
-                      sourceDishId: dish.sourceDishId,
+                            ],
+                          ),
+                  ),
+                  const SizedBox(height: 12),
+                  // §2.2: add a brand-new ad-hoc line to this event's copy. The
+                  // editor offers to also promote it to the catalog recipe.
+                  SecondaryButton(
+                    label: l10n.addIngredientLineAction,
+                    icon: Icons.add,
+                    onPressed: () => context.push(
+                      '/event-dish-line-editor',
+                      extra: EventDishLineEditorArgs(
+                        eventId: eventId,
+                        eventDishId: eventDishId,
+                        sourceDishId: dish.sourceDishId,
+                      ),
                     ),
                   ),
-                ),
+                ],
                 // §2.1: the multi-line preparation as a longer block further
                 // down, read live from the catalog recipe.
                 if (preparation.isNotEmpty) ...[

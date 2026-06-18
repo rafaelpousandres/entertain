@@ -44,54 +44,40 @@ class ShoppingRepository {
     final boughtDishes = await _client
         .from('event_dishes')
         .select(
-          'id, dish_name, supplier_category_id, purchase_unit, '
-          'servings_per_unit, servings, state',
+          'id, dish_name, supplier_category_id, servings_per_unit, '
+          'servings, state',
         )
         .eq('event_id', eventId)
         .eq('is_extras', false)
         .eq('acquisition_mode', 'bought');
     final drinks = await _client
         .from('event_drinks')
-        .select(
-          'id, drink_name, supplier_category_id, purchase_unit, '
-          'servings_per_unit, servings, state',
-        )
+        .select('id, drink_name, supplier_category_id, denomination, '
+            'quantity, state')
         .eq('event_id', eventId);
 
     final purchaseLines = [
       for (final r in boughtDishes as List)
-        _purchaseLineFromRow(
-          r as Map<String, dynamic>,
-          ShoppingLineKind.preparedDish,
-          'dish_name',
+        boughtDishShoppingLine(
+          id: (r as Map<String, dynamic>)['id'] as String,
+          name: r['dish_name'] as String,
+          supplierCategoryId: r['supplier_category_id'] as String?,
+          servings: (r['servings'] as num?)?.toInt() ?? 0,
+          servingsPerUnit: (r['servings_per_unit'] as num?)?.toDouble(),
+          state: IngredientState.parse(r['state'] as String?),
         ),
       for (final r in drinks as List)
-        _purchaseLineFromRow(
-          r as Map<String, dynamic>,
-          ShoppingLineKind.drink,
-          'drink_name',
+        drinkShoppingLine(
+          id: (r as Map<String, dynamic>)['id'] as String,
+          name: r['drink_name'] as String,
+          supplierCategoryId: r['supplier_category_id'] as String?,
+          quantity: (r['quantity'] as num?)?.toInt() ?? 1,
+          denomination: r['denomination'] as String? ?? 'bottle',
+          state: IngredientState.parse(r['state'] as String?),
         ),
     ];
 
     return [...ingredientLines, ...purchaseLines];
-  }
-
-  /// Builds the single purchase [ShoppingLine] for a bought-dish / drink row.
-  static ShoppingLine _purchaseLineFromRow(
-    Map<String, dynamic> row,
-    ShoppingLineKind kind,
-    String nameKey,
-  ) {
-    return purchaseShoppingLine(
-      id: row['id'] as String,
-      kind: kind,
-      name: row[nameKey] as String,
-      supplierCategoryId: row['supplier_category_id'] as String?,
-      servings: (row['servings'] as num?)?.toInt() ?? 0,
-      purchaseUnit: row['purchase_unit'] as String?,
-      servingsPerUnit: (row['servings_per_unit'] as num?)?.toDouble(),
-      state: IngredientState.parse(row['state'] as String?),
-    );
   }
 
   /// Builds a [ShoppingLine] with its quantity already scaled to the owning

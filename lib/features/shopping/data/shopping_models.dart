@@ -37,7 +37,7 @@ class ShoppingLine {
     required this.state,
     this.unitId,
     this.kind = ShoppingLineKind.ingredient,
-    this.purchaseUnitLabel,
+    this.denomination,
     this.ingredientId,
     this.prepNote,
     this.supplierCategoryId,
@@ -57,9 +57,10 @@ class ShoppingLine {
 
   final ShoppingLineKind kind;
 
-  /// Free-text purchase unit for a prepared-dish / drink line (e.g. "safates"),
-  /// or null when the line is expressed in scaled servings.
-  final String? purchaseUnitLabel;
+  /// Denomination code for a drink line (Spec 016 §3.3), rendered to a localised
+  /// noun by [denominationUnitNoun]. Null for ingredient and prepared-dish lines
+  /// (a prepared dish shows a bare count, "3 × name").
+  final String? denomination;
 
   final String? prepNote;
 

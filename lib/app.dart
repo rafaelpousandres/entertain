@@ -4,7 +4,6 @@ import 'l10n/app_localizations.dart';
 import 'router/app_router.dart';
 import 'theme/app_colors.dart';
 import 'theme/app_theme.dart';
-import 'ui/app_logo.dart';
 
 /// How long the brand logo stays visible after the first frame (Spec 015 §3).
 /// The native launch screen shows the same logo before this; the in-app overlay
@@ -74,14 +73,33 @@ class _EntertainAppState extends State<EntertainApp> {
 
 /// The brand logo centred on the app background — visually continuous with the
 /// native launch screen (same icon, same `#FBF5EA` colour).
+///
+/// Spec 016 §5.3: the Android 12+ native splash masks its icon to a circle and
+/// uses the *padded foreground* artwork. The overlay mirrors that exactly — the
+/// same foreground asset, the same circular mask, on the same background — so
+/// the native → overlay handover looks like one continuous logo with no jump in
+/// artwork, shape, or size.
 class _SplashOverlay extends StatelessWidget {
   const _SplashOverlay();
+
+  /// Visible diameter of the splash logo, tuned to match the Android 12 native
+  /// splash icon circle.
+  static const double _diameter = 180;
 
   @override
   Widget build(BuildContext context) {
     return const ColoredBox(
       color: AppColors.bg,
-      child: Center(child: AppLogo(size: 120, borderRadius: 28)),
+      child: Center(
+        child: ClipOval(
+          child: Image(
+            image: AssetImage('assets/icon/entertain - icon foreground.png'),
+            width: _diameter,
+            height: _diameter,
+            fit: BoxFit.contain,
+          ),
+        ),
+      ),
     );
   }
 }

@@ -181,7 +181,13 @@ final GoRouter appRouter = GoRouter(
     // Drinks — create / edit (Spec 014).
     GoRoute(
       path: '/drinks/new',
-      builder: (context, state) => _gated(const DrinkEditorScreen()),
+      builder: (context, state) => _gated(
+        DrinkEditorScreen(
+          initialSupplierCategoryId: state.extra is String
+              ? state.extra as String
+              : null,
+        ),
+      ),
     ),
     GoRoute(
       path: '/drinks/:id',

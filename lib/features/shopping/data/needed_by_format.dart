@@ -10,12 +10,17 @@ import 'package:flutter/material.dart' show Locale, TimeOfDay;
 import '../../../l10n/app_localizations.dart';
 import '../../events/widgets/event_formatters.dart';
 
-/// Wire / display form of a needed-by time: 24-hour, zero-padded "HH:mm"
-/// (matches the spec example "13:00" across ca/es/en). Append ":00" for the
-/// Postgres `time` column.
+/// Wire form of a needed-by time: 24-hour, zero-padded "HH:mm". Append ":00"
+/// for the Postgres `time` column. Use [formatNeededByTimeDisplay] for anything
+/// the user sees.
 String formatNeededByTime(TimeOfDay time) =>
     '${time.hour.toString().padLeft(2, '0')}:'
     '${time.minute.toString().padLeft(2, '0')}';
+
+/// Display form of a needed-by time, with the hour mark appended: "13:00h"
+/// (Spec 016 §5.4, ca/es/en). Used in the supplier message and wherever the
+/// time renders for the user — never for the DB wire value.
+String formatNeededByTimeDisplay(TimeOfDay time) => '${formatNeededByTime(time)}h';
 
 /// The needed-by sentence shared with the supplier:
 ///   * no date          → '' (omitted; Fixes §2.5),
@@ -32,6 +37,6 @@ String neededBySentence(
   if (time == null) return l10n.supplierMessageNeededBy(dayMonth);
   return l10n.supplierMessageNeededByWithTime(
     dayMonth,
-    formatNeededByTime(time),
+    formatNeededByTimeDisplay(time),
   );
 }

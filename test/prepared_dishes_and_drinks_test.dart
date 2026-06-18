@@ -1,3 +1,4 @@
+import 'package:entertain/features/catalog/data/denomination.dart';
 import 'package:entertain/features/catalog/data/dish.dart'
     show DishAcquisitionMode;
 import 'package:entertain/features/events/data/event_dish.dart';
@@ -8,63 +9,90 @@ import 'package:entertain/features/shopping/data/purchase_line.dart';
 import 'package:entertain/features/shopping/data/shopping_aggregation.dart';
 import 'package:entertain/features/shopping/data/shopping_delta.dart';
 import 'package:entertain/features/shopping/data/shopping_models.dart';
+import 'package:entertain/l10n/app_localizations_ca.dart';
+import 'package:entertain/l10n/app_localizations_en.dart';
+import 'package:entertain/l10n/app_localizations_es.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Specification 014 — prepared dishes and drinks. Pure-logic acceptance:
-/// the bought-item purchase quantity (ceil with a unit, scaled servings
-/// without), drinks scaling to guests, food totals counting bought dishes
-/// while drinks are excluded, and purchase lines flowing through shopping as
-/// one line per item, grouped by supplier and never merged.
+/// Specification 016 — prepared dishes & drinks refinements. Pure-logic
+/// acceptance: a bought dish's units = ceil(servings / servings-per-unit); a
+/// drink's unit quantity is manual (no guest scaling); the denomination plural
+/// renders per locale and count; food totals count bought dishes while drinks
+/// are excluded; purchase lines flow through shopping as one line per item,
+/// grouped by supplier and never merged.
 
 void main() {
-  group('purchaseLineQuantity', () {
-    test('with unit + servings-per-unit → ceil of units', () {
-      // 8 servings, 6 per tray → 2 trays.
-      final q = purchaseLineQuantity(
-        servings: 8,
-        purchaseUnit: 'safata',
-        servingsPerUnit: 6,
-      );
-      expect(q.quantity, 2);
-      expect(q.unitLabel, 'safata');
+  group('boughtDishUnits (ceil of servings / servings-per-unit)', () {
+    test('rounds up to the next whole unit', () {
+      // 8 servings, 6 per unit → 2 units.
+      expect(boughtDishUnits(8, 6), 2);
     });
 
     test('exact division does not over-round', () {
-      final q = purchaseLineQuantity(
-        servings: 12,
-        purchaseUnit: 'ampolla',
+      expect(boughtDishUnits(12, 6), 2);
+    });
+
+    test('falls back to servings with no per-unit snapshot', () {
+      expect(boughtDishUnits(5, null), 5);
+      expect(boughtDishUnits(5, 0), 5);
+    });
+
+    test('EventDish.units computes from the snapshot alone', () {
+      const dish = EventDish(
+        id: 'd',
+        name: 'Canelons',
+        category: DishCategory.main,
+        servings: 8,
+        sortOrder: 0,
+        acquisitionMode: DishAcquisitionMode.bought,
         servingsPerUnit: 6,
       );
-      expect(q.quantity, 2);
-    });
-
-    test('without a unit → scaled servings, no unit label', () {
-      final q = purchaseLineQuantity(
-        servings: 12,
-        purchaseUnit: null,
-        servingsPerUnit: null,
-      );
-      expect(q.quantity, 12);
-      expect(q.unitLabel, isNull);
-    });
-
-    test('unit without servings-per-unit falls back to servings', () {
-      final q = purchaseLineQuantity(
-        servings: 5,
-        purchaseUnit: 'unitat',
-        servingsPerUnit: null,
-      );
-      expect(q.quantity, 5);
-      expect(q.unitLabel, isNull);
+      expect(dish.units, 2);
     });
   });
 
-  group('defaultEventDrinkServings (scales to guests)', () {
-    test('uses the guest count when set', () {
-      expect(defaultEventDrinkServings(10, 4), 10);
+  group('drink quantity is manual (no guest scaling)', () {
+    test('the default unit quantity is 1', () {
+      expect(defaultEventDrinkQuantity, 1);
     });
-    test('falls back to base servings with no guests', () {
-      expect(defaultEventDrinkServings(0, 6), 6);
+
+    test('EventDrink keeps the quantity as set, regardless of any guest count',
+        () {
+      const drink = EventDrink(
+        id: 'x',
+        name: 'Vi negre',
+        quantity: 3,
+        sortOrder: 0,
+        denomination: 'bottle',
+      );
+      expect(drink.quantity, 3);
+    });
+  });
+
+  group('denomination plural rendering (ca/es/en)', () {
+    test('Catalan singular vs plural', () {
+      final ca = AppLocalizationsCa();
+      expect(denominationCount(ca, 'bottle', 1), '1 ampolla');
+      expect(denominationCount(ca, 'bottle', 2), '2 ampolles');
+      expect(denominationUnitNoun(ca, 'bottle', 1), 'ampolla');
+      expect(denominationUnitNoun(ca, 'bottle', 2), 'ampolles');
+      expect(denominationName(ca, 'can'), 'llauna');
+    });
+
+    test('Spanish singular vs plural', () {
+      final es = AppLocalizationsEs();
+      expect(denominationCount(es, 'unit', 1), '1 unidad');
+      expect(denominationCount(es, 'unit', 3), '3 unidades');
+    });
+
+    test('English singular vs plural', () {
+      final en = AppLocalizationsEn();
+      expect(denominationCount(en, 'litre', 1), '1 litre');
+      expect(denominationCount(en, 'litre', 4), '4 litres');
+    });
+
+    test('unknown code falls back to bottle', () {
+      expect(parseDenomination('nope'), Denomination.bottle);
     });
   });
 
@@ -94,16 +122,21 @@ void main() {
 
   group('purchase lines in shopping: one per item, by supplier, never merge', () {
     ShoppingLine prepared(String id, String name, String category) =>
-        purchaseShoppingLine(
+        boughtDishShoppingLine(
           id: id,
-          kind: ShoppingLineKind.preparedDish,
           name: name,
           supplierCategoryId: category,
           servings: 8,
-          purchaseUnit: 'safata',
           servingsPerUnit: 6,
           state: IngredientState.toOrder,
         );
+
+    test('a bought dish line carries its units and no denomination', () {
+      final line = prepared('a', 'Canelons', 'cat-prepared');
+      expect(line.quantity, 2); // ceil(8 / 6)
+      expect(line.kind, ShoppingLineKind.preparedDish);
+      expect(line.denomination, isNull);
+    });
 
     test('two identical-looking prepared dishes stay separate', () {
       final lines = [
@@ -112,29 +145,30 @@ void main() {
       ];
       final aggregated = aggregateShoppingLines(lines);
       expect(aggregated.length, 2);
-      expect(aggregated.every((l) => l.kind == ShoppingLineKind.preparedDish),
-          isTrue);
+      expect(
+        aggregated.every((l) => l.kind == ShoppingLineKind.preparedDish),
+        isTrue,
+      );
     });
 
     test('purchase lines group by their supplier category', () {
       final lines = [
         prepared('a', 'Canelons', 'cat-prepared'),
-        purchaseShoppingLine(
+        drinkShoppingLine(
           id: 'c',
-          kind: ShoppingLineKind.drink,
           name: 'Vi negre',
           supplierCategoryId: 'cat-beverages',
-          servings: 10,
-          purchaseUnit: 'ampolla',
-          servingsPerUnit: 5,
+          quantity: 2,
+          denomination: 'bottle',
           state: IngredientState.toOrder,
         ),
       ];
       final byCat = linesByCategory(lines);
       expect(byCat['cat-prepared']!.length, 1);
       expect(byCat['cat-beverages']!.length, 1);
-      // The drink computes 2 bottles for 10 servings at 5 per bottle.
+      // The drink line carries its manual unit quantity and denomination.
       expect(byCat['cat-beverages']!.first.quantity, 2);
+      expect(byCat['cat-beverages']!.first.denomination, 'bottle');
     });
   });
 }

@@ -9,6 +9,7 @@ library;
 import 'package:flutter/material.dart';
 
 import '../../l10n/app_localizations.dart';
+import '../catalog/data/reference_data.dart';
 import 'data/group_supplier_setting.dart';
 import 'data/message_channel.dart';
 
@@ -31,6 +32,42 @@ IconData channelIcon(MessageChannel? channel) => switch (channel) {
 const String pantryCategoryCode = 'pantry';
 
 bool isPantryCategory(String code) => code == pantryCategoryCode;
+
+/// System codes of the two categories seeded for Spec 014 — sensible (editable)
+/// defaults for bought dishes and drinks (Spec 016 §2.2 / §3.2).
+const String preparedDishesCategoryCode = 'prepared';
+const String beveragesCategoryCode = 'beverages';
+
+/// Group key for catalog/shopping items with no supplier category.
+const String uncategorisedGroupKey = '__uncategorised__';
+
+/// Orders supplier-group keys for a catalog accordion (Spec 016 §4b): dispatch
+/// suppliers first (alphabetical by name), then the pantry/Rebost, then the
+/// uncategorised "Sense categoria" bucket — never interleaved. [categoryIds]
+/// are the per-item supplier category ids (null → uncategorised); only groups
+/// actually present are returned. Shared by the Ingredients and Begudes
+/// catalogs so the three catalogs stay consistent.
+List<String> orderedSupplierGroupKeys(
+  Iterable<String?> categoryIds,
+  Map<String, SupplierCategory> categoriesById,
+) {
+  final keys = <String>{
+    for (final id in categoryIds) id ?? uncategorisedGroupKey,
+  };
+  return keys.toList()
+    ..sort((a, b) {
+      if (a == uncategorisedGroupKey) return 1;
+      if (b == uncategorisedGroupKey) return -1;
+      final ca = categoriesById[a];
+      final cb = categoriesById[b];
+      final aPantry = ca != null && isPantryCategory(ca.code);
+      final bPantry = cb != null && isPantryCategory(cb.code);
+      if (aPantry != bPantry) return aPantry ? 1 : -1;
+      final na = ca?.name ?? '';
+      final nb = cb?.name ?? '';
+      return na.toLowerCase().compareTo(nb.toLowerCase());
+    });
+}
 
 /// Outline icon for a supplier category, keyed by its system code.
 IconData supplierCategoryIcon(String code) => switch (code) {

@@ -35,8 +35,6 @@ class Dish {
     required this.baseServings,
     this.acquisitionMode = DishAcquisitionMode.cooked,
     this.supplierCategoryId,
-    this.purchaseUnit,
-    this.servingsPerUnit,
     this.description,
     this.preparation,
   });
@@ -45,22 +43,19 @@ class Dish {
   final String groupId;
   final String name;
   final DishCategory category;
+
+  /// For a cooked dish, the recipe's default servings. Spec 016 §2.1 reuses it
+  /// for a bought dish as "servings one bought unit provides" (e.g. a truita
+  /// that serves 4) — same column, same "servings per base unit" concept.
   final int baseServings;
 
-  /// Spec 014 §2.1: cooked (recipe) or bought (prepared). The four fields
-  /// below are used only when [acquisitionMode] is bought.
+  /// Spec 014 §2.1: cooked (recipe) or bought (prepared). The supplier category
+  /// below is used only when [acquisitionMode] is bought.
   final DishAcquisitionMode acquisitionMode;
 
   /// The supplier category a bought dish is ordered from (resolved to a
   /// concrete supplier at order time, Spec 013).
   final String? supplierCategoryId;
-
-  /// Optional free-text purchase unit for a bought dish (e.g. "safata").
-  final String? purchaseUnit;
-
-  /// Optional servings one purchase unit provides; with [purchaseUnit] it lets
-  /// the shopping line compute units to buy = ceil(scaledServings / this).
-  final double? servingsPerUnit;
 
   /// One-line subtitle / brief identification of the dish.
   final String? description;
@@ -87,8 +82,6 @@ class Dish {
         row['acquisition_mode'] as String?,
       ),
       supplierCategoryId: row['supplier_category_id'] as String?,
-      purchaseUnit: row['purchase_unit'] as String?,
-      servingsPerUnit: (row['servings_per_unit'] as num?)?.toDouble(),
       description: row['description'] as String?,
       preparation: row['preparation'] as String?,
     );
@@ -96,8 +89,7 @@ class Dish {
 
   static const String selectColumns =
       'id, group_id, name, category, base_servings, acquisition_mode, '
-      'supplier_category_id, purchase_unit, servings_per_unit, description, '
-      'preparation';
+      'supplier_category_id, description, preparation';
 }
 
 /// One in-memory recipe line being edited inside the dish editor. Maps to a
@@ -170,8 +162,6 @@ class DishDraft {
     required this.baseServings,
     this.acquisitionMode = DishAcquisitionMode.cooked,
     this.supplierCategoryId,
-    this.purchaseUnit,
-    this.servingsPerUnit,
     this.description,
     this.preparation,
     List<DishLineDraft>? lines,
@@ -188,8 +178,6 @@ class DishDraft {
     baseServings: dish.baseServings,
     acquisitionMode: dish.acquisitionMode,
     supplierCategoryId: dish.supplierCategoryId,
-    purchaseUnit: dish.purchaseUnit,
-    servingsPerUnit: dish.servingsPerUnit,
     description: dish.description,
     preparation: dish.preparation,
     lines: lines,
@@ -200,8 +188,6 @@ class DishDraft {
   int baseServings;
   DishAcquisitionMode acquisitionMode;
   String? supplierCategoryId;
-  String? purchaseUnit;
-  double? servingsPerUnit;
   String? description;
   String? preparation;
   final List<DishLineDraft> lines;
@@ -209,9 +195,9 @@ class DishDraft {
   bool get isBought => acquisitionMode == DishAcquisitionMode.bought;
 
   /// Row payload for the `dishes` table. `group_id` is added by the
-  /// repository; the lines are persisted separately. The bought-only fields
-  /// are nulled when cooked so a dish switched back to cooked drops its stale
-  /// supplier/unit, while its ingredient lines are preserved (§2.1).
+  /// repository; the lines are persisted separately. The bought-only supplier
+  /// category is nulled when cooked so a dish switched back to cooked drops its
+  /// stale supplier, while its ingredient lines are preserved (§2.1).
   Map<String, dynamic> toRow() {
     final bought = isBought;
     return {
@@ -220,8 +206,6 @@ class DishDraft {
       'base_servings': baseServings,
       'acquisition_mode': acquisitionMode.wire,
       'supplier_category_id': bought ? supplierCategoryId : null,
-      'purchase_unit': bought ? _nullIfBlank(purchaseUnit) : null,
-      'servings_per_unit': bought ? servingsPerUnit : null,
       'description': _nullIfBlank(description),
       'preparation': _nullIfBlank(preparation),
     };
@@ -233,11 +217,6 @@ String? _nullIfBlank(String? value) {
   final trimmed = value.trim();
   return trimmed.isEmpty ? null : trimmed;
 }
-
-/// Trims a redundant `.0` from an integral servings-per-unit for editor fields
-/// (Spec 014). Shared by the dish and drink editors.
-String formatServingsPerUnit(double value) =>
-    value == value.roundToDouble() ? value.toInt().toString() : value.toString();
 
 /// Formats a numeric quantity for display, dropping a redundant `.0` so
 /// "200" reads cleanly while "0.5" keeps its decimals.
