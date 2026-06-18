@@ -77,8 +77,6 @@ document.
 > Flutter and **is not migrated** — this is a settled decision, not a pending task.
 
 - **Framework:** Flutter (Dart), a single codebase for Android and iOS.
-
-- **Framework:** Flutter (Dart), a single codebase for Android and iOS.
 - **Backend:** Supabase — PostgreSQL, Auth, Storage, Edge Functions; EU region.
 - **Authentication:** anonymous first, upgradable to a real account with no
   migration.
