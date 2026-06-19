@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_native_splash/flutter_native_splash.dart';
 
 import 'l10n/app_localizations.dart';
 import 'router/app_router.dart';
@@ -28,6 +29,7 @@ class _EntertainAppState extends State<EntertainApp> {
   // tree once the fade completes so it never intercepts taps.
   bool _showSplash = true;
   bool _splashGone = false;
+  bool _nativeSplashHandled = false;
 
   @override
   void initState() {
@@ -35,6 +37,28 @@ class _EntertainAppState extends State<EntertainApp> {
     Future.delayed(_splashMinVisible, () {
       if (mounted) setState(() => _showSplash = false);
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_nativeSplashHandled) {
+      _nativeSplashHandled = true;
+      _revealWhenReady();
+    }
+  }
+
+  // Decode the overlay logo before dropping the held native splash, so the
+  // in-app overlay can paint the logo on the very first frame it is visible.
+  // The native splash (plain cream) stays up until then: the cream is
+  // continuous and the logo appears once, with no blank frame in the handover.
+  Future<void> _revealWhenReady() async {
+    try {
+      await precacheImage(_SplashOverlay.logo, context);
+    } catch (_) {
+      // A precache failure must never strand the app behind the native splash.
+    }
+    FlutterNativeSplash.remove();
   }
 
   @override
@@ -86,6 +110,13 @@ class _SplashOverlay extends StatelessWidget {
   /// splash icon circle.
   static const double _diameter = 180;
 
+  /// The brand mark shown by the overlay. Exposed so the app can `precacheImage`
+  /// the exact same provider before revealing the overlay — guaranteeing a
+  /// cache hit so the logo paints on its first visible frame.
+  static const AssetImage logo = AssetImage(
+    'assets/icon/entertain - icon foreground.png',
+  );
+
   @override
   Widget build(BuildContext context) {
     return const ColoredBox(
@@ -93,7 +124,7 @@ class _SplashOverlay extends StatelessWidget {
       child: Center(
         child: ClipOval(
           child: Image(
-            image: AssetImage('assets/icon/entertain - icon foreground.png'),
+            image: logo,
             width: _diameter,
             height: _diameter,
             fit: BoxFit.contain,
