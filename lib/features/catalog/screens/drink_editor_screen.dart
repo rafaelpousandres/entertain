@@ -106,6 +106,14 @@ class _DrinkFormState extends ConsumerState<_DrinkForm>
 
   bool get _busy => _saving || _deleting;
 
+  // §2.3: mark the form dirty (and rebuild so EditScaffold's exit guard sees
+  // it) the first time a free-text field changes. The pickers setState when
+  // they mutate the draft; the text controllers must mark dirty explicitly or
+  // leaving via the back arrow skips the unsaved-changes prompt.
+  void _markDirty() {
+    if (!_dirty) setState(() => _dirty = true);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -364,7 +372,7 @@ class _DrinkFormState extends ConsumerState<_DrinkForm>
               controller: _nameController,
               hintText: l10n.drinkNameHint,
               onChanged: (value) {
-                _dirty = true;
+                _markDirty();
                 if (_submitted) {
                   setState(() {
                     _nameError = value.trim().isEmpty
