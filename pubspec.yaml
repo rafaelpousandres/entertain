@@ -38,6 +38,12 @@ dependencies:
   intl: ^0.20.2
   share_plus: ^12.0.0
   supabase_flutter: ^2.12.4
+  # Runtime dependency (not just a generator): main.dart calls
+  # FlutterNativeSplash.preserve()/remove() to hold the native splash until the
+  # in-app overlay logo is precached, so the cream→logo handover has no blank
+  # frame. Also generates the native launch screen (`dart run
+  # flutter_native_splash:create`).
+  flutter_native_splash: ^2.4.3
   url_launcher: ^6.3.1
 
   # Spec 009 §2.2 — photos: camera/gallery capture, native-backed JPEG
@@ -72,9 +78,6 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
   flutter_launcher_icons: ^0.14.4
-  # Spec 012 §2.2 — generates the native launch/splash screens (logo centred on
-  # the app background). Run `dart run flutter_native_splash:create` after edits.
-  flutter_native_splash: ^2.4.3
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -107,14 +110,23 @@ flutter_launcher_icons:
   adaptive_icon_foreground: "assets/icon/entertain - icon foreground.png"
   min_sdk_android: 21
 
-# Spec 017 §A.2 — the native splash is a PLAIN cream background, no logo. The
-# Android 12+ circle mask was clipping the artwork and there was a size jump to
-# the in-app overlay; removing the native logo fixes both. The brand logo now
-# appears only via the in-app overlay (lib/app.dart, _SplashOverlay), on the
-# same #FBF5EA background, so the handover shows only the logo appearing with no
-# colour jump. Regenerate native assets with
-# `dart run flutter_native_splash:create` after changing this block.
+# Spec 017 §A.2 / polish — the native splash is a PLAIN cream background, no
+# logo. The Android 12+ circle mask was clipping the artwork and there was a
+# size jump to the in-app overlay; removing the native logo fixes both. The
+# brand logo now appears only via the in-app overlay (lib/app.dart,
+# _SplashOverlay), on the same #FBF5EA background, so the handover shows only
+# the logo appearing with no colour jump.
+#
+# NOTE: on Android 12+ the system splash always renders an icon — if none is
+# given it falls back to the launcher icon, which is exactly the native "logo"
+# we want gone. So we force a fully transparent icon (assets/native_splash/
+# transparent.png) to get a genuinely plain cream splash on 12+; without it the
+# launcher icon reappears and the double-logo flash returns.
+# Regenerate native assets with `dart run flutter_native_splash:create` after
+# changing this block.
 flutter_native_splash:
   color: "#FBF5EA"
   android_12:
     color: "#FBF5EA"
+    image: assets/native_splash/transparent.png
+    icon_background_color: "#FBF5EA"
