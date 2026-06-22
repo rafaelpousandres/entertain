@@ -218,17 +218,21 @@ class _DrinkFormState extends ConsumerState<_DrinkForm>
 
     final repo = ref.read(catalogRepositoryProvider);
     try {
+      // Spec 018 §3.1: when opened from the add-to-menu flow, return the created
+      // drink (via pop) so the caller can add it to the event with defaults.
+      // Null on edit / catalog create — those callers ignore the pop result.
+      Drink? created;
       if (widget.isEditing) {
         await repo.updateDrink(widget.drinkId!, _draft);
         ref.invalidate(drinkByIdProvider(widget.drinkId!));
       } else {
         final groupId = await ref.read(currentGroupIdProvider.future);
-        await repo.createDrink(_draft, groupId: groupId);
+        created = await repo.createDrink(_draft, groupId: groupId);
       }
       ref.invalidate(drinksListProvider);
       await commitPhotoSession();
       if (!mounted) return;
-      context.pop();
+      context.pop(created);
     } catch (_) {
       if (!mounted) return;
       setState(() => _saving = false);
