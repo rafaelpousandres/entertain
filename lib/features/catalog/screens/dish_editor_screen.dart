@@ -223,20 +223,25 @@ class _DishFormState extends ConsumerState<_DishForm>
 
     final repo = ref.read(catalogRepositoryProvider);
     try {
+      // Spec 018 §3.1: when this editor was opened from the add-to-menu flow,
+      // the created dish is returned to the caller (via pop) so it can be added
+      // to the event with defaults. Null on edit / catalog create — callers
+      // there ignore the pop result.
+      Dish? created;
       if (widget.isEditing) {
         await repo.updateDish(widget.dishId!, _draft);
         ref.invalidate(dishByIdProvider(widget.dishId!));
         ref.invalidate(dishLinesProvider(widget.dishId!));
       } else {
         final groupId = await ref.read(currentGroupIdProvider.future);
-        await repo.createDish(_draft, groupId: groupId);
+        created = await repo.createDish(_draft, groupId: groupId);
       }
       ref.invalidate(dishesListProvider);
       // §2.6: the edit is confirmed, so purge any buffered (deleted/replaced)
       // photo blobs the saved state no longer references.
       await commitPhotoSession();
       if (!mounted) return;
-      context.pop();
+      context.pop(created);
     } catch (_) {
       if (!mounted) return;
       setState(() => _saving = false);

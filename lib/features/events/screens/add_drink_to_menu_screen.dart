@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_typography.dart';
+import '../../../ui/create_new_tile.dart';
 import '../../catalog/data/catalog_providers.dart';
 import '../../catalog/data/drink.dart';
 import '../../shopping/data/shopping_providers.dart' show eventShoppingProvider;
@@ -25,6 +26,17 @@ class AddDrinkToMenuScreen extends ConsumerStatefulWidget {
 
 class _AddDrinkToMenuScreenState extends ConsumerState<AddDrinkToMenuScreen> {
   bool _busy = false;
+
+  /// Spec 018 §3: create a brand-new drink from within the add flow. Opens the
+  /// drink editor in create mode; on save it returns the created drink, which
+  /// we add to the event with the default quantity (1) and return to the Menu.
+  /// Backing out of the editor returns null and leaves the list unchanged.
+  Future<void> _createNew() async {
+    if (_busy) return;
+    final created = await context.push<Drink>('/drinks/new');
+    if (created == null || !mounted) return;
+    await _add(created);
+  }
 
   Future<void> _add(Drink drink) async {
     if (_busy) return;
@@ -64,23 +76,36 @@ class _AddDrinkToMenuScreenState extends ConsumerState<AddDrinkToMenuScreen> {
       ),
       body: SafeArea(
         top: false,
-        child: drinksAsync.when(
-          loading: () => const Center(
-            child: CircularProgressIndicator(color: AppColors.accent),
-          ),
-          error: (_, _) => Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Text(
-                l10n.drinksLoadError,
-                style: AppTypography.body.copyWith(
-                  color: AppColors.textSecondary,
-                ),
-                textAlign: TextAlign.center,
+        child: Column(
+          children: [
+            // Spec 018 §3: inline "create new" entry, pinned at the top so it
+            // is reachable even when there are no drinks yet or the list is
+            // still loading.
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
+              child: CreateNewTile(
+                label: l10n.addScreenCreateDrinkAction,
+                onTap: _busy ? null : _createNew,
               ),
             ),
-          ),
-          data: (drinks) {
+            Expanded(
+              child: drinksAsync.when(
+                loading: () => const Center(
+                  child: CircularProgressIndicator(color: AppColors.accent),
+                ),
+                error: (_, _) => Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(
+                      l10n.drinksLoadError,
+                      style: AppTypography.body.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+                data: (drinks) {
             if (drinks.isEmpty) {
               return Center(
                 child: Padding(
@@ -109,8 +134,11 @@ class _AddDrinkToMenuScreenState extends ConsumerState<AddDrinkToMenuScreen> {
               ],
             );
           },
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
     );
   }
 }

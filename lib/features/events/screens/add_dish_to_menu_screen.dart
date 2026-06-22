@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_typography.dart';
+import '../../../ui/create_new_tile.dart';
 import '../../../ui/section_header.dart';
 import '../../catalog/data/catalog_providers.dart';
 import '../../catalog/data/dish.dart';
@@ -29,6 +30,18 @@ class AddDishToMenuScreen extends ConsumerStatefulWidget {
 
 class _AddDishToMenuScreenState extends ConsumerState<AddDishToMenuScreen> {
   bool _adding = false;
+
+  /// Spec 018 §3: create a brand-new dish from within the add flow. Opens the
+  /// dish editor in create mode; on save it returns the created dish, which we
+  /// add to the event with default servings (same as adding an existing dish)
+  /// and return to the Menu. Backing out of the editor returns null and leaves
+  /// the add list unchanged (§3.3).
+  Future<void> _createNew() async {
+    if (_adding) return;
+    final created = await context.push<Dish>('/dishes/new');
+    if (created == null || !mounted) return;
+    await _add(created, alreadyInMenu: false);
+  }
 
   Future<void> _add(Dish dish, {required bool alreadyInMenu}) async {
     if (_adding) return;
@@ -124,24 +137,40 @@ class _AddDishToMenuScreenState extends ConsumerState<AddDishToMenuScreen> {
         top: false,
         child: Stack(
           children: [
-            dishesAsync.when(
-              loading: () => const Center(
-                child: CircularProgressIndicator(color: AppColors.accent),
-              ),
-              error: (_, _) => _LoadError(
-                message: l10n.dishesLoadError,
-                onRetry: () => ref.invalidate(dishesListProvider),
-              ),
-              data: (dishes) => dishes.isEmpty
-                  ? const _EmptyState()
-                  : _DishesByCategory(
-                      dishes: dishes,
-                      inMenu: inMenu,
-                      onTap: (dish) => _add(
-                        dish,
-                        alreadyInMenu: inMenu.contains(dish.id),
-                      ),
+            Column(
+              children: [
+                // Spec 018 §3: inline "create new" entry, pinned at the top so
+                // it is reachable even when the catalog is empty or still
+                // loading.
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
+                  child: CreateNewTile(
+                    label: l10n.addScreenCreateDishAction,
+                    onTap: _adding ? null : _createNew,
+                  ),
+                ),
+                Expanded(
+                  child: dishesAsync.when(
+                    loading: () => const Center(
+                      child: CircularProgressIndicator(color: AppColors.accent),
                     ),
+                    error: (_, _) => _LoadError(
+                      message: l10n.dishesLoadError,
+                      onRetry: () => ref.invalidate(dishesListProvider),
+                    ),
+                    data: (dishes) => dishes.isEmpty
+                        ? const _EmptyState()
+                        : _DishesByCategory(
+                            dishes: dishes,
+                            inMenu: inMenu,
+                            onTap: (dish) => _add(
+                              dish,
+                              alreadyInMenu: inMenu.contains(dish.id),
+                            ),
+                          ),
+                  ),
+                ),
+              ],
             ),
             if (_adding)
               const ColoredBox(
@@ -173,13 +202,9 @@ class _DishesByCategory extends StatefulWidget {
 }
 
 class _DishesByCategoryState extends State<_DishesByCategory> {
-  late final Map<DishCategory, bool> _expanded;
-
-  @override
-  void initState() {
-    super.initState();
-    _expanded = {for (final c in DishCategory.values) c: true};
-  }
+  // Spec 018 §2: align with the catalog / Menu accordion — all categories
+  // collapsed on entry, at most one open at a time. Null means all collapsed.
+  DishCategory? _open;
 
   @override
   Widget build(BuildContext context) {
@@ -198,11 +223,12 @@ class _DishesByCategoryState extends State<_DishesByCategory> {
               icon: dishCategoryIcon(category),
               label: dishCategoryLabel(l10n, category),
               count: byCategory[category]!.length,
-              expanded: _expanded[category]!,
-              onToggle: () =>
-                  setState(() => _expanded[category] = !_expanded[category]!),
+              expanded: _open == category,
+              onToggle: () => setState(
+                () => _open = _open == category ? null : category,
+              ),
             ),
-            if (_expanded[category]!)
+            if (_open == category)
               for (final dish in byCategory[category]!)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
