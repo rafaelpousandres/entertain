@@ -329,6 +329,10 @@ class _GeneralTab extends ConsumerWidget {
             ],
           ),
         ),
+        // Spec 019 §C.3: app-level Pexels attribution (per-photo credit lives
+        // on the stock-search results).
+        const SizedBox(height: 16),
+        const _CreditsCard(),
         // Spec 012 §2.3: telegraphic onboarding card.
         const SizedBox(height: 16),
         const _GettingStartedCard(),
@@ -341,6 +345,61 @@ class _GeneralTab extends ConsumerWidget {
     );
   }
 }
+
+/// Spec 019 §C.3 — app-level photo attribution: "Photos provided by Pexels"
+/// with a link to pexels.com (the per-photo photographer credit is shown on the
+/// stock-search results).
+class _CreditsCard extends StatelessWidget {
+  const _CreditsCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(l10n.settingsCreditsTitle, style: AppTypography.sectionTitle),
+          const SizedBox(height: 10),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              style: TextButton.styleFrom(
+                padding: EdgeInsets.zero,
+                minimumSize: const Size(0, 0),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              onPressed: () => launchUrl(
+                Uri.parse(_pexelsUrl),
+                mode: LaunchMode.externalApplication,
+              ),
+              icon: const Icon(
+                Icons.open_in_new,
+                size: 18,
+                color: AppColors.accentSecondary,
+              ),
+              label: Text(
+                l10n.settingsCreditsPexels,
+                style: AppTypography.button.copyWith(
+                  color: AppColors.accentSecondary,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+const String _pexelsUrl = 'https://www.pexels.com';
 
 /// Spec 012 §2.3 — a brief, scannable "Getting started" card on the General
 /// tab. The fuller walk-through lives in the GitHub Pages tester manual (§2.5).

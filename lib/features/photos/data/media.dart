@@ -49,6 +49,10 @@ class Media {
     required this.entityId,
     required this.path,
     required this.position,
+    this.sourceProvider,
+    this.sourceAuthor,
+    this.sourceUrl,
+    this.sourceRef,
   });
 
   final String id;
@@ -64,6 +68,14 @@ class Media {
   /// query's secondary sort).
   final int position;
 
+  /// Spec 019 §C.2: provenance, set only for stock photos (e.g. `pexels`); null
+  /// for camera/gallery photos. Written only by the `stock-photos` Edge
+  /// Function — the client's own insert path never sets them.
+  final String? sourceProvider;
+  final String? sourceAuthor;
+  final String? sourceUrl;
+  final String? sourceRef;
+
   factory Media.fromRow(Map<String, dynamic> row) {
     return Media(
       id: row['id'] as String,
@@ -71,9 +83,14 @@ class Media {
       entityId: row['entity_id'] as String,
       path: row['path'] as String,
       position: (row['position'] as num?)?.toInt() ?? 0,
+      sourceProvider: row['source_provider'] as String?,
+      sourceAuthor: row['source_author'] as String?,
+      sourceUrl: row['source_url'] as String?,
+      sourceRef: row['source_ref'] as String?,
     );
   }
 
   static const String selectColumns =
-      'id, entity_type, entity_id, path, position';
+      'id, entity_type, entity_id, path, position, '
+      'source_provider, source_author, source_url, source_ref';
 }

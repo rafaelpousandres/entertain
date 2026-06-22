@@ -4,8 +4,9 @@ import '../../../l10n/app_localizations.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_typography.dart';
 
-/// What the user chose in the photo options sheet (Spec 009 §2.2.4).
-enum PhotoSheetChoice { camera, gallery, remove }
+/// What the user chose in the photo options sheet (Spec 009 §2.2.4; Spec 019
+/// adds [pexels], the stock-photo search).
+enum PhotoSheetChoice { camera, gallery, pexels, remove }
 
 /// Bottom sheet offering "Take a photo" / "Pick from gallery", and "Remove
 /// photo" when [canRemove] is true. Returns the chosen [PhotoSheetChoice], or
@@ -46,6 +47,14 @@ Future<PhotoSheetChoice?> showPhotoSourceSheet(
             label: l10n.photoPickGallery,
             onTap: () =>
                 Navigator.of(sheetContext).pop(PhotoSheetChoice.gallery),
+          ),
+          // Spec 019 §C.1: stock-photo search (Pexels), available wherever
+          // photos are added.
+          _SheetTile(
+            icon: Icons.image_search_outlined,
+            label: l10n.photoSearchStock,
+            onTap: () =>
+                Navigator.of(sheetContext).pop(PhotoSheetChoice.pexels),
           ),
           if (canRemove)
             _SheetTile(

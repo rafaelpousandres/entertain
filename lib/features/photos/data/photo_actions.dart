@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../l10n/app_localizations.dart';
+import '../../stock_photos/screens/stock_photo_search_screen.dart';
 import 'media.dart';
 import 'media_providers.dart';
 import 'photo_capture.dart';
@@ -17,6 +19,13 @@ import '../widgets/photo_source_sheet.dart';
 /// editors share the same orchestration (Spec 010 §2.3).
 
 const _uuid = Uuid();
+
+/// Maps the app language (ca/es/en) to a Pexels search locale (Spec 019 §C.1).
+String _pexelsLocale(String languageCode) => switch (languageCode) {
+  'ca' => 'ca-ES',
+  'es' => 'es-ES',
+  _ => 'en-US',
+};
 
 /// The active [PhotoEditSession] for an entity, if an editor has one open
 /// (Spec 011 §2.6). Null for surfaces with no rollback (e.g. event photos).
@@ -89,6 +98,21 @@ Future<bool> addEntityPhoto({
 }) async {
   final choice = await showPhotoSourceSheet(context, canRemove: false);
   if (choice == null || !context.mounted) return false;
+  // Spec 019 §C.1: the stock-photo path opens the search screen, which owns the
+  // save (via the Edge Function) and the carousel/quota refresh; nothing is
+  // added synchronously here.
+  if (choice == PhotoSheetChoice.pexels) {
+    final locale = _pexelsLocale(Localizations.localeOf(context).languageCode);
+    context.push(
+      '/stock-photos',
+      extra: StockPhotoSearchArgs(
+        type: type,
+        entityId: entityId,
+        locale: locale,
+      ),
+    );
+    return false;
+  }
   final source = choice == PhotoSheetChoice.camera
       ? PhotoSource.camera
       : PhotoSource.gallery;

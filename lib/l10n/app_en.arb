@@ -644,6 +644,43 @@
   "@photoTakePhoto": {},
   "photoPickGallery": "Pick from gallery",
   "@photoPickGallery": {},
+  "photoSearchStock": "Search Pexels",
+  "@photoSearchStock": {},
+  "stockSearchTitle": "Stock photos",
+  "@stockSearchTitle": {},
+  "stockSearchHint": "Search photos…",
+  "@stockSearchHint": {},
+  "stockSearchAction": "Search",
+  "@stockSearchAction": {},
+  "stockSearchEmptyPrompt": "Search for photos to add one.",
+  "@stockSearchEmptyPrompt": {},
+  "stockSearchNoResults": "No results.",
+  "@stockSearchNoResults": {},
+  "stockSearchError": "Couldn't load photos.",
+  "@stockSearchError": {},
+  "stockRemainingLabel": "{remaining} of {limit} left this month",
+  "@stockRemainingLabel": {
+    "placeholders": {
+      "remaining": { "type": "int" },
+      "limit": { "type": "int" }
+    }
+  },
+  "stockPhotoCredit": "Photo by {name}",
+  "@stockPhotoCredit": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "stockLimitReachedTitle": "Limit reached",
+  "@stockLimitReachedTitle": {},
+  "stockLimitReachedBody": "You've used your {limit} free stock photos this month.",
+  "@stockLimitReachedBody": {
+    "placeholders": { "limit": { "type": "int" } }
+  },
+  "okAction": "OK",
+  "@okAction": {},
+  "settingsCreditsTitle": "Credits",
+  "@settingsCreditsTitle": {},
+  "settingsCreditsPexels": "Photos provided by Pexels",
+  "@settingsCreditsPexels": {},
   "photoRemovePhoto": "Remove photo",
   "@photoRemovePhoto": {},
   "photoRemoveConfirmTitle": "Remove photo?",

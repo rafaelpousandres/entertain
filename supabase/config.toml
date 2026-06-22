@@ -12,3 +12,10 @@ project_id = "entertain"
 # Postgres major version on the remote Supabase project (EU). Keep aligned
 # with whatever the dashboard reports for the linked project.
 major_version = 17
+
+# Spec 019 — the stock-photos proxy (Pexels) + quota enforcement. verify_jwt is
+# on (the default), so only authenticated sessions — including the app's
+# anonymous ones — may call it; the function then identifies the caller from the
+# JWT. PEXELS_API_KEY is a Supabase secret, set out of band by the operator.
+[functions.stock-photos]
+verify_jwt = true
