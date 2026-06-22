@@ -198,7 +198,14 @@ async function handleSave(
     if (insErr) throw insErr;
 
     return json({ media: mediaRow, usage: { used: usedAfter, limit } });
-  } catch (_e) {
+  } catch (e) {
+    // Keep this: the genuine error handler. Before this was added the failure
+    // was swallowed silently (only Booted/Shutdown in the logs), which is what
+    // hid the missing service_role grant on media.
+    console.error(
+      "[save] failed, releasing quota slot:",
+      e instanceof Error ? `${e.message}\n${e.stack}` : String(e),
+    );
     await serviceClient.rpc("release_quota", {
       p_group_id: groupId,
       p_quota_key: QUOTA_KEY,

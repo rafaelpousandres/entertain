@@ -1,0 +1,11 @@
+-- Fix: the stock-photos Edge Function (Spec 019) inserts media rows as the
+-- service role, but public.media was granted DML only to anon/authenticated
+-- (the app's own inserts go through the user client under RLS). The service
+-- role has BYPASSRLS but Postgres still checks *table privileges* first, so its
+-- insert failed with "permission denied for table media".
+--
+-- Grant the service role the same four DML privileges the table already gives
+-- the app roles. Granting all four (not just insert/select) is intentional: it
+-- spares a second migration if the function later updates or deletes media
+-- (e.g. reorder or cleanup). Additive; no schema, data, RLS, or trigger change.
+grant select, insert, update, delete on table public.media to service_role;
