@@ -9,6 +9,7 @@ import '../features/catalog/screens/drink_editor_screen.dart';
 import '../features/catalog/screens/ingredient_editor_screen.dart';
 import '../features/catalog/screens/ingredient_line_editor_screen.dart';
 import '../features/catalog/data/reference_data.dart';
+import '../features/ai_dish_assistant/screens/dish_assistant_screen.dart';
 import '../features/events/screens/add_dish_to_menu_screen.dart';
 import '../features/events/screens/add_drink_to_menu_screen.dart';
 import '../features/events/screens/edit_event_drink_screen.dart';
@@ -154,6 +155,13 @@ final GoRouter appRouter = GoRouter(
       path: '/settings/supplier',
       builder: (context, state) =>
           _gated(SupplierEditorScreen(args: state.extra as SupplierEditorArgs)),
+    ),
+
+    // AI dish assistant (Spec 020) — opened from the dish catalog; creates a
+    // dish from a name and opens it.
+    GoRoute(
+      path: '/ai-dish-assistant',
+      builder: (context, state) => _gated(const DishAssistantScreen()),
     ),
 
     // Dishes — create / edit.

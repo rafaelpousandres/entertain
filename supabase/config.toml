@@ -19,3 +19,10 @@ major_version = 17
 # JWT. PEXELS_API_KEY is a Supabase secret, set out of band by the operator.
 [functions.stock-photos]
 verify_jwt = true
+
+# Spec 020 — the AI dish assistant (Anthropic API). verify_jwt is on, so only
+# authenticated sessions (incl. anonymous) may call it; the function identifies
+# the caller from the JWT. ANTHROPIC_API_KEY is a Supabase secret set out of band
+# by the operator; it reuses PEXELS_API_KEY for the photo fallback.
+[functions.dish-assistant]
+verify_jwt = true

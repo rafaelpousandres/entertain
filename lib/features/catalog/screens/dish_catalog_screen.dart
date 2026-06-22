@@ -78,13 +78,39 @@ class _DishCatalogScreenState extends ConsumerState<DishCatalogScreen> {
           color: AppColors.bg,
           border: Border(top: BorderSide(color: AppColors.border, width: 1)),
         ),
-        child: PrimaryButton(
-          label: l10n.newDishAction,
-          icon: Icons.add,
-          // §A: preselect the open accordion category (or the first category
-          // when all collapsed) as an editable default in the editor.
-          onPressed: () =>
-              context.push('/dishes/new', extra: _open ?? dishCategoryOrder.first),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Spec 020 §7: AI dish assistant, alongside "New dish".
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: () => context.push('/ai-dish-assistant'),
+                icon: const Icon(
+                  Icons.auto_awesome_outlined,
+                  size: 20,
+                  color: AppColors.accentSecondary,
+                ),
+                label: Text(
+                  l10n.dishAssistantCreateAction,
+                  style: AppTypography.button.copyWith(
+                    color: AppColors.accentSecondary,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            PrimaryButton(
+              label: l10n.newDishAction,
+              icon: Icons.add,
+              // §A: preselect the open accordion category (or the first
+              // category when all collapsed) as an editable default.
+              onPressed: () => context.push(
+                '/dishes/new',
+                extra: _open ?? dishCategoryOrder.first,
+              ),
+            ),
+          ],
         ),
       ),
     );
