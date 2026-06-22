@@ -2,9 +2,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../stock_photos/data/quota.dart' show QuotaStatus, currentPeriodUtc;
 import 'dish_assistant.dart';
-import 'dish_option.dart';
+import 'dish_suggestion.dart';
 
-/// Thrown when `save` is blocked because the group's monthly dish-assistant
+/// Thrown when `process` is blocked because the group's monthly dish-assistant
 /// quota is exhausted (the Edge Function returns 402). The paywall seam —
 /// surfaced as the limit-reached message, no upsell yet (Spec 020 §6).
 class QuotaExceededException implements Exception {
@@ -13,44 +13,54 @@ class QuotaExceededException implements Exception {
   final int limit;
 }
 
-/// Spec 020 §6 — client side of the `dish-assistant` Edge Function. The
-/// Anthropic key lives only in the function; the client never sees it. The
-/// quota counter is read directly (RLS allows group members SELECT on the
-/// Spec 019 quota tables) but only the function ever writes it.
+/// Spec 020 §6 (v3) — client side of the two-phase `dish-assistant` Edge
+/// Function. The Anthropic key lives only in the function. The quota counter is
+/// read directly (RLS allows group members SELECT on the Spec 019 quota tables)
+/// but only the function ever writes it.
 class DishAssistantRepository {
   DishAssistantRepository(this._client);
 
   final SupabaseClient _client;
 
-  /// §2 — search (no quota). [locale] is `ca` / `es` / `en`. Returns up to 3
-  /// viable options; fewer is fine.
-  Future<List<DishOption>> search({
+  /// §1 Path A, Phase 1 — suggest (no quota). [locale] is `ca` / `es` / `en`.
+  /// Returns up to 3 {title, url} recipe suggestions; fewer is fine.
+  Future<List<DishSuggestion>> suggest({
     required String name,
     required String locale,
   }) async {
     final res = await _client.functions.invoke(
       'dish-assistant',
-      body: {'action': 'search', 'name': name, 'locale': locale},
+      body: {'action': 'suggest', 'name': name, 'locale': locale},
     );
     final data = (res.data as Map).cast<String, dynamic>();
-    final options = (data['options'] as List? ?? const [])
+    final list = (data['suggestions'] as List? ?? const [])
         .cast<Map<String, dynamic>>();
-    return options
-        .map((o) => DishOption.fromJson(o, locale: locale))
+    return list
+        .map(DishSuggestion.fromJson)
+        .where((s) => s.hasUrl)
         .toList();
   }
 
-  /// §6 — persist the chosen option (server creates ingredients with i18n, the
-  /// dish with preparation = recipe, the lines, the photo, and atomically
-  /// charges quota). Returns the new dish id + updated usage; throws
+  /// §1 Process (charges quota) — both input paths converge here. Path A passes
+  /// the picked suggestion's [url]; Path B passes the user-pasted [url]. The
+  /// server fetches & adapts that one recipe, creates the dish (with i18n
+  /// ingredients, multilingual name, preparation = recipe, hybrid photo), and
+  /// atomically charges quota. Returns the new dish id + updated usage; throws
   /// [QuotaExceededException] on 402.
-  Future<({String dishId, QuotaStatus usage})> save({
-    required DishOption option,
+  Future<({String dishId, QuotaStatus usage})> process({
+    required String url,
+    String? name,
+    required String locale,
   }) async {
     try {
       final res = await _client.functions.invoke(
         'dish-assistant',
-        body: {'action': 'save', 'option': option.toSavePayload()},
+        body: {
+          'action': 'process',
+          'url': url,
+          if (name != null && name.isNotEmpty) 'name': name,
+          'locale': locale,
+        },
       );
       final data = (res.data as Map).cast<String, dynamic>();
       final usage = (data['usage'] as Map).cast<String, dynamic>();

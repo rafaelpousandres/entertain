@@ -701,10 +701,16 @@
   "@dishAssistantError": {},
   "dishAssistantSaveError": "Couldn't create the dish.",
   "@dishAssistantSaveError": {},
-  "dishAssistantServingsLabel": "{count} servings",
-  "@dishAssistantServingsLabel": {
-    "placeholders": { "count": { "type": "int" } }
-  },
+  "dishAssistantOpenError": "Couldn't open the link.",
+  "@dishAssistantOpenError": {},
+  "dishAssistantCreateThisAction": "Create this dish",
+  "@dishAssistantCreateThisAction": {},
+  "dishAssistantUrlHint": "or paste a recipe URL",
+  "@dishAssistantUrlHint": {},
+  "dishAssistantCreateFromUrlAction": "Create from this URL",
+  "@dishAssistantCreateFromUrlAction": {},
+  "dishAssistantInvalidUrl": "That doesn't look like a recipe URL.",
+  "@dishAssistantInvalidUrl": {},
   "dishAssistantRemainingLabel": "{remaining} of {limit} left this month",
   "@dishAssistantRemainingLabel": {
     "placeholders": {
