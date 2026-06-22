@@ -6,55 +6,82 @@
 > 019 infrastructure (Edge Function + server secret + quota/entitlement). It
 > validates that the quota design generalizes beyond stock photos.
 >
-> The **migration** (if any) and the **Edge Function** are shown for approval;
-> nothing is pushed/deployed until the user confirms. One PR; commit the spec
-> with the code. Branch: `feat/spec-020-ai-dish-assistant`.
+> **Revision v2 (two-phase).** First build timed out (`WallClockTime`) processing
+> 3 whole recipes at once. Flow is now: **suggest 3 URLs (cheap) → process only
+> the chosen one (charges quota)**. See §1. Migration already applied in v1
+> (enum `dish`, `original_locale`, service_role grants) — unchanged.
+>
+> The **Edge Function** changes are shown for approval; nothing pushed/deployed
+> until confirmed. Branch: `feat/spec-020-ai-dish-assistant` (continues).
 
 ---
 
-## 1. Goal & flow
+## 1. Goal & flow — TWO PHASES
 
-Turn "what's the dish called?" into a complete, editable dish. The user types a
-name; **Claude does all the work** (search, scrape, verify, adapt, normalize);
-the app presents up to **3 viable options**; the user picks one; it is **saved
-directly** as a normal, editable dish.
+> **Revised after first build.** The original single-shot design (Claude fully
+> processes 3 whole recipes, user picks one) **timed out** the Edge Function
+> (`reason: WallClockTime`): web_search + web_fetch + adapting 3 full recipes +
+> structured output exceeds the function wall-clock limit, and ~⅔ of the cost is
+> wasted on the 2 unused recipes. The flow is now **two phases**: suggest cheaply,
+> process only the chosen one. This both fixes the timeout and gives the user
+> real provenance/control.
 
-Example: user types **"Sípia a la bruta"** → up to 3 verified-viable options →
-user picks #1 → a full dish is created and saved (name, ingredients with
-quantities, servings, recipe in the dish's *preparation* field, photo).
+**Phase 1 — Suggest (fast, free, no quota).**
+- User types a name ("caldereta de llagosta").
+- Claude returns **3 recipe suggestions**, each = **title + clickable URL**.
+- Each URL opens in the **external browser** (`url_launcher`) so the user can
+  *view the real recipe* before choosing. No in-app webview.
+- Lightweight call: Claude finds 3 good source URLs (it may use web_search), it
+  does **not** read/adapt them here. Fast → no timeout.
+
+**Phase 2 — Process the chosen one (charges quota).**
+- User picks one of the 3.
+- Claude processes **only that recipe**: fetch + verify + adapt + normalize →
+  name (multilingual), servings, ingredients mapped to the catalog, recipe text,
+  photo. One recipe, not three → well under the time limit.
+- **Saved directly** as a normal, editable dish (no pre-save review gate; the
+  user edits afterwards if needed).
+- **Quota is consumed here** (the `dish_assistant` slot), on a successful save —
+  suggesting is free; only producing the actual dish costs.
+
+Example: "caldereta de llagosta" → 3 title+URL suggestions (open any in browser)
+→ pick #2 → that recipe is processed and saved as a full dish.
 
 **Confirmed stances:**
-- **Direct save**, no pre-save review gate. The user edits afterwards if needed.
-  (Rationale: minimal friction, "Claude does all the work".)
-- Claude returns only options it deems **viable** (coherent, cookable). Fewer
-  than 3 is fine.
+- **Two-phase** (suggest URLs → process one). Fixes the WallClockTime timeout.
+- **Direct save** of the processed dish; editable afterwards.
+- Phase 1 returns title+URL only (no full processing); fewer than 3 is fine.
 
 ---
 
-## 2. What Claude produces per option
+## 2. What Claude produces
 
+### Phase 1 — suggestions (per call: up to 3)
+Each suggestion is minimal:
+- **title** (recipe name as found).
+- **url** (the source recipe page; clickable → external browser).
+- (optional) nothing else required. Keep Phase 1 cheap and fast.
+
+### Phase 2 — the processed dish (the chosen recipe only)
 A structured dish:
 - **name** (canonical dish name; multilingual — see §4).
 - **servings** (`base_servings`).
 - **ingredients**: each with **quantity + unit + ingredient**, mapped to
-  Entertain's model as far as possible (see §3). Each ingredient is multilingual
+  Entertain's model as far as possible (see §3). Each ingredient multilingual
   (§4).
-- **recipe → the dish's *preparation* field.** The recipe (summarized,
-  translated) goes into the **existing dish-level preparation field** — **no new
-  column**. Plain monolithic text, **not** split into steps (the field is plain
-  text already). *Clarified: "preparation" here is the dish-level preparation
-  (the recipe), distinct from per-ingredient preparation below.*
-- **photo**: hybrid web→Pexels (see §5).
-- (internal) provenance/notes: source + confidence, for debugging/traceability.
+- **recipe → the dish's *preparation* field** (`dishes.preparation`, existing
+  text column — **no new column**). Plain monolithic text, not split into steps.
+  *Dish-level preparation (the recipe), distinct from per-ingredient preparation.*
+- **photo**: hybrid web→Pexels (§5) — prefer the chosen recipe's own image.
+- **source url** stored as provenance (we now always have the exact source).
+- (internal) provenance/confidence notes.
 
 **Per-ingredient preparation (secondary, best-effort, NOT priority).**
 In Entertain, *ingredient* preparation is a **purchase instruction to the
-supplier** ("clean and cut into rings"), **not** a recipe step. If the recipe
-clearly implies an ingredient must be bought with a special preparation, and it
-can be extracted cleanly, the assistant **may** also fill the ingredient's
-preparation. **With caution**: never invent it, and never confuse a recipe step
-with a supplier instruction. If unclear → leave empty. Low priority; the dish
-preparation (the recipe) is what matters.
+supplier** ("clean and cut into rings"), **not** a recipe step
+(`ingredients.prep_description`, existing). If the recipe clearly implies an
+ingredient must be bought with a special preparation and it extracts cleanly,
+the assistant **may** fill it. With caution; if unclear → leave empty.
 
 ---
 
@@ -139,39 +166,50 @@ bucket → `media` row with provenance), reusing what already works.
 
 ---
 
-## 6. Architecture — reuses Spec 019 infrastructure
+## 6. Architecture — reuses Spec 019 infrastructure, two actions
 
-- **Edge Function** (new, e.g. `dish-assistant`): input = dish name + locale +
-  the group's ingredient/unit catalogs. Calls the **Anthropic API** with the key
-  as a **server secret** `ANTHROPIC_API_KEY` (never on the client — same pattern
-  as `PEXELS_API_KEY`). Returns the up-to-3 structured options. A **save** action
-  persists the chosen option: create new ingredients as needed (with i18n
-  names), create the dish (with preparation = recipe), attach the photo via the
-  019 pipeline, optionally fill per-ingredient preparation (best-effort).
-- **Quota/entitlement:** reuse the generic quota (Spec 019) with a new
-  `quota_key = 'dish_assistant'`. **Limits (decided): free 3/month → premium
-  50/month.** Consumed on a **successful save** (not on search/preview), via the
-  same `consume_quota`/`release_quota` RPCs. Default constant (3) mirrored in
-  Edge + client.
-- **Premium seam:** at the limit → the same limit-reached message pattern as 019
-  (paywall seam, no upsell yet).
-- **Two clients** inside the function as in 019 (user-scoped for identity/RLS
-  reads; service-role for quota RPCs + privileged writes).
+- **Edge Function `dish-assistant`** with **two actions** matching the phases:
+  - **`suggest`** (no quota): input = dish name + locale. Calls Claude
+    (`claude-sonnet-4-6`) to return **up to 3 {title, url}** suggestions. May use
+    `web_search`. **Must NOT fetch/adapt** the recipes — keep it light and fast
+    (this is what fixes the timeout). Returns quickly.
+  - **`process`** (charges quota): input = the chosen `url` (+ name, locale).
+    `consume_quota` (`quota_key='dish_assistant'`, default 3) → Claude fetches &
+    adapts **that one** recipe (may use `web_fetch` for the page + og:image) →
+    structured dish → create new ingredients (with i18n) → create dish
+    (preparation = recipe, multilingual name) → `dish_ingredients` → hybrid photo
+    (the recipe's image first, Pexels fallback via the 019 pipeline) → return
+    dish_id + usage. `release_quota` on any failure (quota only for a complete
+    save). One recipe → well under the wall-clock limit.
+- `ANTHROPIC_API_KEY` server-only; `verify_jwt = true`. Two clients as in 019
+  (user-scoped for identity/RLS reads; service-role for quota RPCs + writes).
+  The function loads the group catalogs itself (minimal client payload).
+- **Quota/entitlement:** generic 019 quota, `quota_key='dish_assistant'`, **free
+  3/month → premium 50/month**, consumed on a successful `process`. Default
+  constant (3) mirrored Edge + client.
+- **Timeout note:** both actions are sized to stay under the Edge Function
+  wall-clock limit — `suggest` does no fetching, `process` handles a single
+  recipe. (The original single-shot 3-recipe design exceeded it.)
+- **Premium seam:** at the limit → the same limit-reached message as 019.
 
 ---
 
 ## 7. Client (Flutter)
 
-- **Entry points:** wherever a dish can be added, **if feasible**; if that's hard
-  to wire everywhere, **at minimum the dish catalog next to "New dish"**
-  (the "Crea un plat amb IA" action, working title). The Spec-018 add-to-menu
-  "create new" flow is a natural second home if cheap.
-- **Screen:** a name field → "Cerca" → up to 3 option cards (name, key
-  ingredients, servings, photo, short summary) + remaining quota
-  ("Queden N de 3 aquest mes") → tap an option → saves → opens the new dish (or
-  returns to the originating flow). Limit-reached → the seam message.
-- **Locale** passed through (ca/es/en) so Claude works and writes in the user's
+- **Entry points:** wherever a dish can be added if feasible; at minimum the dish
+  catalog next to "New dish" ("Crea un plat amb IA", working title).
+- **Screen, two phases:**
+  1. Name field → "Cerca" → calls `suggest` → shows **up to 3 suggestions**, each
+     a **title + clickable URL** that opens in the **external browser**
+     (`url_launcher`). A header shows remaining quota ("Queden N de 3 aquest mes")
+     — informational; suggesting doesn't consume it.
+  2. Each suggestion has a **"Crea aquest plat"** (working title) action → calls
+     `process` with that URL → on success opens the new dish; on
+     `QuotaExceededException` → the limit-reached seam message.
+- **Locale** passed through (ca/es/en) so Claude works/writes in the user's
   language (and stores the others).
+- A loading state on `process` (it does real work — fetch + adapt); keep the
+  user informed it's working.
 
 ---
 
@@ -182,23 +220,26 @@ bucket → `media` row with provenance), reusing what already works.
   in the three ARBs + `flutter gen-l10n`.
 - **Tests (Flutter, no live Supabase — fakes/overrides like 019):**
   - Quota math for `dish_assistant` (free 3 default; exhausted at limit).
-  - Mapping/parse helpers (pure): option JSON → dish model; ingredient matching
-    against a provided catalog (existing vs. new); multilingual-name parsing with
-    original-language mark.
-  - Client wiring (faked function): picking an option calls save, on success
-    opens/refreshes; `QuotaExceededException` surfaces the seam message.
+  - Parse helpers (pure): suggestion JSON → {title,url} list; processed-dish JSON
+    → dish model; ingredient matching against a provided catalog (existing vs.
+    new); multilingual-name parsing with original-language mark.
+  - Client wiring (faked function): `suggest` returns title+URL list (no quota);
+    picking one calls `process`, on success opens/refreshes; the URL opens via
+    url_launcher; `QuotaExceededException` surfaces the seam message.
   - Edge Function (Deno) logic verified by design + on-device run (not in
     Flutter CI), as in 019.
 - `flutter analyze` + `flutter test` green before the PR.
 
-### Operator steps (after merge; one at a time)
-1. Create/own an **Anthropic API key**; `supabase secrets set ANTHROPIC_API_KEY=…`.
-2. `supabase functions deploy dish-assistant`.
-3. (No new quota seeding needed — `dish_assistant` uses the generic quota; free
-   default applies with no entitlement row.)
-4. On the Pixel (Internal Testing): "Crea un plat amb IA" → "Sípia a la bruta" →
-   pick an option → dish saved with ingredients, servings, recipe in preparation,
-   photo; new ingredients carry ca/es/en names; quota decrements; limit blocks.
+### Operator steps
+1. `ANTHROPIC_API_KEY` secret — **done** (set in v1).
+2. `supabase functions deploy dish-assistant` — redeploy the two-phase version.
+3. (No quota seeding — generic quota; free default applies with no entitlement.)
+4. On the Pixel (Internal Testing): "Crea un plat amb IA" → "caldereta de
+   llagosta" → **3 title+URL suggestions appear quickly** (no timeout); open a
+   URL in the browser to check; tap "Crea aquest plat" on one → that recipe is
+   processed and saved (ingredients, servings, recipe in preparation, photo);
+   new ingredients carry ca/es/en names; quota decrements by one; limit blocks
+   at the cap.
 
 ---
 
