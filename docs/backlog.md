@@ -14,7 +14,7 @@
 
 0. **Principis de producte** — AI-native, ecosistema foodappslab
 1. **Catàleg** — filtres, atributs dietètics (plats), atributs de begudes
-2. **Creació assistida (IA)** — assistent de plats, wizard d'esdeveniment
+2. **Creació assistida (IA)** — assistent de plats, wizard, feedback amb bucle IA
 3. **Plataforma i directori** — directori curat geolocalitzat + afiliació
 4. **Administració** — panell d'admin, rols de grup
 5. **Monetització** — model (decidit) + Google Play Billing
@@ -117,6 +117,47 @@ alcohol, infantil…) i amb restriccions dels convidats.
 - **Bloqueja:** conjunt d'etiquetes de beguda; disseny de la UI de filtres
   (compartida amb plats/ingredients).
 
+### 💡 Ingredients multilingües (i18n d'ingredient) — DECIDIT
+**Decidit:** cada ingredient guarda els seus noms en **ca/es/en** (taronja /
+naranja / orange), no només en l'idioma en què es va escriure. Resol un deute
+d'i18n latent (ara els ingredients són monolingües, incomplint el principi
+"i18n des del dia u") i habilita:
+- **Mostrar** l'ingredient en l'idioma de l'usuari (no només cercar).
+- **Millors cerques de fotos d'stock** (cercar "orange" dóna millors resultats
+  a Pexels que "taronja") sense cridar l'IA cada cop — la traducció es desa.
+- Futur: directori curat, ecosistema foodappslab, catàlegs compartits entre
+  usuaris de diferents idiomes.
+
+Disseny:
+- **Model**: noms per idioma a l'ingredient (reusar la taula `translations` que
+  ja existeix per a altres entitats, o camps dedicats — decidir a la spec).
+- **Original vs traduït (important)**: cal marcar **quin idioma és l'original**
+  (el que l'usuari o la font van escriure de debò) i quins són **traduccions
+  derivades** (generades per l'IA). Importa per a confiança i traçabilitat: les
+  traduccions assistides poden tenir errors; l'original és la referència. Lliga
+  amb la idea d'origen/confiança per atribut.
+- **Regla de traducció (decidida)**: **sempre els tres idiomes** (ca/es/en),
+  marcant l'original. Sigui quin sigui l'idioma de creació, es generen les altres
+  dues traduccions; cap ingredient queda incomplet. L'anglès, a més, és el pont
+  per a millors cerques de fotos d'stock.
+- **Guardar ≠ cercar ≠ mostrar (decidit)**: es **guarden** els tres idiomes (o
+  més). Per **cercar fotos** d'stock s'envia només **l'idioma de l'usuari +
+  anglès** (o anglès sol) — no els tres; el tercer idioma seria soroll. Per
+  **mostrar**, cada usuari veu l'ingredient **només en el seu idioma** (un
+  català no veu el nom en castellà ni anglès alhora); els altres noms existeixen
+  per a i18n (mostrar a cada usuari el seu) i com a pont de cerca, no per
+  ensenyar-los junts.
+- **Qui omple les traduccions**: en crear un ingredient nou des de l'assistent
+  IA (§2, Spec 020), l'IA hi posa els tres noms. Per als ingredients existents,
+  una **passada en lot** amb IA quan es vulgui.
+- **Aplica també a plats i begudes?** Coherent estendre-ho; decidir abast.
+- **On va:** spec pròpia (model + i18n) i/o dins la 020 per als ingredients que
+  l'assistent crea. La cerca d'stock (019) se'n beneficia.
+- **Quan:** lligat a la 020 (l'IA omple traduccions en crear); la migració del
+  model d'ingredient pot anar abans o amb la 020.
+- **Bloqueja:** decisió translations vs camps; abast (només ingredients o també
+  plats/begudes); passada en lot per als existents.
+
 ---
 
 ## 2. Creació assistida (IA)
@@ -161,6 +202,35 @@ Encaixa amb l'"assistent IA" de Fase 2, acotat. Lliga amb els atributs dietètic
 - **Quan:** algun dia (després de l'assistent de plats, probablement).
 - **Bloqueja:** infra IA (019); catàleg de plats prou ric per triar; decisions
   de disseny pròpies.
+
+### 💡 Eina de feedback amb bucle IA (l'app s'adapta als usuaris)
+Una eina dins l'app perquè l'usuari digui **ràpidament** què troba a faltar i què
+no funciona (captura barata: pocs tocs, sense fricció). El valor diferencial és
+el **bucle tancat amb IA**: el feedback recollit s'agrega i la IA ajuda a
+convertir-lo en **specs** i, d'aquí, en **releases** — l'app s'adapta als seus
+usuaris ràpidament. Molt alineat amb el principi AI-native (§0).
+
+Dimensions a dissenyar:
+- **Captura (dins l'app)**: formulari mínim — què falta / què falla, opcionalment
+  context (pantalla, captura), to lliure. Idealment contextual (botó discret a
+  cada pantalla o un únic punt a Settings).
+- **Agregació**: on van els feedbacks (taula pròpia? servei extern?), com es
+  classifiquen i es detecten patrons (diversos usuaris demanant el mateix).
+- **Bucle IA**: la IA resumeix/agrupa el feedback, en proposa **specs
+  esborrany** (en el format de specs del projecte) i prioritza. L'operador
+  revisa i decideix; no és automàtic de feedback→release sense supervisió.
+- **Tancar el cercle**: avisar l'usuari quan una cosa que va demanar s'ha fet
+  ("ho vau demanar, ja hi és") — efecte de fidelització fort.
+
+Consideracions: privadesa/GDPR del feedback (consentiment, dades mínimes); evitar
+soroll/spam; el bucle IA reutilitza la infra d'IA (secret + Edge Function + quota
+de 019). Aquesta eina és també **infraestructura potencialment compartida** amb
+altres apps de foodappslab (§0).
+- **On anirà:** spec pròpia (captura) + procés/eina d'operador per al bucle IA.
+- **Quan:** captura simple es pot fer aviat (barata, alt valor); el bucle IA
+  complet, després de la infra d'IA (019).
+- **Bloqueja:** model de dades de feedback; infra IA per al bucle; decisió de
+  privadesa; (per al bucle complet) eina d'operador / panell d'admin.
 
 ---
 
@@ -246,6 +316,31 @@ tres eixos; la 019 deixa la costura al missatge de límit assolit.
 ---
 
 ## 6. Polits i millores menors
+
+### 💡 Velocitat del desar de fotos d'stock (resolució més petita)
+Desar una foto de Pexels va una mica lent: la imatge fa un viatge doble per la
+xarxa (Edge Function descarrega de Pexels → puja al storage). És inherent al
+disseny (copiem la foto al storage, no hotlink), però es pot accelerar
+**descarregant una resolució més petita** de Pexels (la mida `large`/`medium`
+en lloc de l'`original`) — per a fotos de plats/ingredients n'hi ha de sobres.
+- **On va:** ajust a l'Edge Function stock-photos (quin `src` descarrega) + 019.
+- **Quan:** algun dia; millora de rendiment, no bloqueja.
+
+### 💡 Preomplir el camp de cerca d'stock amb el nom de l'entitat
+En obrir la cerca de Pexels des d'un plat/ingredient/beguda, preomplir el camp
+amb el nom de l'entitat (en català ara; amb traducció a anglès quan hi hagi
+ingredients multilingües —§1— i la IA de la 020).
+- **On va:** 019 (client, pantalla de cerca) ara per al nom tal qual; la
+  traducció arriba amb §1 + 020.
+- **Quan:** el preomplir simple, aviat; la traducció, amb la 020.
+
+### 💡 Ordre de la fitxa Crèdits a Settings
+La fitxa "Crèdits" ("Fotos proporcionades per Pexels") ha d'anar **entre
+"Primers passos" i "Privadesa i dades"**, no on és ara. Només canvi d'ordre de
+UI, sense tocar contingut.
+- **On va:** lib/features/shopping/screens/settings_screen.dart.
+- **Quan:** agrupar amb altres polits en una passada futura (no val un cicle
+  d'Internal Testing sol).
 
 ### 💡 Parpelleig residual del splash
 A l'arrencada queda un "flash" lleu (doble càrrega) en el traspàs natiu→overlay.
