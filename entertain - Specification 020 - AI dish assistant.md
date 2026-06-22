@@ -6,51 +6,66 @@
 > 019 infrastructure (Edge Function + server secret + quota/entitlement). It
 > validates that the quota design generalizes beyond stock photos.
 >
+> **Revision v3 (two input paths).** Same two-phase processing, now with **two
+> ways to reach a URL**, on the same screen:
+> - **By name** (Path A): type a dish name → Claude suggests 3 {title,url} → pick
+>   one → process it.
+> - **By URL** (Path B): paste a recipe URL directly → process it (skips the
+>   suggest phase). This folds the old backlog "URL importer" in cleanly.
+> Both paths converge on the **same `process` action** (the costly phase); only
+> the input differs. **Quota is charged on `process`, identically for both
+> paths.** See §1.
+>
 > **Revision v2 (two-phase).** First build timed out (`WallClockTime`) processing
-> 3 whole recipes at once. Flow is now: **suggest 3 URLs (cheap) → process only
-> the chosen one (charges quota)**. See §1. Migration already applied in v1
-> (enum `dish`, `original_locale`, service_role grants) — unchanged.
+> 3 whole recipes at once. Flow split into **suggest (cheap) → process one
+> (charges quota)**. Migration already applied in v1 (enum `dish`,
+> `original_locale`, service_role grants) — unchanged.
 >
 > The **Edge Function** changes are shown for approval; nothing pushed/deployed
 > until confirmed. Branch: `feat/spec-020-ai-dish-assistant` (continues).
 
 ---
 
-## 1. Goal & flow — TWO PHASES
+## 1. Goal & flow — TWO PHASES, TWO INPUT PATHS
 
 > **Revised after first build.** The original single-shot design (Claude fully
 > processes 3 whole recipes, user picks one) **timed out** the Edge Function
-> (`reason: WallClockTime`): web_search + web_fetch + adapting 3 full recipes +
-> structured output exceeds the function wall-clock limit, and ~⅔ of the cost is
-> wasted on the 2 unused recipes. The flow is now **two phases**: suggest cheaply,
-> process only the chosen one. This both fixes the timeout and gives the user
-> real provenance/control.
+> (`reason: WallClockTime`). The flow is now **two phases**: suggest cheaply,
+> process only the chosen one. v3 adds a **second input path** (paste a URL
+> directly) that skips the suggest phase.
 
-**Phase 1 — Suggest (fast, free, no quota).**
-- User types a name ("caldereta de llagosta").
-- Claude returns **3 recipe suggestions**, each = **title + clickable URL**.
-- Each URL opens in the **external browser** (`url_launcher`) so the user can
-  *view the real recipe* before choosing. No in-app webview.
-- Lightweight call: Claude finds 3 good source URLs (it may use web_search), it
-  does **not** read/adapt them here. Fast → no timeout.
+There are **two ways to reach a recipe URL**, both on the **same screen**:
 
-**Phase 2 — Process the chosen one (charges quota).**
-- User picks one of the 3.
-- Claude processes **only that recipe**: fetch + verify + adapt + normalize →
+**Path A — by name** (name field, top):
+1. **Suggest (fast, free, no quota).** User types a name ("caldereta de
+   llagosta") → Claude returns **up to 3 suggestions**, each = **title +
+   clickable URL** (opens in the external browser via `url_launcher` so the user
+   can view the real recipe). Claude finds 3 good source URLs (may use
+   web_search); it does **not** read/adapt them here → fast, no timeout.
+2. User picks one → goes to **Process** (below).
+
+**Path B — by URL** (URL field, below the name field):
+- User already has a recipe URL → pastes it → goes **directly to Process**,
+  skipping suggest. (This is the old "URL importer" idea, folded in.)
+
+**Process (both paths converge here; charges quota).**
+- Claude processes **that one recipe**: fetch + verify + adapt + normalize →
   name (multilingual), servings, ingredients mapped to the catalog, recipe text,
-  photo. One recipe, not three → well under the time limit.
-- **Saved directly** as a normal, editable dish (no pre-save review gate; the
-  user edits afterwards if needed).
-- **Quota is consumed here** (the `dish_assistant` slot), on a successful save —
-  suggesting is free; only producing the actual dish costs.
+  photo. One recipe → well under the time limit.
+- **Saved directly** as a normal, editable dish (no pre-save review gate).
+- **Quota is consumed here** (the `dish_assistant` slot), on a successful save,
+  **identically for Path A and Path B** — suggesting is free; producing the dish
+  costs, however the URL was reached.
 
-Example: "caldereta de llagosta" → 3 title+URL suggestions (open any in browser)
-→ pick #2 → that recipe is processed and saved as a full dish.
+Example A: "caldereta de llagosta" → 3 title+URL suggestions → pick #2 → process
+→ dish saved. Example B: paste `https://…/caldereta-llagosta` → process → dish
+saved.
 
 **Confirmed stances:**
-- **Two-phase** (suggest URLs → process one). Fixes the WallClockTime timeout.
+- **Two phases** (suggest → process); **two input paths** (name, URL) on one
+  screen, converging on `process`.
 - **Direct save** of the processed dish; editable afterwards.
-- Phase 1 returns title+URL only (no full processing); fewer than 3 is fine.
+- Quota on `process`, same for both paths.
 
 ---
 
@@ -172,15 +187,16 @@ bucket → `media` row with provenance), reusing what already works.
   - **`suggest`** (no quota): input = dish name + locale. Calls Claude
     (`claude-sonnet-4-6`) to return **up to 3 {title, url}** suggestions. May use
     `web_search`. **Must NOT fetch/adapt** the recipes — keep it light and fast
-    (this is what fixes the timeout). Returns quickly.
-  - **`process`** (charges quota): input = the chosen `url` (+ name, locale).
+    (this is what fixes the timeout). Returns quickly. *(Only Path A uses this.)*
+  - **`process`** (charges quota): input = a recipe `url` (+ optional name,
+    locale). **Used by both input paths** — Path A passes the picked suggestion's
+    URL, Path B passes the user-pasted URL; the action is identical.
     `consume_quota` (`quota_key='dish_assistant'`, default 3) → Claude fetches &
-    adapts **that one** recipe (may use `web_fetch` for the page + og:image) →
-    structured dish → create new ingredients (with i18n) → create dish
-    (preparation = recipe, multilingual name) → `dish_ingredients` → hybrid photo
-    (the recipe's image first, Pexels fallback via the 019 pipeline) → return
-    dish_id + usage. `release_quota` on any failure (quota only for a complete
-    save). One recipe → well under the wall-clock limit.
+    adapts **that one** recipe (`web_fetch` for the page + og:image) → structured
+    dish → create new ingredients (with i18n) → create dish (preparation =
+    recipe, multilingual name) → `dish_ingredients` → hybrid photo (the recipe's
+    image first, Pexels fallback via the 019 pipeline) → return dish_id + usage.
+    `release_quota` on any failure. One recipe → well under the wall-clock limit.
 - `ANTHROPIC_API_KEY` server-only; `verify_jwt = true`. Two clients as in 019
   (user-scoped for identity/RLS reads; service-role for quota RPCs + writes).
   The function loads the group catalogs itself (minimal client payload).
@@ -198,18 +214,20 @@ bucket → `media` row with provenance), reusing what already works.
 
 - **Entry points:** wherever a dish can be added if feasible; at minimum the dish
   catalog next to "New dish" ("Crea un plat amb IA", working title).
-- **Screen, two phases:**
-  1. Name field → "Cerca" → calls `suggest` → shows **up to 3 suggestions**, each
-     a **title + clickable URL** that opens in the **external browser**
-     (`url_launcher`). A header shows remaining quota ("Queden N de 3 aquest mes")
-     — informational; suggesting doesn't consume it.
-  2. Each suggestion has a **"Crea aquest plat"** (working title) action → calls
-     `process` with that URL → on success opens the new dish; on
-     `QuotaExceededException` → the limit-reached seam message.
-- **Locale** passed through (ca/es/en) so Claude works/writes in the user's
-  language (and stores the others).
-- A loading state on `process` (it does real work — fetch + adapt); keep the
-  user informed it's working.
+- **Screen — one screen, two input paths:**
+  - **Top: name field** → "Cerca" → calls `suggest` → shows **up to 3
+    suggestions**, each a **title + clickable URL** opening in the **external
+    browser** (`url_launcher`). Each suggestion has a **"Crea aquest plat"**
+    action → calls `process` with that URL.
+  - **Below: URL field** ("o enganxa una URL de recepta") → a **"Crea des
+    d'aquesta URL"** action → calls `process` directly with the pasted URL
+    (skips suggest).
+  - A header shows remaining quota ("Queden N de 3 aquest mes") — informational;
+    only `process` consumes it.
+  - `process` success → opens the new dish; `QuotaExceededException` → the
+    limit-reached seam message. A loading state during `process` (real work).
+- Basic URL validation on Path B (looks like an http(s) URL) before calling.
+- **Locale** passed through (ca/es/en).
 
 ---
 
@@ -234,12 +252,15 @@ bucket → `media` row with provenance), reusing what already works.
 1. `ANTHROPIC_API_KEY` secret — **done** (set in v1).
 2. `supabase functions deploy dish-assistant` — redeploy the two-phase version.
 3. (No quota seeding — generic quota; free default applies with no entitlement.)
-4. On the Pixel (Internal Testing): "Crea un plat amb IA" → "caldereta de
-   llagosta" → **3 title+URL suggestions appear quickly** (no timeout); open a
-   URL in the browser to check; tap "Crea aquest plat" on one → that recipe is
-   processed and saved (ingredients, servings, recipe in preparation, photo);
-   new ingredients carry ca/es/en names; quota decrements by one; limit blocks
-   at the cap.
+4. On the Pixel (Internal Testing):
+   - **Path A:** "Crea un plat amb IA" → "caldereta de llagosta" → **3 title+URL
+     suggestions appear quickly** (no timeout); open a URL in the browser; tap
+     "Crea aquest plat" on one → that recipe is processed and saved (ingredients,
+     servings, recipe in preparation, photo); new ingredients carry ca/es/en
+     names; quota decrements by one.
+   - **Path B:** paste a recipe URL into the URL field → "Crea des d'aquesta URL"
+     → same processing + save; quota decrements by one.
+   - Limit blocks at the cap (both paths).
 
 ---
 
@@ -258,14 +279,14 @@ If any additive migration is needed, show it before `db push`.
 ---
 
 ## 10. Out of scope (this Spec)
-- **URL input mode** (paste a URL instead of a name) — later; same pipeline, a
-  second input. The name flow is primary (the backlog reframed the old "URL
-  importer" around this).
 - **Batch backfill** of translations for existing ingredients (follow-up).
-- Broader i18n of dishes/drinks/all catalog entities.
+- Broader i18n of dishes/drinks/all catalog entities (display = Spec 021).
 - Event wizard (separate backlog item / Spec).
 - Billing/price (the quota seam is here; price is the Billing Spec).
 - A pre-save ambiguity-review UI.
+
+*(Note: URL input is now IN scope as Path B — the old "URL importer" idea is
+folded into this Spec as the second input path.)*
 
 ---
 
