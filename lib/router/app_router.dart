@@ -24,6 +24,7 @@ import '../features/shopping/screens/supplier_category_detail_screen.dart';
 import '../features/shopping/screens/supplier_editor_screen.dart';
 import '../features/shopping/screens/supplier_message_screen.dart';
 import '../features/startup/bootstrap_gate.dart';
+import '../features/stock_photos/screens/stock_photo_search_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -205,6 +206,15 @@ final GoRouter appRouter = GoRouter(
       path: '/drinks/:id',
       builder: (context, state) =>
           _gated(DrinkEditorScreen(drinkId: state.pathParameters['id']!)),
+    ),
+
+    // Stock-photo search (Spec 019) — opened from the photo picker; the entity
+    // (type + id) and Pexels locale travel as `extra`.
+    GoRoute(
+      path: '/stock-photos',
+      builder: (context, state) => _gated(
+        StockPhotoSearchScreen(args: state.extra as StockPhotoSearchArgs),
+      ),
     ),
 
     // Legacy catalog list deep links → the grouped Catàleg tab (Spec 014).
