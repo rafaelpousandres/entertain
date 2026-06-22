@@ -681,6 +681,43 @@
   "@settingsCreditsTitle": {},
   "settingsCreditsPexels": "Photos provided by Pexels",
   "@settingsCreditsPexels": {},
+  "dishAssistantCreateAction": "Create a dish with AI",
+  "@dishAssistantCreateAction": {},
+  "dishAssistantTitle": "Create a dish with AI",
+  "@dishAssistantTitle": {},
+  "dishAssistantHint": "What dish do you want?",
+  "@dishAssistantHint": {},
+  "dishAssistantSearchAction": "Search",
+  "@dishAssistantSearchAction": {},
+  "dishAssistantEmptyPrompt": "Type a dish name and let AI build it.",
+  "@dishAssistantEmptyPrompt": {},
+  "dishAssistantSearching": "Looking up recipes…",
+  "@dishAssistantSearching": {},
+  "dishAssistantSaving": "Creating the dish…",
+  "@dishAssistantSaving": {},
+  "dishAssistantNoResults": "No viable options found.",
+  "@dishAssistantNoResults": {},
+  "dishAssistantError": "Couldn't reach the assistant.",
+  "@dishAssistantError": {},
+  "dishAssistantSaveError": "Couldn't create the dish.",
+  "@dishAssistantSaveError": {},
+  "dishAssistantServingsLabel": "{count} servings",
+  "@dishAssistantServingsLabel": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "dishAssistantRemainingLabel": "{remaining} of {limit} left this month",
+  "@dishAssistantRemainingLabel": {
+    "placeholders": {
+      "remaining": { "type": "int" },
+      "limit": { "type": "int" }
+    }
+  },
+  "dishAssistantLimitReachedTitle": "Limit reached",
+  "@dishAssistantLimitReachedTitle": {},
+  "dishAssistantLimitReachedBody": "You've used your {limit} free AI dishes this month.",
+  "@dishAssistantLimitReachedBody": {
+    "placeholders": { "limit": { "type": "int" } }
+  },
   "photoRemovePhoto": "Remove photo",
   "@photoRemovePhoto": {},
   "photoRemoveConfirmTitle": "Remove photo?",
