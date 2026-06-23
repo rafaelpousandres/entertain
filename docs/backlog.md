@@ -14,7 +14,8 @@
 
 0. **Principis de producte** — AI-native, ecosistema foodappslab
 1. **Catàleg** — filtres, atributs dietètics (plats), atributs de begudes
-2. **Creació assistida (IA)** — assistent de plats, wizard, feedback amb bucle IA
+1B. **Convidats i esdeveniment social** — llista de convidats, invitacions, RSVP
+2. **Creació assistida (IA)** — assistent de plats, wizard de menú, feedback amb bucle IA
 3. **Plataforma i directori** — directori curat geolocalitzat + afiliació
 4. **Administració** — panell d'admin, rols de grup
 5. **Monetització** — model (decidit) + Google Play Billing
@@ -160,6 +161,40 @@ Disseny:
 
 ---
 
+## 1B. Convidats i esdeveniment social
+
+### 💡 Llista de convidats + invitacions + RSVP
+Afegir als esdeveniments una **llista de convidats**, amb la possibilitat
+d'**enviar invitacions** per **text (SMS/WhatsApp)** o **email**, i fer **control
+de RSVP** (qui ve, qui no, qui no ha respost).
+
+Dimensions a dissenyar:
+- **Model**: convidats per esdeveniment (nom, contacte: telèfon/email), estat
+  RSVP (pendent / confirmat / declinat), # acompanyants potser.
+- **Invitació**: generar un missatge d'invitació (com es genera el missatge de
+  comanda al proveïdor) i enviar-lo pel canal triat (text/email) — l'usuari
+  l'envia des del seu canal, com amb les comandes (no enviament automàtic des de
+  l'app, almenys d'inici).
+- **RSVP**: com torna la resposta. Opcions: manual (l'amfitrió marca qui ha
+  confirmat) o automàtic (un enllaç de confirmació → torna a l'app/BD). El manual
+  és molt més simple i pot ser el MVP; l'automàtic necessita un endpoint/landing.
+- **Connexió amb el menú**: el # de confirmats podria alimentar el nombre de
+  comensals de l'esdeveniment (les racions) — sinergia clara amb el càlcul de la
+  compra.
+- **Privadesa/GDPR**: dades de contacte de tercers (els convidats) — consentiment,
+  minimització.
+
+Connecta amb: el càlcul de racions/compra (els confirmats fixen els comensals);
+els atributs dietètics (§1) i el wizard (§2) si es vol proposar menú segons
+restriccions dels convidats.
+- **On va:** spec(s) pròpia(es). MVP: llista + invitació per text/email + RSVP
+  manual. Fase 2: RSVP automàtic amb enllaç.
+- **Quan:** algun dia; és una funcionalitat social gran que amplia l'abast
+  d'Entertain (d'organitzar el menú a organitzar també els convidats).
+- **Bloqueja:** model de convidats; decisió RSVP manual vs automàtic; privadesa.
+
+---
+
 ## 2. Creació assistida (IA)
 
 > Totes les funcions d'IA comparteixen infraestructura: API key d'Anthropic com a
@@ -188,49 +223,83 @@ segur: no copiar passos de tercers en producte de pagament); procedència
 - **Bloqueja:** infra IA (019); decisions pròpies (font de receptes: Claude vs
   API de receptes; flux de revisió; drets).
 
-### 💡 Wizard d'esdeveniment
-Assistent que **proposa un menú complet**:
-- Formulari inicial: nom, # persones, quadre lliure de descripció.
-- Preguntes amb opcions (tipus d'àpat, formalitat, restriccions dietètiques,
-  estació…).
-- Al final, proposa un menú (plats + begudes) coherent amb el context.
+### 💡 Wizard de menú amb IA ("Crea / Completa el menú amb IA")
+Assistent que **proposa o completa el menú** d'un esdeveniment. Concreció de
+l'antic "wizard d'esdeveniment":
+- **Entrada**: a la pestanya **Menú**, un botó a sobre de "+ Afegeix plat",
+  anàleg al "Crea un plat amb IA" però per al menú sencer: **"Crea un menú amb
+  IA"**.
+- **Botó adaptatiu segons context**: si el menú és buit → "Crea un menú amb IA";
+  si **ja hi ha plats o begudes** → canvia a **"Completa el menú amb IA"**. Es pot
+  cridar **en qualsevol moment**, respectant el que ja hi ha.
+- **Context + preguntes**: parteix dels **paràmetres de l'esdeveniment** (#
+  persones, format de racions…) i fa **algunes preguntes** d'opció múltiple
+  (tipus d'àpat, formalitat, restriccions dietètiques, estació…) **+ una resposta
+  oberta**. Amb això proposa el menú.
+- **Barreja catàleg + plats nous**: la proposta pot incloure **plats del catàleg**
+  existents i **plats nous creats amb IA** (reutilitza l'assistent de la 020).
+- **Analogia Spotify**: com Spotify afegeix cançons noves a una playlist que ja
+  sona, l'IA **completa** el menú que ja estàs muntant — no el reemplaça;
+  complementa el que hi ha.
 
-Encaixa amb l'"assistent IA" de Fase 2, acotat. Lliga amb els atributs dietètics
-(§1) si vol respectar restriccions dels convidats.
+Sinergies: reutilitza l'assistent de plats (020) per als plats nous; lliga amb
+els atributs dietètics (§1) i amb els convidats/RSVP (§1B) per respectar
+restriccions; els paràmetres de l'esdeveniment fixen les quantitats.
 - **Límits (decidits):** free 2/mes → premium 15/mes.
 - **On anirà:** spec pròpia.
-- **Quan:** algun dia (després de l'assistent de plats, probablement).
-- **Bloqueja:** infra IA (019); catàleg de plats prou ric per triar; decisions
-  de disseny pròpies.
+- **Quan:** després de l'assistent de plats (020), que reutilitza.
+- **Bloqueja:** infra IA (feta, 019/020); catàleg prou ric; disseny de les
+  preguntes i del flux de proposta/edició; com es barregen plats catàleg + nous.
 
 ### 💡 Eina de feedback amb bucle IA (l'app s'adapta als usuaris)
-Una eina dins l'app perquè l'usuari digui **ràpidament** què troba a faltar i què
-no funciona (captura barata: pocs tocs, sense fricció). El valor diferencial és
-el **bucle tancat amb IA**: el feedback recollit s'agrega i la IA ajuda a
-convertir-lo en **specs** i, d'aquí, en **releases** — l'app s'adapta als seus
-usuaris ràpidament. Molt alineat amb el principi AI-native (§0).
+Una eina dins l'app perquè l'usuari digui **ràpidament i sovint** què troba a
+faltar i què no funciona (captura barata: pocs tocs, sense fricció). El feedback
+**arriba a la BD** de manera estructurada, i el **format ha de ser fàcil de
+processar per Claude (a claude.ai)** per convertir-lo en **noves entrades de
+backlog / specs**. El valor diferencial és el **bucle tancat amb IA**: feedback
+recollit → Claude l'agrega i en proposa funcionalitats → backlog → releases —
+l'app s'adapta als seus usuaris. Molt alineat amb el principi AI-native (§0).
+
+**MVP concret (decidit):**
+- **Ubicació**: a **Configuració**, darrere de "Primers passos".
+- **Títol**: **"Suggeriments"**.
+- **Caixa de text lliure**, amb **dictat de veu a text** permès (el teclat del
+  sistema ja ho ofereix; assegurar que el camp ho admet).
+- **Indicador** de **quants suggeriments s'han enviat** (comptador per usuari/grup).
+- Es **desen a la BD** per a **volcat/export posterior** (no processament en viu).
+Simple a posta: sense IA dins l'app, sense bucle automàtic. El processament
+intel·ligent el faig jo a claude.ai a partir del volcat.
 
 Dimensions a dissenyar:
-- **Captura (dins l'app)**: formulari mínim — què falta / què falla, opcionalment
-  context (pantalla, captura), to lliure. Idealment contextual (botó discret a
-  cada pantalla o un únic punt a Settings).
-- **Agregació**: on van els feedbacks (taula pròpia? servei extern?), com es
-  classifiquen i es detecten patrons (diversos usuaris demanant el mateix).
-- **Bucle IA**: la IA resumeix/agrupa el feedback, en proposa **specs
-  esborrany** (en el format de specs del projecte) i prioritza. L'operador
-  revisa i decideix; no és automàtic de feedback→release sense supervisió.
+- **Captura (dins l'app), freqüent i fàcil**: un punt d'entrada sempre a mà
+  (botó discret omnipresent o a cada pantalla) perquè donar feedback costi
+  segons. Formulari mínim: què falta / què falla, to lliure; opcionalment
+  context automàtic (pantalla actual, versió de l'app, captura).
+- **Arribada a la BD (estructurada)**: taula pròpia de feedback (p. ex.
+  `feedback`: id, group_id/user_id si escau, text, pantalla, versió, timestamp,
+  estat de triatge). Dades mínimes i consentides. L'objectiu és que el conjunt
+  sigui **fàcil d'exportar/llegir** (consulta SQL o export) per portar-lo a
+  claude.ai.
+- **Processament per Claude (a claude.ai)**: Claude llegeix el feedback agregat,
+  el **resumeix, agrupa per temes, detecta patrons** (diversos usuaris demanant
+  el mateix) i **proposa entrades de backlog / specs esborrany** en el format del
+  projecte, prioritzades. L'operador revisa i decideix; mai feedback→release
+  automàtic sense supervisió.
 - **Tancar el cercle**: avisar l'usuari quan una cosa que va demanar s'ha fet
-  ("ho vau demanar, ja hi és") — efecte de fidelització fort.
+  ("ho vau demanar, ja hi és") — fidelització forta.
 
-Consideracions: privadesa/GDPR del feedback (consentiment, dades mínimes); evitar
-soroll/spam; el bucle IA reutilitza la infra d'IA (secret + Edge Function + quota
-de 019). Aquesta eina és també **infraestructura potencialment compartida** amb
-altres apps de foodappslab (§0).
-- **On anirà:** spec pròpia (captura) + procés/eina d'operador per al bucle IA.
-- **Quan:** captura simple es pot fer aviat (barata, alt valor); el bucle IA
-  complet, després de la infra d'IA (019).
-- **Bloqueja:** model de dades de feedback; infra IA per al bucle; decisió de
-  privadesa; (per al bucle complet) eina d'operador / panell d'admin.
+Consideracions: privadesa/GDPR (consentiment, dades mínimes); evitar soroll/spam.
+La captura simple (BD) **no necessita IA** i es pot fer aviat; el bucle de
+processament el fa Claude a claude.ai a partir de l'export, sense necessitat
+d'infra d'IA dins l'app (encara que un dia es podria automatitzar via Edge
+Function + quota de 019). Eina també candidata a **infraestructura compartida**
+amb foodappslab (§0).
+- **On anirà:** spec pròpia (captura + taula de BD) + procediment d'operador per
+  al processament a claude.ai.
+- **Quan:** captura + BD **aviat** (barata, alt valor, sense IA); el bucle de
+  processament és immediat un cop hi ha dades (el faig jo a claude.ai).
+- **Bloqueja:** model de dades de feedback (taula); decisió de privadesa/
+  consentiment; punt d'entrada a la UI.
 
 ---
 
@@ -317,6 +386,56 @@ tres eixos; la 019 deixa la costura al missatge de límit assolit.
 
 ## 6. Polits i millores menors
 
+### 🐛 La foto auto de l'assistent no apareix com a capçalera de la fitxa
+Bug (020): la foto de plat que l'assistent afegeix automàticament (via Pexels)
+**no apareix com a imatge de capçalera** de la fitxa del plat. **Pista clau:** les
+fotos d'stock afegides **manualment** (selector "Cerca a Pexels") **SÍ** que surten
+a la capçalera. Per tant no és la capçalera ni les fotos d'stock en general — és
+**com l'assistent desa la foto** (la via assistent vs la via manual difereixen en
+alguna cosa). Sospites: la `position` (la capçalera potser mostra position 0/la
+primera), un camp que la via manual omple i l'assistent no, o l'ordre/`entity_id`
+de la inserció. **Comparar la inserció de `media` de l'assistent amb la del
+selector manual** i alinear-les.
+- **On va:** Edge Function dish-assistant (save de la foto), comparat amb el
+  selector manual de Pexels (019).
+- **Quan:** aviat (és un bug, no un polit); afecta la percepció de l'assistent.
+
+### 💡 Recordatori "editable després" sota el botó de crear plat amb IA
+Sota el botó/camp de crear plat amb IA, posar un missatge que recordi que
+**immediatament després de crear-lo, el plat es podrà editar** (ingredients,
+quantitats, foto, preparació…). Treu pressió a la generació (no cal que surti
+perfecte) i deixa clar que l'usuari té el control final.
+- **On va:** client, pantalla de l'assistent (020).
+- **Quan:** aviat, trivial.
+
+### 💡 Afinar el prompt de l'assistent de plats (020): camps + query de foto
+Diversos ajustos del prompt que rep Claude a l'Edge Function dish-assistant,
+detectats provant amb Sonnet. Es fan junts (mateix prompt/funció):
+
+**(a) Nota de preparació d'ingredient vs pas de cuina vs nom.** Claude confon a
+vegades on va la informació:
+- "Ceba" amb nota "en juliana fina" → "en juliana" és un **pas de cuina**, no
+  una instrucció al proveïdor; no hauria d'anar a la nota d'ingredient (la ceba
+  es compra sencera). Els passos de cuina van **tots** a la preparació del plat.
+- "Formatge Gruyère ratllat" → el "ratllat" (instrucció de proveïdor vàlida) s'ha
+  colat **dins del nom**; el nom hauria de ser "Formatge Gruyère" i "ratllat" a
+  la **nota** (opcional).
+- Regla a reforçar al prompt amb exemples: la nota d'ingredient = NOMÉS
+  instrucció al proveïdor (net, a daus, ratllat, filetejat, sense pell…), MAI un
+  pas de cuina; el nom = ingredient base sense preparació enganxada; els passos
+  de cuina = a la preparació del plat.
+
+**(b) Query de foto en anglès.** La cerca de foto a Pexels desencerta amb plats
+catalans/regionals ("bacallà a la llauna" → pizza). Que Claude generi la query
+de foto **en anglès** (nom anglès del plat o ingredient principal, "baked cod").
+Connecta amb el pont anglès dels ingredients multilingües (§1). Cap foto és
+millor que una incongruent? (difícil detectar bon match; de moment, millorar la
+query). La foto és il·lustrativa i editable després.
+
+- **On va:** prompt + lògica de query de foto de l'Edge Function dish-assistant.
+- **Quan:** aviat; millora de qualitat percebuda alta, cost baix, una passada.
+- Cap és greu (tot editable després), però "un sol error fa dubtar de tot".
+
 ### 💡 Velocitat del desar de fotos d'stock (resolució més petita)
 Desar una foto de Pexels va una mica lent: la imatge fa un viatge doble per la
 xarxa (Edge Function descarrega de Pexels → puja al storage). És inherent al
@@ -326,13 +445,20 @@ en lloc de l'`original`) — per a fotos de plats/ingredients n'hi ha de sobres.
 - **On va:** ajust a l'Edge Function stock-photos (quin `src` descarrega) + 019.
 - **Quan:** algun dia; millora de rendiment, no bloqueja.
 
-### 💡 Preomplir el camp de cerca d'stock amb el nom de l'entitat
+### 💡 Preomplir el camp de cerca d'stock amb el nom de l'entitat (idioma local + anglès)
 En obrir la cerca de Pexels des d'un plat/ingredient/beguda, preomplir el camp
-amb el nom de l'entitat (en català ara; amb traducció a anglès quan hi hagi
-ingredients multilingües —§1— i la IA de la 020).
-- **On va:** 019 (client, pantalla de cerca) ara per al nom tal qual; la
-  traducció arriba amb §1 + 020.
-- **Quan:** el preomplir simple, aviat; la traducció, amb la 020.
+amb el nom de l'entitat. **Important (remarcat per Rafael):** el terme de cerca
+ha de ser **idioma local + anglès** (no només el nom en català) — l'anglès
+millora molt els resultats a Pexels. Connecta directament amb la regla
+"guardar/cercar/mostrar" dels ingredients multilingües (§1): cercar = idioma de
+l'usuari + anglès.
+- **Fases:** (a) preomplir simple amb el nom tal qual (català) es pot fer ja a
+  la 019; (b) el terme bilingüe (local + anglès) depèn de tenir el nom anglès,
+  que arriba amb els ingredients multilingües (§1) i la IA (020). El valor real
+  és (b).
+- **On va:** 019 (client, pantalla de cerca) per al preomplir; el terme bilingüe
+  amb §1 + 020.
+- **Quan:** preomplir simple aviat; el bilingüe (el que aporta valor), amb §1/020.
 
 ### 💡 Ordre de la fitxa Crèdits a Settings
 La fitxa "Crèdits" ("Fotos proporcionades per Pexels") ha d'anar **entre
