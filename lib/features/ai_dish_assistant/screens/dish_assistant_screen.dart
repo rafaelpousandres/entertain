@@ -1,23 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../l10n/app_localizations.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_typography.dart';
 import '../../../ui/primary_button.dart';
 import '../../catalog/data/catalog_providers.dart';
+import '../../catalog/data/dish_category.dart';
 import '../data/dish_assistant_providers.dart';
 import '../data/dish_assistant_repository.dart';
-import '../data/dish_suggestion.dart';
+import '../data/dish_card.dart';
 
-/// Spec 020 §7 (v3) — "Crea un plat amb IA". One screen, two input paths:
-///   • by name (top): "Cerca" → `suggest` → up to 3 title+URL suggestions, each
-///     with a clickable URL (external browser) and a "Crea aquest plat" action.
-///   • by URL (below): paste a recipe URL → "Crea des d'aquesta URL".
-/// Both converge on `process` (the costly, quota-charging phase); a header shows
-/// the remaining quota (informational — only `process` consumes it).
+/// Spec 020 §6 (v4) — "Crea un plat amb IA". One free-text field → Claude
+/// generates a dish card from its own knowledge → the user reviews it (new
+/// ingredients visibly marked) → Desa (save + open) or Descarta. Quota is
+/// charged at generate; a header shows the remaining quota.
 class DishAssistantScreen extends ConsumerStatefulWidget {
   const DishAssistantScreen({super.key});
 
@@ -27,101 +25,72 @@ class DishAssistantScreen extends ConsumerStatefulWidget {
 }
 
 class _DishAssistantScreenState extends ConsumerState<DishAssistantScreen> {
-  final _nameController = TextEditingController();
-  final _urlController = TextEditingController();
-  AsyncValue<List<DishSuggestion>>? _suggestions;
-  bool _processing = false;
+  final _controller = TextEditingController();
+  bool _generating = false;
+  bool _saving = false;
+  DishCard? _card;
 
   @override
   void dispose() {
-    _nameController.dispose();
-    _urlController.dispose();
+    _controller.dispose();
     super.dispose();
   }
 
   String get _locale => Localizations.localeOf(context).languageCode;
 
-  bool _looksLikeUrl(String value) {
-    final v = value.trim();
-    return (v.startsWith('http://') || v.startsWith('https://')) &&
-        v.contains('.');
-  }
-
-  Future<void> _suggest() async {
-    final query = _nameController.text.trim();
-    if (query.isEmpty || _processing) return;
+  Future<void> _generate() async {
+    final text = _controller.text.trim();
+    if (text.isEmpty || _generating) return;
     FocusScope.of(context).unfocus();
-    setState(() => _suggestions = const AsyncValue.loading());
-    try {
-      final list = await ref
-          .read(dishAssistantRepositoryProvider)
-          .suggest(name: query, locale: _locale);
-      if (mounted) setState(() => _suggestions = AsyncValue.data(list));
-    } catch (e, st) {
-      if (mounted) setState(() => _suggestions = AsyncValue.error(e, st));
-    }
-  }
-
-  Future<void> _openUrl(String url) async {
     final l10n = AppLocalizations.of(context);
     final messenger = ScaffoldMessenger.of(context);
-    try {
-      final ok = await launchUrl(
-        Uri.parse(url),
-        mode: LaunchMode.externalApplication,
-      );
-      if (!ok && mounted) {
-        messenger.showSnackBar(SnackBar(content: Text(l10n.dishAssistantOpenError)));
-      }
-    } catch (_) {
-      if (mounted) {
-        messenger.showSnackBar(SnackBar(content: Text(l10n.dishAssistantOpenError)));
-      }
-    }
-  }
-
-  /// Both paths land here: Path A passes the picked suggestion (url + its name),
-  /// Path B passes the pasted url. Charges quota; on success opens the new dish.
-  Future<void> _process({required String url, String? name}) async {
-    if (_processing) return;
-    final l10n = AppLocalizations.of(context);
-    final messenger = ScaffoldMessenger.of(context);
-    FocusScope.of(context).unfocus();
-    setState(() => _processing = true);
+    setState(() => _generating = true);
     try {
       final result = await ref
           .read(dishAssistantRepositoryProvider)
-          .process(url: url, name: name, locale: _locale);
+          .generate(text: text, locale: _locale);
       if (!mounted) return;
-      // New dish + (possibly) new ingredients; refresh the catalogs and quota.
-      ref.invalidate(dishesListProvider);
-      ref.invalidate(ingredientsListProvider);
+      // Quota was charged at generate — refresh the header.
       ref.invalidate(dishAssistantQuotaProvider);
-      // Open the freshly created dish; back returns to the catalog.
-      context.pushReplacement('/dishes/${result.dishId}');
+      setState(() {
+        _generating = false;
+        _card = result.card;
+      });
     } on QuotaExceededException catch (e) {
       if (!mounted) return;
-      setState(() => _processing = false);
+      setState(() => _generating = false);
       _showLimitReached(e.limit);
     } catch (_) {
       if (!mounted) return;
-      setState(() => _processing = false);
+      setState(() => _generating = false);
+      messenger.showSnackBar(SnackBar(content: Text(l10n.dishAssistantError)));
+    }
+  }
+
+  Future<void> _save() async {
+    final card = _card;
+    if (card == null || _saving) return;
+    final l10n = AppLocalizations.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _saving = true);
+    try {
+      final dishId = await ref
+          .read(dishAssistantRepositoryProvider)
+          .save(card: card);
+      if (!mounted) return;
+      ref.invalidate(dishesListProvider);
+      ref.invalidate(ingredientsListProvider);
+      context.pushReplacement('/dishes/$dishId');
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _saving = false);
       messenger.showSnackBar(
         SnackBar(content: Text(l10n.dishAssistantSaveError)),
       );
     }
   }
 
-  void _processFromUrl() {
-    final url = _urlController.text.trim();
-    if (!_looksLikeUrl(url)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppLocalizations.of(context).dishAssistantInvalidUrl)),
-      );
-      return;
-    }
-    _process(url: url);
-  }
+  void _discard() => setState(() => _card = null);
 
   void _showLimitReached(int limit) {
     final l10n = AppLocalizations.of(context);
@@ -155,8 +124,7 @@ class _DishAssistantScreenState extends ConsumerState<DishAssistantScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final quota = ref.watch(dishAssistantQuotaProvider);
-
+    final card = _card;
     return Scaffold(
       backgroundColor: AppColors.bg,
       appBar: AppBar(
@@ -166,70 +134,8 @@ class _DishAssistantScreenState extends ConsumerState<DishAssistantScreen> {
         top: false,
         child: Stack(
           children: [
-            ListView(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
-              children: [
-                // Path A — by name.
-                TextField(
-                  controller: _nameController,
-                  textInputAction: TextInputAction.search,
-                  onSubmitted: (_) => _suggest(),
-                  decoration: InputDecoration(
-                    hintText: l10n.dishAssistantHint,
-                    suffixIcon: IconButton(
-                      icon: const Icon(Icons.auto_awesome_outlined),
-                      color: AppColors.accentSecondary,
-                      tooltip: l10n.dishAssistantSearchAction,
-                      onPressed: _suggest,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    quota.when(
-                      data: (q) =>
-                          l10n.dishAssistantRemainingLabel(q.remaining, q.limit),
-                      loading: () => '',
-                      error: (_, _) => '',
-                    ),
-                    style: AppTypography.caption.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                _buildSuggestions(l10n),
-                const SizedBox(height: 20),
-                const Divider(color: AppColors.border, height: 1),
-                const SizedBox(height: 20),
-                // Path B — by URL.
-                Text(
-                  l10n.dishAssistantUrlHint,
-                  style: AppTypography.caption.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _urlController,
-                  keyboardType: TextInputType.url,
-                  textInputAction: TextInputAction.go,
-                  onSubmitted: (_) => _processFromUrl(),
-                  decoration: const InputDecoration(
-                    hintText: 'https://…',
-                  ),
-                ),
-                const SizedBox(height: 12),
-                PrimaryButton(
-                  label: l10n.dishAssistantCreateFromUrlAction,
-                  icon: Icons.link,
-                  onPressed: _processFromUrl,
-                ),
-              ],
-            ),
-            if (_processing)
+            card == null ? _buildInput(l10n) : _buildReview(l10n, card),
+            if (_generating || _saving)
               ColoredBox(
                 color: const Color(0x33000000),
                 child: Center(
@@ -239,7 +145,9 @@ class _DishAssistantScreenState extends ConsumerState<DishAssistantScreen> {
                       const CircularProgressIndicator(color: AppColors.accent),
                       const SizedBox(height: 12),
                       Text(
-                        l10n.dishAssistantSaving,
+                        _saving
+                            ? l10n.dishAssistantSaving
+                            : l10n.dishAssistantGenerating,
                         style: AppTypography.caption.copyWith(
                           color: AppColors.surface,
                         ),
@@ -254,133 +162,224 @@ class _DishAssistantScreenState extends ConsumerState<DishAssistantScreen> {
     );
   }
 
-  Widget _buildSuggestions(AppLocalizations l10n) {
-    final results = _suggestions;
-    if (results == null) {
-      return _Hint(text: l10n.dishAssistantEmptyPrompt);
-    }
-    return results.when(
-      loading: () => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 24),
-        child: Column(
-          children: [
-            const CircularProgressIndicator(color: AppColors.accent),
-            const SizedBox(height: 12),
-            Text(
-              l10n.dishAssistantSearching,
-              style: AppTypography.caption.copyWith(
-                color: AppColors.textSecondary,
-              ),
-            ),
-          ],
+  Widget _buildInput(AppLocalizations l10n) {
+    final quota = ref.watch(dishAssistantQuotaProvider);
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+      children: [
+        TextField(
+          controller: _controller,
+          minLines: 1,
+          maxLines: 3,
+          textInputAction: TextInputAction.go,
+          onSubmitted: (_) => _generate(),
+          decoration: InputDecoration(hintText: l10n.dishAssistantHint),
         ),
-      ),
-      error: (_, _) => _Hint(text: l10n.dishAssistantError),
-      data: (list) {
-        if (list.isEmpty) return _Hint(text: l10n.dishAssistantNoResults);
-        return Column(
-          children: [
-            for (final s in list) ...[
-              _SuggestionCard(
-                suggestion: s,
-                onOpen: () => _openUrl(s.url),
-                onCreate: () => _process(url: s.url, name: s.title),
+        const SizedBox(height: 8),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            quota.when(
+              data: (q) =>
+                  l10n.dishAssistantRemainingLabel(q.remaining, q.limit),
+              loading: () => '',
+              error: (_, _) => '',
+            ),
+            style: AppTypography.caption.copyWith(color: AppColors.textSecondary),
+          ),
+        ),
+        const SizedBox(height: 16),
+        PrimaryButton(
+          label: l10n.dishAssistantGenerateAction,
+          icon: Icons.auto_awesome,
+          onPressed: _generate,
+        ),
+        const SizedBox(height: 24),
+        Text(
+          l10n.dishAssistantEmptyPrompt,
+          textAlign: TextAlign.center,
+          style: AppTypography.body.copyWith(color: AppColors.textSecondary),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildReview(AppLocalizations l10n, DishCard card) {
+    return Column(
+      children: [
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+            children: [
+              if (card.photoPreviewUrl != null)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
+                  child: AspectRatio(
+                    aspectRatio: 16 / 9,
+                    child: Image.network(
+                      card.photoPreviewUrl!,
+                      fit: BoxFit.cover,
+                      loadingBuilder: (context, child, progress) =>
+                          progress == null
+                          ? child
+                          : const ColoredBox(color: AppColors.surface),
+                      errorBuilder: (context, _, _) =>
+                          const ColoredBox(color: AppColors.surface),
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 14),
+              Text(card.displayName, style: AppTypography.sectionTitle),
+              const SizedBox(height: 4),
+              Text(
+                '${dishCategoryLabel(l10n, card.category)} · '
+                '${l10n.dishAssistantServingsLabel(card.baseServings)}',
+                style: AppTypography.caption.copyWith(
+                  color: AppColors.accentSecondary,
+                ),
               ),
-              const SizedBox(height: 12),
+              if (card.description.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Text(
+                  card.description,
+                  style: AppTypography.body.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 20),
+              Text(l10n.dishAssistantIngredientsTitle, style: AppTypography.sectionTitle),
+              const SizedBox(height: 8),
+              for (final ing in card.ingredients) _IngredientRow(ingredient: ing),
+              const SizedBox(height: 20),
+              Text(l10n.dishAssistantPreparationTitle, style: AppTypography.sectionTitle),
+              const SizedBox(height: 8),
+              Text(
+                card.preparation,
+                style: AppTypography.body.copyWith(height: 1.5),
+              ),
             ],
-          ],
-        );
-      },
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+          decoration: const BoxDecoration(
+            color: AppColors.bg,
+            border: Border(top: BorderSide(color: AppColors.border, width: 1)),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: 48,
+                  child: OutlinedButton(
+                    onPressed: _discard,
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: AppColors.border),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: Text(
+                      l10n.dishAssistantDiscardAction,
+                      style: AppTypography.button.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: PrimaryButton(
+                  label: l10n.dishAssistantSaveAction,
+                  onPressed: _save,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
 
-class _SuggestionCard extends StatelessWidget {
-  const _SuggestionCard({
-    required this.suggestion,
-    required this.onOpen,
-    required this.onCreate,
-  });
+class _IngredientRow extends StatelessWidget {
+  const _IngredientRow({required this.ingredient});
 
-  final DishSuggestion suggestion;
-  final VoidCallback onOpen;
-  final VoidCallback onCreate;
+  final DishCardIngredient ingredient;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
-      ),
-      padding: const EdgeInsets.all(14),
-      child: Column(
+    final amount = '${_fmt(ingredient.quantity)} ${ingredient.unitLabel}'.trim();
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            suggestion.title,
-            style: AppTypography.sectionTitle,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 6),
-          InkWell(
-            onTap: onOpen,
-            child: Row(
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(
-                  Icons.open_in_new,
-                  size: 16,
-                  color: AppColors.accentSecondary,
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    suggestion.url,
-                    style: AppTypography.caption.copyWith(
-                      color: AppColors.accentSecondary,
-                      decoration: TextDecoration.underline,
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        ingredient.displayName,
+                        style: AppTypography.body,
+                      ),
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                    if (ingredient.isNew) ...[
+                      const SizedBox(width: 8),
+                      _NewBadge(label: l10n.dishAssistantNewIngredientMarker),
+                    ],
+                  ],
                 ),
+                if (ingredient.prepNote != null)
+                  Text(
+                    ingredient.prepNote!,
+                    style: AppTypography.caption.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
               ],
             ),
           ),
-          const SizedBox(height: 12),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton.icon(
-              onPressed: onCreate,
-              icon: const Icon(Icons.add, size: 18, color: AppColors.accent),
-              label: Text(
-                l10n.dishAssistantCreateThisAction,
-                style: AppTypography.button.copyWith(color: AppColors.accent),
-              ),
-            ),
+          const SizedBox(width: 12),
+          Text(
+            amount,
+            style: AppTypography.body.copyWith(color: AppColors.textSecondary),
           ),
         ],
       ),
     );
   }
+
+  static String _fmt(num q) {
+    if (q == q.roundToDouble()) return q.toInt().toString();
+    return q.toString();
+  }
 }
 
-class _Hint extends StatelessWidget {
-  const _Hint({required this.text});
+class _NewBadge extends StatelessWidget {
+  const _NewBadge({required this.label});
 
-  final String text;
+  final String label;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 8),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: AppColors.accentSecondary.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(8),
+      ),
       child: Text(
-        text,
-        textAlign: TextAlign.center,
-        style: AppTypography.body.copyWith(color: AppColors.textSecondary),
+        label,
+        style: AppTypography.caption.copyWith(
+          color: AppColors.accentSecondary,
+        ),
       ),
     );
   }
