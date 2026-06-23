@@ -5,7 +5,7 @@
 // generates excellent dishes from its own knowledge, instantly, even from vague
 // descriptions. So the whole URL/scraping/web machinery is GONE. Two actions:
 //   * generate (charges quota): free text (name or description) + locale.
-//     consume_quota -> load catalogs -> Claude (Haiku, structured JSON, NO web
+//     consume_quota -> load catalogs -> Claude (Sonnet 4.6, structured JSON, NO web
 //     tools) produces a full dish card (multilingual name, numbered-steps
 //     preparation, ingredients mapped to the catalog or flagged new, a Pexels
 //     photo query) -> resolve the illustrative photo via the 019 Pexels pipeline
@@ -27,10 +27,10 @@ const QUOTA_KEY = "dish_assistant";
 // premium (50) is an entitlement row, no code change.
 const DEFAULT_LIMIT = 3;
 
-// Haiku — cheap/fast and ample for known dishes now that the task is pure
-// generation (no web). Bump to claude-sonnet-4-6 if obscure-dish quality proves
-// weak; it's a one-line change.
-const ANTHROPIC_MODEL = "claude-haiku-4-5";
+// Sonnet 4.6 — Haiku's dish quality wasn't convincing, so we use the stronger
+// model (better identification/accuracy, incl. obscure dishes). Pure generation,
+// no web, so cost stays modest. Model ID is the only knob here.
+const ANTHROPIC_MODEL = "claude-sonnet-4-6";
 const ANTHROPIC_API = "https://api.anthropic.com/v1/messages";
 const DISH_BUCKET = "dish-photos";
 const PEXELS_API = "https://api.pexels.com/v1/search";
@@ -79,11 +79,12 @@ async function loadIngredients(
   client: ReturnType<typeof createClient>,
   groupId: string,
 ): Promise<Array<{ id: string; name: string }>> {
-  const { data } = await client
+  const { data, error } = await client
     .from("ingredients")
     .select("id, name")
     .or(`group_id.eq.${groupId},group_id.is.null`)
     .is("deleted_at", null);
+  if (error) console.error("[catalog] ingredients read failed:", error.message);
   return (data as Array<{ id: string; name: string }> | null) ?? [];
 }
 
@@ -91,9 +92,10 @@ async function loadUnits(
   client: ReturnType<typeof createClient>,
   locale: string,
 ): Promise<Array<{ code: string; magnitude: string; name: string }>> {
-  const { data: units } = await client
+  const { data: units, error } = await client
     .from("units")
     .select("id, code, magnitude");
+  if (error) console.error("[catalog] units read failed:", error.message);
   const rows = (units as Array<{ id: string; code: string; magnitude: string }> | null) ??
     [];
   const { data: names } = await client
@@ -119,10 +121,13 @@ async function loadSupplierCategories(
   groupId: string,
   locale: string,
 ): Promise<Array<{ id: string; name: string }>> {
-  const { data: cats } = await client
+  const { data: cats, error } = await client
     .from("supplier_categories")
     .select("id, code, name, group_id")
     .or(`group_id.eq.${groupId},group_id.is.null`);
+  if (error) {
+    console.error("[catalog] supplier_categories read failed:", error.message);
+  }
   const rows =
     (cats as Array<
       { id: string; code: string; name: string | null; group_id: string | null }
@@ -276,12 +281,18 @@ async function handleGenerate(
   if (!group) return json({ error: "forbidden" }, 403);
   const groupId = group.groupId;
 
-  const { data: ent } = await serviceClient
+  const { data: ent, error: entErr } = await serviceClient
     .from("quota_entitlements")
     .select("monthly_limit")
     .eq("group_id", groupId)
     .eq("quota_key", QUOTA_KEY)
     .maybeSingle();
+  // Defense in depth: a failed read here (e.g. a missing service_role grant)
+  // would silently fall back to DEFAULT_LIMIT and wrongly cap a higher-tier
+  // group. Surface it instead of swallowing it.
+  if (entErr) {
+    console.error("[generate] entitlement read failed:", entErr.message);
+  }
   const limit = (ent as { monthly_limit: number } | null)?.monthly_limit ??
     DEFAULT_LIMIT;
   const period = currentPeriod();
@@ -392,7 +403,10 @@ async function persistDish(
   groupId: string,
   card: any,
 ): Promise<string> {
-  const { data: unitRows } = await serviceClient.from("units").select("id, code");
+  const { data: unitRows, error: unitErr } = await serviceClient
+    .from("units")
+    .select("id, code");
+  if (unitErr) console.error("[save] units read failed:", unitErr.message);
   const unitByCode = new Map(
     ((unitRows as Array<{ id: string; code: string }> | null) ?? []).map((u) => [
       u.code,

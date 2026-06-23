@@ -137,12 +137,18 @@ async function handleSave(
   const groupId = (entityRow as { group_id: string }).group_id;
 
   // 3. Effective limit: entitlement row or the system default.
-  const { data: ent } = await serviceClient
+  const { data: ent, error: entErr } = await serviceClient
     .from("quota_entitlements")
     .select("monthly_limit")
     .eq("group_id", groupId)
     .eq("quota_key", QUOTA_KEY)
     .maybeSingle();
+  // Defense in depth: a failed read here (e.g. a missing service_role grant)
+  // would silently fall back to DEFAULT_LIMIT and wrongly cap a higher-tier
+  // group. Surface it instead of swallowing it.
+  if (entErr) {
+    console.error("[save] entitlement read failed:", entErr.message);
+  }
   const limit = (ent as { monthly_limit: number } | null)?.monthly_limit ??
     DEFAULT_LIMIT;
   const period = currentPeriod();
