@@ -1,6 +1,6 @@
 import 'package:entertain/features/ai_dish_assistant/data/dish_assistant_providers.dart';
 import 'package:entertain/features/ai_dish_assistant/data/dish_assistant_repository.dart';
-import 'package:entertain/features/ai_dish_assistant/data/dish_suggestion.dart';
+import 'package:entertain/features/ai_dish_assistant/data/dish_card.dart';
 import 'package:entertain/features/ai_dish_assistant/screens/dish_assistant_screen.dart';
 import 'package:entertain/features/stock_photos/data/quota.dart';
 import 'package:entertain/l10n/app_localizations.dart';
@@ -10,10 +10,38 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// Spec 020 §8 (v3) — client wiring with a faked Edge Function: `suggest` lists
-/// title+URL suggestions without consuming quota; both input paths (a picked
-/// suggestion, and a pasted URL) call `process`, which on success opens the new
-/// dish; a reached limit surfaces the seam message and blocks.
+/// Spec 020 §8 (v4) — client wiring with a faked Edge Function: generate shows
+/// the review card (new ingredients marked); Desa saves and opens the dish;
+/// Descarta persists nothing; a reached limit surfaces the seam.
+DishCard _sampleCard() => DishCard.fromJson(const {
+  'name': {'ca': 'Carbonara', 'es': 'Carbonara', 'en': 'Carbonara'},
+  'original_locale': 'ca',
+  'description': 'Pasta amb ou i guanciale.',
+  'category': 'main',
+  'base_servings': 4,
+  'preparation': '1. Bull la pasta.\n2. Serveix.',
+  'photo': null,
+  'ingredients': [
+    {
+      'existing_id': 'ing-pasta',
+      'quantity': 320,
+      'unit_code': 'g',
+      'display_name': 'Pasta',
+      'is_new': false,
+      'unit_label': 'g',
+    },
+    {
+      'existing_id': null,
+      'new': {'name': {'ca': 'Guanciale'}, 'original_locale': 'es'},
+      'quantity': 150,
+      'unit_code': 'g',
+      'display_name': 'Guanciale',
+      'is_new': true,
+      'unit_label': 'g',
+    },
+  ],
+}, locale: 'ca');
+
 class _FakeDishAssistantRepository extends DishAssistantRepository {
   _FakeDishAssistantRepository({this.throwLimit = false})
     : super(
@@ -25,32 +53,23 @@ class _FakeDishAssistantRepository extends DishAssistantRepository {
       );
 
   final bool throwLimit;
-  final List<String> suggestCalls = [];
-  final List<({String url, String? name})> processCalls = [];
+  final List<String> generateCalls = [];
+  final List<DishCard> saveCalls = [];
 
   @override
-  Future<List<DishSuggestion>> suggest({
-    required String name,
+  Future<({DishCard card, QuotaStatus usage})> generate({
+    required String text,
     required String locale,
   }) async {
-    suggestCalls.add(name);
-    return const [
-      DishSuggestion(
-        title: 'Caldereta de llagosta',
-        url: 'https://example.test/caldereta',
-      ),
-    ];
+    generateCalls.add(text);
+    if (throwLimit) throw const QuotaExceededException(used: 3, limit: 3);
+    return (card: _sampleCard(), usage: const QuotaStatus(used: 2, limit: 3));
   }
 
   @override
-  Future<({String dishId, QuotaStatus usage})> process({
-    required String url,
-    String? name,
-    required String locale,
-  }) async {
-    processCalls.add((url: url, name: name));
-    if (throwLimit) throw const QuotaExceededException(used: 3, limit: 3);
-    return (dishId: 'dish-1', usage: const QuotaStatus(used: 2, limit: 3));
+  Future<String> save({required DishCard card}) async {
+    saveCalls.add(card);
+    return 'dish-1';
   }
 }
 
@@ -82,7 +101,7 @@ GoRouter _router() => GoRouter(
   ],
 );
 
-Future<void> _openAssistant(
+Future<void> _open(
   WidgetTester tester,
   GoRouter router,
   _FakeDishAssistantRepository fake,
@@ -93,100 +112,79 @@ Future<void> _openAssistant(
   await tester.pumpAndSettle();
 }
 
-Future<void> _suggest(WidgetTester tester) async {
-  await tester.enterText(find.byType(TextField).first, 'caldereta');
-  await tester.tap(find.byIcon(Icons.auto_awesome_outlined).first);
+Future<void> _generate(WidgetTester tester, AppLocalizations l10n) async {
+  await tester.enterText(find.byType(TextField), 'carbonara');
+  await tester.tap(find.text(l10n.dishAssistantGenerateAction));
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 50));
 }
 
 void main() {
-  testWidgets('suggest lists title+URL and consumes no quota', (tester) async {
-    final fake = _FakeDishAssistantRepository();
-    final router = _router();
-    await _openAssistant(tester, router, fake);
-
-    await _suggest(tester);
-
-    expect(fake.suggestCalls, ['caldereta']);
-    expect(find.text('Caldereta de llagosta'), findsOneWidget);
-    expect(find.text('https://example.test/caldereta'), findsOneWidget);
-    expect(fake.processCalls, isEmpty); // suggest never charges
-  });
-
-  testWidgets('Path A — "Create this dish" processes the picked URL', (
+  testWidgets('generate shows the review card with new ingredients marked', (
     tester,
   ) async {
     final fake = _FakeDishAssistantRepository();
     final l10n = await AppLocalizations.delegate.load(const Locale('en'));
     final router = _router();
-    await _openAssistant(tester, router, fake);
-    await _suggest(tester);
+    await _open(tester, router, fake);
 
-    await tester.tap(find.text(l10n.dishAssistantCreateThisAction));
+    await _generate(tester, l10n);
+
+    expect(fake.generateCalls, ['carbonara']);
+    expect(find.text('Carbonara'), findsOneWidget);
+    expect(find.text('Guanciale'), findsOneWidget);
+    // The new ingredient is visibly marked "will be created".
+    expect(find.text(l10n.dishAssistantNewIngredientMarker), findsOneWidget);
+    expect(find.text(l10n.dishAssistantSaveAction), findsOneWidget);
+    expect(find.text(l10n.dishAssistantDiscardAction), findsOneWidget);
+    expect(fake.saveCalls, isEmpty); // generate never saves
+  });
+
+  testWidgets('Desa saves the card and opens the new dish', (tester) async {
+    final fake = _FakeDishAssistantRepository();
+    final l10n = await AppLocalizations.delegate.load(const Locale('en'));
+    final router = _router();
+    await _open(tester, router, fake);
+    await _generate(tester, l10n);
+
+    await tester.tap(find.text(l10n.dishAssistantSaveAction));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
 
-    expect(fake.processCalls.length, 1);
-    expect(fake.processCalls.first.url, 'https://example.test/caldereta');
-    expect(fake.processCalls.first.name, 'Caldereta de llagosta');
+    expect(fake.saveCalls.length, 1);
     expect(find.text('DISH dish-1'), findsOneWidget);
   });
 
-  testWidgets('Path B — pasting a URL processes it directly (skips suggest)', (
+  testWidgets('Descarta persists nothing and returns to the field', (
     tester,
   ) async {
     final fake = _FakeDishAssistantRepository();
     final l10n = await AppLocalizations.delegate.load(const Locale('en'));
     final router = _router();
-    await _openAssistant(tester, router, fake);
+    await _open(tester, router, fake);
+    await _generate(tester, l10n);
 
-    await tester.enterText(
-      find.byType(TextField).at(1),
-      'https://example.test/pasted',
-    );
-    await tester.tap(find.text(l10n.dishAssistantCreateFromUrlAction));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tap(find.text(l10n.dishAssistantDiscardAction));
+    await tester.pumpAndSettle();
 
-    expect(fake.suggestCalls, isEmpty); // Path B skips suggest
-    expect(fake.processCalls.length, 1);
-    expect(fake.processCalls.first.url, 'https://example.test/pasted');
-    expect(fake.processCalls.first.name, isNull);
-    expect(find.text('DISH dish-1'), findsOneWidget);
+    expect(fake.saveCalls, isEmpty); // nothing saved
+    // Back to the input: the generate button shows again, the card is gone.
+    expect(find.text(l10n.dishAssistantGenerateAction), findsOneWidget);
+    expect(find.text('Guanciale'), findsNothing);
   });
 
-  testWidgets('Path B — a non-URL is rejected and never calls process', (
-    tester,
-  ) async {
-    final fake = _FakeDishAssistantRepository();
-    final l10n = await AppLocalizations.delegate.load(const Locale('en'));
-    final router = _router();
-    await _openAssistant(tester, router, fake);
-
-    await tester.enterText(find.byType(TextField).at(1), 'not a url');
-    await tester.tap(find.text(l10n.dishAssistantCreateFromUrlAction));
-    await tester.pump();
-
-    expect(fake.processCalls, isEmpty);
-    expect(find.text(l10n.dishAssistantInvalidUrl), findsOneWidget);
-  });
-
-  testWidgets('a reached limit shows the message and blocks (stays)', (
+  testWidgets('a reached limit shows the message and blocks (no card)', (
     tester,
   ) async {
     final fake = _FakeDishAssistantRepository(throwLimit: true);
     final l10n = await AppLocalizations.delegate.load(const Locale('en'));
     final router = _router();
-    await _openAssistant(tester, router, fake);
-    await _suggest(tester);
+    await _open(tester, router, fake);
 
-    await tester.tap(find.text(l10n.dishAssistantCreateThisAction));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 50));
+    await _generate(tester, l10n);
 
-    expect(fake.processCalls.length, 1);
+    expect(fake.generateCalls.length, 1);
     expect(find.text(l10n.dishAssistantLimitReachedTitle), findsOneWidget);
-    expect(find.text('DISH dish-1'), findsNothing); // did not navigate
+    expect(find.text('Carbonara'), findsNothing); // no card produced
   });
 }

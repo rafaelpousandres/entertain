@@ -81,25 +81,32 @@ class _DishCatalogScreenState extends ConsumerState<DishCatalogScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Spec 020 §7: AI dish assistant, alongside "New dish".
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton.icon(
+            // Spec 020 §7: AI dish assistant — a first-class action harmonized
+            // with "New dish" (same height/shape), distinguished by an accent
+            // outline + the AI symbol (present on every AI-driven action).
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: OutlinedButton.icon(
                 onPressed: () => context.push('/ai-dish-assistant'),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: AppColors.accent),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
                 icon: const Icon(
-                  Icons.auto_awesome_outlined,
+                  Icons.auto_awesome,
                   size: 20,
-                  color: AppColors.accentSecondary,
+                  color: AppColors.accent,
                 ),
                 label: Text(
                   l10n.dishAssistantCreateAction,
-                  style: AppTypography.button.copyWith(
-                    color: AppColors.accentSecondary,
-                  ),
+                  style: AppTypography.button.copyWith(color: AppColors.accent),
                 ),
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 10),
             PrimaryButton(
               label: l10n.newDishAction,
               icon: Icons.add,

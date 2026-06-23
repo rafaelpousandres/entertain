@@ -1,32 +1,36 @@
-// Specification 020 (v3) — `dish-assistant` Edge Function. The project's first
-// AI consumer, on the Spec 019 infrastructure (server secret + Edge Function +
-// generic quota). TWO actions, matching the two-phase flow that fixed the v1
-// WallClockTime timeout (processing 3 whole recipes at once exceeded the limit):
-//   * suggest (no quota): name + locale -> Claude (web_search only) returns up to
-//     3 {title, url}. It must NOT fetch/adapt the recipes — light and fast. Only
-//     Path A (by name) uses this.
-//   * process (charges quota): a recipe url (+ optional name/locale). Used by
-//     BOTH input paths — Path A passes the picked suggestion's URL, Path B passes
-//     the user-pasted URL; the action is identical. consume_quota -> Claude
-//     fetches & adapts THAT ONE recipe (web_fetch for the page + og:image) ->
-//     create ingredients (i18n) + dish (preparation = recipe, multilingual name)
-//     + dish_ingredients + hybrid photo (recipe image first, Pexels fallback via
-//     the 019 pipeline) -> dish_id + usage. release_quota on any failure (quota
-//     charged only for a complete save). One recipe -> well under the limit.
+// Specification 020 (v4) — `dish-assistant` Edge Function, radically simplified.
 //
-// ANTHROPIC_API_KEY lives only here (a Supabase secret). verify_jwt is on; a
-// user-scoped client identifies the caller and reads under RLS, a service-role
+// Earlier versions read recipe URLs (scrape / web_fetch); that hit WallClockTime
+// timeouts and anti-bot blocks (e.g. SITE_BLOCKED). Live testing showed Claude
+// generates excellent dishes from its own knowledge, instantly, even from vague
+// descriptions. So the whole URL/scraping/web machinery is GONE. Two actions:
+//   * generate (charges quota): free text (name or description) + locale.
+//     consume_quota -> load catalogs -> Claude (Haiku, structured JSON, NO web
+//     tools) produces a full dish card (multilingual name, numbered-steps
+//     preparation, ingredients mapped to the catalog or flagged new, a Pexels
+//     photo query) -> resolve the illustrative photo via the 019 Pexels pipeline
+//     (server-side; this photo does NOT touch the stock_photos quota) -> return
+//     the card FOR REVIEW (not yet persisted) + usage. release_quota on failure.
+//   * save (no quota): the reviewed card -> create new ingredients (i18n) + dish
+//     (preparation + multilingual name) + dish_ingredients + download/upload the
+//     already-chosen photo. Discard simply never calls save -> nothing persisted
+//     (quota was already charged at generate, by design — the AI work was done).
+//
+// ANTHROPIC_API_KEY + PEXELS_API_KEY are server-only secrets. verify_jwt is on;
+// a user-scoped client identifies the caller / reads under RLS, a service-role
 // client does the quota RPCs + privileged writes (mirrors Spec 019).
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const QUOTA_KEY = "dish_assistant";
-// System default when a group has no quota_entitlements row. MUST match the
-// client mirror (kDishAssistantDefaultLimit). Free 3/month; premium (50) is an
-// entitlement row, no code change.
+// MUST match the client mirror (kDishAssistantDefaultLimit). Free 3/month;
+// premium (50) is an entitlement row, no code change.
 const DEFAULT_LIMIT = 3;
 
-const ANTHROPIC_MODEL = "claude-sonnet-4-6";
+// Haiku — cheap/fast and ample for known dishes now that the task is pure
+// generation (no web). Bump to claude-sonnet-4-6 if obscure-dish quality proves
+// weak; it's a one-line change.
+const ANTHROPIC_MODEL = "claude-haiku-4-5";
 const ANTHROPIC_API = "https://api.anthropic.com/v1/messages";
 const DISH_BUCKET = "dish-photos";
 const PEXELS_API = "https://api.pexels.com/v1/search";
@@ -37,9 +41,6 @@ const CORS = {
     "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
-
-const WEB_SEARCH = { type: "web_search_20260209", name: "web_search", max_uses: 5 };
-const WEB_FETCH = { type: "web_fetch_20260209", name: "web_fetch", max_uses: 4 };
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -55,7 +56,6 @@ function currentPeriod(now: Date = new Date()): string {
 
 // ---- caller + group ------------------------------------------------------
 
-/** The caller's group (their single auto-provisioned membership), under RLS. */
 async function resolveGroup(
   userClient: ReturnType<typeof createClient>,
 ): Promise<{ userId: string; groupId: string } | null> {
@@ -73,9 +73,8 @@ async function resolveGroup(
   return { userId, groupId };
 }
 
-// ---- catalogs (process context) ------------------------------------------
+// ---- catalogs ------------------------------------------------------------
 
-/** The group's + system ingredients (id + monolingual name) for mapping. */
 async function loadIngredients(
   client: ReturnType<typeof createClient>,
   groupId: string,
@@ -88,7 +87,6 @@ async function loadIngredients(
   return (data as Array<{ id: string; name: string }> | null) ?? [];
 }
 
-/** The unit catalog as `code [magnitude] — localized name`. */
 async function loadUnits(
   client: ReturnType<typeof createClient>,
   locale: string,
@@ -116,7 +114,6 @@ async function loadUnits(
   }));
 }
 
-/** System + group supplier categories (id + localized name) for new ingredients. */
 async function loadSupplierCategories(
   client: ReturnType<typeof createClient>,
   groupId: string,
@@ -147,113 +144,10 @@ async function loadSupplierCategories(
   }));
 }
 
-// ---- Claude --------------------------------------------------------------
+// ---- Claude (pure generation, no tools) ----------------------------------
 
-/** One agentic call to Claude; returns its final text. */
-async function callClaude(
-  apiKey: string,
-  system: string,
-  userText: string,
-  tools: unknown[],
-): Promise<string> {
-  const messages: Array<{ role: string; content: unknown }> = [
-    { role: "user", content: userText },
-  ];
-  // The server runs its own tool loop; pause_turn means it hit the per-turn cap
-  // and we resume by re-sending with the assistant turn appended.
-  for (let i = 0; i < 4; i++) {
-    const res = await fetch(ANTHROPIC_API, {
-      method: "POST",
-      headers: {
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        model: ANTHROPIC_MODEL,
-        max_tokens: 8000,
-        thinking: { type: "adaptive" },
-        system,
-        tools,
-        messages,
-      }),
-    });
-    if (!res.ok) {
-      throw new Error(`anthropic_${res.status}: ${await res.text()}`);
-    }
-    const data = await res.json();
-    if (data.stop_reason === "pause_turn") {
-      messages.push({ role: "assistant", content: data.content });
-      continue;
-    }
-    return (data.content ?? [])
-      .filter((b: { type: string }) => b.type === "text")
-      .map((b: { text: string }) => b.text)
-      .join("");
-  }
-  throw new Error("anthropic_pause_exhausted");
-}
-
-/** Extract the first JSON object from Claude's text (tolerates fences/prose). */
-function parseJsonObject(text: string): any {
-  let body = text.trim();
-  const fence = body.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (fence) body = fence[1].trim();
-  const start = body.indexOf("{");
-  const end = body.lastIndexOf("}");
-  if (start === -1 || end === -1) throw new Error("no_json");
-  return JSON.parse(body.slice(start, end + 1));
-}
-
-// ---- suggest (Path A, no quota) ------------------------------------------
-
-function buildSuggestPrompt(locale: string): string {
-  return `You help a cooking app find recipes. The user gives a dish name; use web_search to find up to 3 good, real recipe pages for it and return their titles and URLs. Prefer reputable, full-recipe pages in the user's language (${locale}: ca = Catalan, es = Spanish, en = English) or close to it.
-
-Do NOT open, read, or adapt the recipes — only find their titles and URLs (this keeps the call fast). Fewer than 3 is fine.
-
-Respond with ONLY a JSON object (no prose, no markdown fences):
-{"suggestions":[{"title":"...","url":"https://..."}]}`;
-}
-
-async function handleSuggest(
-  body: any,
-  userClient: ReturnType<typeof createClient>,
-): Promise<Response> {
-  const name = (body.name ?? "").toString().trim();
-  const locale = (body.locale ?? "ca").toString();
-  if (!name) return json({ error: "name_required" }, 400);
-
-  const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
-  if (!apiKey) return json({ error: "not_configured" }, 500);
-
-  // verify_jwt guarantees an authenticated caller; no group needed to suggest.
-  const { data: userData } = await userClient.auth.getUser();
-  if (!userData?.user) return json({ error: "unauthenticated" }, 401);
-
-  try {
-    const text = await callClaude(apiKey, buildSuggestPrompt(locale), name, [
-      WEB_SEARCH,
-    ]);
-    const parsed = parseJsonObject(text);
-    const suggestions = (Array.isArray(parsed.suggestions) ? parsed.suggestions : [])
-      .map((s: any) => ({
-        title: (s?.title ?? "").toString(),
-        url: (s?.url ?? "").toString(),
-      }))
-      .filter((s: { title: string; url: string }) => s.url.startsWith("http"));
-    return json({ suggestions });
-  } catch (e) {
-    console.error("[suggest] failed:", e instanceof Error ? e.message : String(e));
-    return json({ error: "assistant_error" }, 502);
-  }
-}
-
-// ---- process (both paths, charges quota) ---------------------------------
-
-function buildProcessPrompt(
+function buildGeneratePrompt(
   locale: string,
-  url: string,
   ingredients: Array<{ id: string; name: string }>,
   units: Array<{ code: string; magnitude: string; name: string }>,
   categories: Array<{ id: string; name: string }>,
@@ -263,12 +157,11 @@ function buildProcessPrompt(
     .map((u) => `- ${u.code} [${u.magnitude}] ${u.name}`)
     .join("\n");
   const catList = categories.map((c) => `- ${c.id} :: ${c.name}`).join("\n");
-  return `You are a cooking assistant for the Entertain app. Process ONE recipe — the page at:
-${url}
+  return `You are a cooking assistant for the Entertain app. The user types a dish NAME or a short DESCRIPTION (e.g. "carbonara", "guisat català de conill amb xocolata", "com el gaspatxo però més espès"). Identify the dish and generate a complete, accurate dish card FROM YOUR OWN KNOWLEDGE — no web access. A vague description should resolve to the real dish it describes (e.g. "like gazpacho but thicker" -> salmorejo).
 
-Use web_fetch to read that page (and, if needed, web_search to confirm details). Turn it into a single structured dish the app saves directly (no human review). Also extract the page's lead image (og:image / recipe JSON-LD) as the photo source_url; if none, set photo to null.
+User locale: ${locale} (ca = Catalan, es = Spanish, en = English). Write in the user's language; also provide the other two.
 
-User locale: ${locale} (ca = Catalan, es = Spanish, en = English).
+CONFIDENCE/HONESTY: if you do not reliably know the dish (an obscure regional dish), still generate a reasonable card but say so in the description ("Recepta aproximada; pot variar."). NEVER present an uncertain recipe as verified.
 
 Map ingredients to the group's catalog. EXISTING ingredient catalog (id :: name):
 ${ingList || "(empty)"}
@@ -280,27 +173,101 @@ SUPPLIER CATEGORY catalog (id :: name) — optional hint for new ingredients:
 ${catList || "(none)"}
 
 Rules:
-- If an ingredient is already in the catalog, reference it by existing_id and estimate a sensible quantity in a catalog unit (e.g. "una sípia mitjana" -> that id, ~400, "g").
-- If it is NOT in the catalog, create it: names in ca/es/en, mark original_locale (the language the source uses), a sensible default_unit_code, optionally a supplier_category_id from the list, and optionally prep_description — ONLY when the recipe clearly implies a purchase/prep instruction to a supplier ("clean and cut into rings"), NEVER a recipe step, never invented. If unclear, leave it null.
-- Vague quantities ("al gust", "un pessic") -> a small sensible amount; never fail the dish over one line.
-- The dish name must be given in all three languages (ca/es/en) with original_locale marked.
-- preparation is the full recipe (summarized, in the dish's original_locale), plain text, not split into steps.
-- category is one of: aperitif, starter, main, dessert, other.
-- summary is one short line in the user locale (${locale}).
+- If an ingredient is already in the catalog, reference it by existing_id and express the quantity in that ingredient's canonical unit.
+- If it is NOT in the catalog, create it: names in ca/es/en, mark original_locale, a sensible default_unit_code, optionally a supplier_category_id from the list, and optionally prep_description.
+- prep_note / prep_description is a SUPPLIER instruction ("net", "a daus", "ratllat", "a rodanxes") — NOT a recipe step. Recipe actions go in preparation only. If none applies, leave it null. Do NOT put "mòlt al moment" / "per a la picada" here.
+- Vague amounts -> a sensible amount; never fail the card over one line.
+- name in all three languages with original_locale marked.
+- preparation: clear CONSECUTIVE NUMBERED STEPS as plain text, e.g. "1. ...\\n2. ...\\n3. ...".
+- category is one of: aperitif, starter, main, dessert, drink, other.
+- acquisition_mode is "cooked" (these are recipes).
+- photo_query: a short ENGLISH dish name to search an illustrative stock photo.
 
-Respond with ONLY a JSON object (no prose, no markdown fences) of this exact shape:
-{"name":{"ca":"...","es":"...","en":"..."},"original_locale":"ca|es|en","category":"main","base_servings":4,"preparation":"...","summary":"...","photo":{"source_url":"https://...","author":"..."}|null,"ingredients":[{"existing_id":"<uuid>|null","new":{"name":{"ca":"...","es":"...","en":"..."},"original_locale":"ca|es|en","default_unit_code":"g","supplier_category_id":"<uuid>|null","prep_description":"..."|null}|null,"quantity":400,"unit_code":"g","prep_note":"..."|null}]}`;
+Respond with ONLY a JSON object (no prose, no markdown fences):
+{"name":{"ca":"...","es":"...","en":"..."},"original_locale":"ca|es|en","description":"...","category":"main","base_servings":4,"acquisition_mode":"cooked","preparation":"1. ...\\n2. ...","photo_query":"...","ingredients":[{"existing_id":"<uuid>|null","new":{"name":{"ca":"...","es":"...","en":"..."},"original_locale":"ca|es|en","default_unit_code":"g","supplier_category_id":"<uuid>|null","prep_description":"..."|null}|null,"quantity":400,"unit_code":"g","prep_note":"..."|null}]}`;
 }
 
-async function handleProcess(
+async function callClaude(
+  apiKey: string,
+  system: string,
+  userText: string,
+): Promise<string> {
+  const res = await fetch(ANTHROPIC_API, {
+    method: "POST",
+    headers: {
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      model: ANTHROPIC_MODEL,
+      max_tokens: 4000,
+      system,
+      messages: [{ role: "user", content: userText }],
+    }),
+  });
+  if (!res.ok) throw new Error(`anthropic_${res.status}: ${await res.text()}`);
+  const data = await res.json();
+  return (data.content ?? [])
+    .filter((b: { type: string }) => b.type === "text")
+    .map((b: { text: string }) => b.text)
+    .join("");
+}
+
+function parseJsonObject(text: string): any {
+  let body = text.trim();
+  const fence = body.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (fence) body = fence[1].trim();
+  const start = body.indexOf("{");
+  const end = body.lastIndexOf("}");
+  if (start === -1 || end === -1) throw new Error("no_json");
+  return JSON.parse(body.slice(start, end + 1));
+}
+
+// ---- Pexels (resolved at generate, downloaded at save) -------------------
+
+/** A chosen illustrative photo; resolved at generate so the review card can
+ * preview it. The actual download/upload to Storage happens at save. */
+async function resolvePexelsPhoto(
+  query: string,
+): Promise<
+  { preview: string; full: string; author: string | null; page: string | null } | null
+> {
+  const pexelsKey = Deno.env.get("PEXELS_API_KEY");
+  if (!pexelsKey || !query) return null;
+  try {
+    const res = await fetch(
+      `${PEXELS_API}?query=${encodeURIComponent(query)}&per_page=1`,
+      { headers: { Authorization: pexelsKey } },
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    const photo = (data.photos ?? [])[0];
+    if (!photo) return null;
+    const full = photo.src?.large2x ?? photo.src?.original ?? photo.src?.large;
+    const preview = photo.src?.medium ?? photo.src?.large ?? full;
+    if (!full) return null;
+    return {
+      preview,
+      full,
+      author: photo.photographer ?? null,
+      page: photo.url ?? null,
+    };
+  } catch (_e) {
+    return null;
+  }
+}
+
+// ---- generate (charges quota; returns card for review) -------------------
+
+async function handleGenerate(
   body: any,
   userClient: ReturnType<typeof createClient>,
   serviceClient: ReturnType<typeof createClient>,
 ): Promise<Response> {
-  const url = (body.url ?? "").toString().trim();
-  const name = (body.name ?? "").toString().trim();
+  const text = (body.text ?? "").toString().trim();
   const locale = (body.locale ?? "ca").toString();
-  if (!url.startsWith("http")) return json({ error: "url_required" }, 400);
+  if (!text) return json({ error: "text_required" }, 400);
 
   const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
   if (!apiKey) return json({ error: "not_configured" }, 500);
@@ -309,7 +276,6 @@ async function handleProcess(
   if (!group) return json({ error: "forbidden" }, 403);
   const groupId = group.groupId;
 
-  // Effective limit: entitlement row or the system default.
   const { data: ent } = await serviceClient
     .from("quota_entitlements")
     .select("monthly_limit")
@@ -320,13 +286,13 @@ async function handleProcess(
     DEFAULT_LIMIT;
   const period = currentPeriod();
 
-  // Atomic reserve (Spec 019 RPC). NULL ⇒ cap reached.
+  // Charged HERE (generation is the costly step). NULL ⇒ cap reached.
   const { data: usedAfter, error: rpcErr } = await serviceClient.rpc(
     "consume_quota",
     { p_group_id: groupId, p_quota_key: QUOTA_KEY, p_period: period, p_limit: limit },
   );
   if (rpcErr) {
-    console.error("[process] consume_quota error:", rpcErr.message);
+    console.error("[generate] consume_quota error:", rpcErr.message);
     return json({ error: "quota_error" }, 500);
   }
   if (usedAfter === null || usedAfter === undefined) {
@@ -340,31 +306,41 @@ async function handleProcess(
       loadSupplierCategories(serviceClient, groupId, locale),
     ]);
 
-    // Claude adapts the single recipe at `url` into one structured dish.
-    const userText = name ? `${name}\n${url}` : url;
-    const text = await callClaude(
+    const reply = await callClaude(
       apiKey,
-      buildProcessPrompt(locale, url, ingredients, units, categories),
-      userText,
-      [WEB_FETCH, WEB_SEARCH],
+      buildGeneratePrompt(locale, ingredients, units, categories),
+      text,
     );
-    const option = parseJsonObject(text);
-    if (!option?.name || !Array.isArray(option.ingredients)) {
-      throw new Error("bad_option");
+    const card = parseJsonObject(reply);
+    if (!card?.name || !Array.isArray(card.ingredients)) {
+      throw new Error("bad_card");
     }
 
-    const dishId = await persistDish(
-      userClient,
-      serviceClient,
-      groupId,
-      option,
-      url,
+    // Enrich each ingredient line with review-only fields (the raw mapping
+    // stays for save). Existing -> catalog name; new -> its localized name.
+    const nameById = new Map(ingredients.map((i) => [i.id, i.name]));
+    const unitLabel = new Map(units.map((u) => [u.code, u.name]));
+    for (const line of card.ingredients as any[]) {
+      const isNew = !(typeof line.existing_id === "string" &&
+        nameById.has(line.existing_id));
+      line.is_new = isNew;
+      line.display_name = isNew
+        ? (line?.new?.name?.[locale] ?? line?.new?.name?.ca ??
+          line?.new?.name?.en ?? "")
+        : nameById.get(line.existing_id);
+      line.unit_label = unitLabel.get(line.unit_code) ?? line.unit_code ?? "";
+    }
+
+    // Resolve the illustrative photo (server-side Pexels; NOT the stock_photos
+    // quota). Stored on the card so the review can preview it; downloaded at save.
+    card.photo = await resolvePexelsPhoto(
+      (card.photo_query ?? card?.name?.en ?? "").toString(),
     );
-    await attachPhoto(serviceClient, dishId, option);
-    return json({ dish_id: dishId, usage: { used: usedAfter, limit } });
+
+    return json({ card, usage: { used: usedAfter, limit } });
   } catch (e) {
     console.error(
-      "[process] failed, releasing quota slot:",
+      "[generate] failed, releasing quota slot:",
       e instanceof Error ? `${e.message}\n${e.stack}` : String(e),
     );
     await serviceClient.rpc("release_quota", {
@@ -372,22 +348,49 @@ async function handleProcess(
       p_quota_key: QUOTA_KEY,
       p_period: period,
     });
+    return json({ error: "generate_failed" }, 500);
+  }
+}
+
+// ---- save (no quota; persists the reviewed card) -------------------------
+
+async function handleSave(
+  body: any,
+  userClient: ReturnType<typeof createClient>,
+  serviceClient: ReturnType<typeof createClient>,
+): Promise<Response> {
+  const card = body.card;
+  if (!card?.name || !Array.isArray(card.ingredients)) {
+    return json({ error: "bad_request" }, 400);
+  }
+  const group = await resolveGroup(userClient);
+  if (!group) return json({ error: "forbidden" }, 403);
+
+  try {
+    const dishId = await persistDish(userClient, serviceClient, group.groupId, card);
+    await attachPhoto(serviceClient, dishId, card.photo);
+    return json({ dish_id: dishId });
+  } catch (e) {
+    // Quota was charged at generate, by design — a save failure isn't refunded
+    // (the user can retry save with the same card for free).
+    console.error(
+      "[save] failed:",
+      e instanceof Error ? `${e.message}\n${e.stack}` : String(e),
+    );
     return json({ error: "save_failed" }, 500);
   }
 }
 
 /**
- * Persist a Claude-produced dish option: create new ingredients (with i18n),
- * the dish (preparation = recipe, multilingual name), and the lines. Returns
- * the new dish id. `sourceUrl` is recorded on the dish's photo provenance via
- * attachPhoto separately. Throws on any DB failure (the caller refunds quota).
+ * Persist a reviewed dish card: create new ingredients (with i18n), the dish
+ * (preparation + multilingual name + original mark), and the lines. Returns the
+ * new dish id. Throws on any DB failure.
  */
 async function persistDish(
   userClient: ReturnType<typeof createClient>,
   serviceClient: ReturnType<typeof createClient>,
   groupId: string,
-  option: any,
-  _sourceUrl: string,
+  card: any,
 ): Promise<string> {
   const { data: unitRows } = await serviceClient.from("units").select("id, code");
   const unitByCode = new Map(
@@ -400,7 +403,7 @@ async function persistDish(
   if (!fallbackUnitId) throw new Error("no_units");
 
   // Authorize any referenced existing ingredient / category ids under RLS.
-  const existingIds = option.ingredients
+  const existingIds = card.ingredients
     .map((l: any) => l.existing_id)
     .filter((id: unknown): id is string => typeof id === "string");
   const allowedIngredientIds = new Set<string>();
@@ -413,7 +416,7 @@ async function persistDish(
       allowedIngredientIds.add(r.id);
     }
   }
-  const catIds = option.ingredients
+  const catIds = card.ingredients
     .map((l: any) => l?.new?.supplier_category_id)
     .filter((id: unknown): id is string => typeof id === "string");
   const allowedCatIds = new Set<string>();
@@ -435,7 +438,7 @@ async function persistDish(
   // 1. Resolve each line to a concrete ingredient id (creating new ones).
   const lines: Array<{ ingredientId: string; quantity: number; unitId: string; prepNote: string | null }> =
     [];
-  for (const line of option.ingredients) {
+  for (const line of card.ingredients) {
     let ingredientId: string | null = null;
     if (typeof line.existing_id === "string" && allowedIngredientIds.has(line.existing_id)) {
       ingredientId = line.existing_id;
@@ -461,7 +464,7 @@ async function persistDish(
       ingredientId = (ingRow as { id: string }).id;
       await insertNameTranslations(serviceClient, "ingredient", ingredientId, line.new.name);
     }
-    if (!ingredientId) continue; // unresolvable line — skip, don't fail the import
+    if (!ingredientId) continue; // unresolvable line — skip, don't fail the card
     const lineUnitId = unitByCode.get(line.unit_code) ?? fallbackUnitId;
     const qty = Number(line.quantity);
     lines.push({
@@ -473,28 +476,29 @@ async function persistDish(
   }
 
   // 2. Create the dish.
-  const dishLoc = localeOf(option);
-  const category = ["aperitif", "starter", "main", "dessert", "other"]
-    .includes(option.category)
-    ? option.category
+  const dishLoc = localeOf(card);
+  const category = ["aperitif", "starter", "main", "dessert", "drink", "other"]
+    .includes(card.category)
+    ? card.category
     : "main";
-  const servings = Number(option.base_servings);
+  const servings = Number(card.base_servings);
   const { data: dishRow, error: dishErr } = await serviceClient
     .from("dishes")
     .insert({
       group_id: groupId,
-      name: nameIn(option.name, dishLoc),
+      name: nameIn(card.name, dishLoc),
       category,
       base_servings: Number.isFinite(servings) && servings > 0 ? Math.round(servings) : 4,
-      acquisition_mode: "cooked",
-      preparation: typeof option.preparation === "string" ? option.preparation : null,
+      acquisition_mode: card.acquisition_mode === "bought" ? "bought" : "cooked",
+      description: typeof card.description === "string" ? card.description : null,
+      preparation: typeof card.preparation === "string" ? card.preparation : null,
       original_locale: dishLoc,
     })
     .select("id")
     .single();
   if (dishErr) throw dishErr;
   const dishId = (dishRow as { id: string }).id;
-  await insertNameTranslations(serviceClient, "dish", dishId, option.name);
+  await insertNameTranslations(serviceClient, "dish", dishId, card.name);
 
   // 3. Lines.
   if (lines.length) {
@@ -514,7 +518,6 @@ async function persistDish(
   return dishId;
 }
 
-/** Insert ca/es/en name rows for a catalog entity (only the present locales). */
 async function insertNameTranslations(
   serviceClient: ReturnType<typeof createClient>,
   entityType: "ingredient" | "dish",
@@ -533,76 +536,35 @@ async function insertNameTranslations(
   if (rows.length) await serviceClient.from("translations").insert(rows);
 }
 
-// ---- photo (hybrid web -> Pexels, via the 019 pipeline) ------------------
-
-async function uploadPhoto(
-  serviceClient: ReturnType<typeof createClient>,
-  dishId: string,
-  bytes: Uint8Array,
-  provenance: { provider: string; author?: string | null; url?: string | null },
-): Promise<void> {
-  const path = `${dishId}/${crypto.randomUUID()}.jpg`;
-  const upload = await serviceClient.storage
-    .from(DISH_BUCKET)
-    .upload(path, bytes, { contentType: "image/jpeg", upsert: true });
-  if (upload.error) throw upload.error;
-  await serviceClient.from("media").insert({
-    entity_type: "dish",
-    entity_id: dishId,
-    path,
-    position: 0,
-    source_provider: provenance.provider,
-    source_author: provenance.author ?? null,
-    source_url: provenance.url ?? null,
-  });
-}
-
-/** The recipe's own image first, else Pexels by English name. Best-effort. */
+/** Download the card's already-chosen Pexels photo and attach it (019 pipeline).
+ * Best-effort: a dish without a photo is still a successful save. */
 async function attachPhoto(
   serviceClient: ReturnType<typeof createClient>,
   dishId: string,
-  option: any,
+  photo: any,
 ): Promise<void> {
-  const sourceUrl = option?.photo?.source_url;
-  if (typeof sourceUrl === "string" && sourceUrl.startsWith("http")) {
-    try {
-      const res = await fetch(sourceUrl);
-      if (res.ok) {
-        const bytes = new Uint8Array(await res.arrayBuffer());
-        await uploadPhoto(serviceClient, dishId, bytes, {
-          provider: "web",
-          author: option?.photo?.author ?? null,
-          url: sourceUrl,
-        });
-        return;
-      }
-    } catch (_e) {
-      // fall through to Pexels
-    }
-  }
-  const pexelsKey = Deno.env.get("PEXELS_API_KEY");
-  const query = option?.name?.en ?? option?.name?.ca ?? "";
-  if (!pexelsKey || !query) return;
+  const full = photo?.full;
+  if (typeof full !== "string" || !full.startsWith("http")) return;
   try {
-    const res = await fetch(
-      `${PEXELS_API}?query=${encodeURIComponent(query)}&per_page=1`,
-      { headers: { Authorization: pexelsKey } },
-    );
+    const res = await fetch(full);
     if (!res.ok) return;
-    const data = await res.json();
-    const photo = (data.photos ?? [])[0];
-    const full = photo?.src?.large2x ?? photo?.src?.original ?? photo?.src?.large;
-    if (!full) return;
-    const img = await fetch(full);
-    if (!img.ok) return;
-    const bytes = new Uint8Array(await img.arrayBuffer());
-    await uploadPhoto(serviceClient, dishId, bytes, {
-      provider: "pexels",
-      author: photo?.photographer ?? null,
-      url: photo?.url ?? null,
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    const path = `${dishId}/${crypto.randomUUID()}.jpg`;
+    const upload = await serviceClient.storage
+      .from(DISH_BUCKET)
+      .upload(path, bytes, { contentType: "image/jpeg", upsert: true });
+    if (upload.error) return;
+    await serviceClient.from("media").insert({
+      entity_type: "dish",
+      entity_id: dishId,
+      path,
+      position: 0,
+      source_provider: "pexels",
+      source_author: photo.author ?? null,
+      source_url: photo.page ?? null,
     });
   } catch (_e) {
-    // photo is best-effort; a dish without one is still a successful save
+    // best-effort
   }
 }
 
@@ -620,7 +582,7 @@ Deno.serve(async (req) => {
   }
 
   const action = body.action;
-  if (action !== "suggest" && action !== "process") {
+  if (action !== "generate" && action !== "save") {
     return json({ error: "unknown_action" }, 400);
   }
 
@@ -637,7 +599,7 @@ Deno.serve(async (req) => {
     auth: { persistSession: false },
   });
 
-  return action === "suggest"
-    ? handleSuggest(body, userClient)
-    : handleProcess(body, userClient, serviceClient);
+  return action === "generate"
+    ? handleGenerate(body, userClient, serviceClient)
+    : handleSave(body, userClient, serviceClient);
 });
