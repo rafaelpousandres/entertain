@@ -51,6 +51,18 @@ document.
   in the repository. They live in environment files excluded via `.gitignore`,
   in Supabase configuration, and in CI secrets. Any third-party API is called
   from a server-side proxy (Edge Function), never directly from the client.
+- **Edge Functions need explicit `service_role` grants.** Any table an Edge
+  Function reads or writes with the service-role client needs an explicit GRANT
+  to `service_role` (SELECT and/or DML per the use). `service_role` has
+  BYPASSRLS, but Postgres checks table privileges *before* RLS — so a missing
+  grant fails with "permission denied for table …", which the client often
+  swallows into a silent fallback (wrong limit, `no_units`, etc.). The 019/020
+  grants were made only to `anon`/`authenticated`; every new table a function
+  touches must include the `service_role` grant **in its initial migration**.
+  Never swallow the error on these service-role reads — log it (`console.error`)
+  so the next gap surfaces loudly. (This pattern bit us four times in one
+  session: media, translations, quota_entitlements/quota_usage, units/
+  supplier_categories.)
 - **Data in the EU.** The backend (Supabase) is in an EU region. GDPR-conscious
   design: data minimization, privacy policy, store-required disclosures.
 - **Internationalization from day one.** Every user-visible string goes through
