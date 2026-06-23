@@ -367,6 +367,7 @@ class _DrinkFormState extends ConsumerState<_DrinkForm>
             PhotoCarouselSection(
               type: MediaEntityType.drink,
               entityId: widget.drinkId!,
+              entityName: _nameController.text,
             ),
             const SizedBox(height: 20),
           ],

@@ -18,6 +18,7 @@ class StockPhotoSearchArgs {
     required this.type,
     required this.entityId,
     required this.locale,
+    this.initialQuery,
   });
 
   final MediaEntityType type;
@@ -25,6 +26,11 @@ class StockPhotoSearchArgs {
 
   /// Pexels locale, e.g. `ca-ES` / `es-ES` / `en-US`.
   final String locale;
+
+  /// Spec 021 §B6: prefill the search field with the entity's name so the
+  /// user doesn't retype it. Local language for now; the English bridge waits
+  /// on multilingual ingredient names. Null leaves the field empty.
+  final String? initialQuery;
 }
 
 /// Spec 019 §C.1 — stock-photo search. A search field, a results grid (each
@@ -46,6 +52,14 @@ class _StockPhotoSearchScreenState
   final _controller = TextEditingController();
   AsyncValue<List<StockPhoto>>? _results;
   bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Spec 021 §B6: prefill with the entity name; the user can edit or run it
+    // as-is. We don't auto-search — the user taps search when ready.
+    _controller.text = widget.args.initialQuery?.trim() ?? '';
+  }
 
   @override
   void dispose() {

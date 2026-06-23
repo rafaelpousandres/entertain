@@ -436,11 +436,26 @@
   "okAction": "D'acord",
   "settingsCreditsTitle": "Crèdits",
   "settingsCreditsPexels": "Fotos proporcionades per Pexels",
+
+  "suggestionsTitle": "Suggeriments",
+  "suggestionsEntrySubtitle": "Explica'ns què milloraries",
+  "suggestionsIntro": "Què t'agradaria que fes l'app? Què falta o no acaba de funcionar? Explica-ho aquí i ho tindrem en compte.",
+  "suggestionsFieldLabel": "El teu suggeriment",
+  "suggestionsFieldHint": "Escriu-ho aquí (pots dictar amb el micròfon del teclat)…",
+  "suggestionsSendAction": "Envia",
+  "suggestionsSentConfirm": "Gràcies!",
+  "suggestionsSendError": "No s'ha pogut enviar el suggeriment.",
+  "suggestionsSentCount": "{count, plural, =0{Encara no heu enviat cap suggeriment} =1{1 suggeriment enviat} other{{count} suggeriments enviats}}",
+  "@suggestionsSentCount": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+
   "dishAssistantCreateAction": "Crea un plat amb IA",
   "dishAssistantTitle": "Crea un plat amb IA",
   "dishAssistantHint": "Nom o breu descripció",
   "dishAssistantGenerateAction": "Genera",
   "dishAssistantEmptyPrompt": "Escriu un nom de plat o una breu descripció i deixa que la IA el creï.",
+  "dishAssistantEditableNote": "Després de crear-lo podràs editar-ho tot: ingredients, quantitats, foto i preparació.",
   "dishAssistantGenerating": "Generant el plat…",
   "dishAssistantSaving": "Desant…",
   "dishAssistantError": "No s'ha pogut generar el plat.",

@@ -180,13 +180,16 @@ ${catList || "(none)"}
 Rules:
 - If an ingredient is already in the catalog, reference it by existing_id and express the quantity in that ingredient's canonical unit.
 - If it is NOT in the catalog, create it: names in ca/es/en, mark original_locale, a sensible default_unit_code, optionally a supplier_category_id from the list, and optionally prep_description.
-- prep_note / prep_description is a SUPPLIER instruction ("net", "a daus", "ratllat", "a rodanxes") — NOT a recipe step. Recipe actions go in preparation only. If none applies, leave it null. Do NOT put "mòlt al moment" / "per a la picada" here.
+- prep_note / prep_description is ONLY a SUPPLIER instruction: how the supplier should prepare an item you BUY WHOLE — "net", "a daus", "ratllat", "filetejat", "sense pell", "sense espines". It is NOT a cooking step.
+  - Cooking actions you perform while cooking — "a rodanxes", "en juliana", "picat", "sofregit", "saltejat", "ratllat al moment", "per a la picada" — are recipe steps: put them in "preparation", NEVER in prep_note (the ingredient is bought whole and cut/cooked by the cook). Examples of the MISTAKE to avoid: ingredient "Ceba" with prep_note "en juliana" (wrong: "en juliana" is a cooking step → preparation); ingredient "Plàtan" with prep_note "a rodanxes" (wrong → preparation).
+  - If no genuine supplier instruction applies, leave prep_note null.
+- name = the BASE ingredient only, with NO preparation attached. A preparation word must never leak into the name. Example: "Formatge Gruyère ratllat" is wrong → name "Formatge Gruyère" and prep_note "ratllat".
 - Vague amounts -> a sensible amount; never fail the card over one line.
 - name in all three languages with original_locale marked.
 - preparation: clear CONSECUTIVE NUMBERED STEPS as plain text, e.g. "1. ...\\n2. ...\\n3. ...".
 - category is one of: aperitif, starter, main, dessert, drink, other.
 - acquisition_mode is "cooked" (these are recipes).
-- photo_query: a short ENGLISH dish name to search an illustrative stock photo.
+- photo_query: a short search term in ENGLISH for an illustrative stock photo — the English dish name, or its MAIN INGREDIENT for a regional dish Pexels likely won't index by name. Pexels indexes mainly in English, so NEVER use the Catalan/Spanish name. Examples: "bacallà a la llauna" -> "baked cod"; "fideuà" -> "seafood noodles"; "carbonara" -> "carbonara pasta".
 
 Respond with ONLY a JSON object (no prose, no markdown fences):
 {"name":{"ca":"...","es":"...","en":"..."},"original_locale":"ca|es|en","description":"...","category":"main","base_servings":4,"acquisition_mode":"cooked","preparation":"1. ...\\n2. ...","photo_query":"...","ingredients":[{"existing_id":"<uuid>|null","new":{"name":{"ca":"...","es":"...","en":"..."},"original_locale":"ca|es|en","default_unit_code":"g","supplier_category_id":"<uuid>|null","prep_description":"..."|null}|null,"quantity":400,"unit_code":"g","prep_note":"..."|null}]}`;
@@ -236,7 +239,13 @@ function parseJsonObject(text: string): any {
 async function resolvePexelsPhoto(
   query: string,
 ): Promise<
-  { preview: string; full: string; author: string | null; page: string | null } | null
+  {
+    preview: string;
+    full: string;
+    author: string | null;
+    page: string | null;
+    ref: string | null;
+  } | null
 > {
   const pexelsKey = Deno.env.get("PEXELS_API_KEY");
   if (!pexelsKey || !query) return null;
@@ -257,6 +266,9 @@ async function resolvePexelsPhoto(
       full,
       author: photo.photographer ?? null,
       page: photo.url ?? null,
+      // Pexels photo id — mirrors the manual stock-photos path's `source_ref`
+      // so the assistant's media row has the same provenance shape.
+      ref: photo.id != null ? String(photo.id) : null,
     };
   } catch (_e) {
     return null;
@@ -561,14 +573,22 @@ async function attachPhoto(
   if (typeof full !== "string" || !full.startsWith("http")) return;
   try {
     const res = await fetch(full);
-    if (!res.ok) return;
+    if (!res.ok) {
+      console.error("[attachPhoto] download failed:", res.status, full);
+      return;
+    }
     const bytes = new Uint8Array(await res.arrayBuffer());
     const path = `${dishId}/${crypto.randomUUID()}.jpg`;
     const upload = await serviceClient.storage
       .from(DISH_BUCKET)
       .upload(path, bytes, { contentType: "image/jpeg", upsert: true });
-    if (upload.error) return;
-    await serviceClient.from("media").insert({
+    if (upload.error) {
+      console.error("[attachPhoto] storage upload failed:", upload.error.message);
+      return;
+    }
+    // Mirror the manual stock-photos save (019) exactly: position 0 (cover),
+    // pexels provenance incl. source_ref, so the auto photo becomes the cover.
+    const { error } = await serviceClient.from("media").insert({
       entity_type: "dish",
       entity_id: dishId,
       path,
@@ -576,9 +596,19 @@ async function attachPhoto(
       source_provider: "pexels",
       source_author: photo.author ?? null,
       source_url: photo.page ?? null,
+      source_ref: photo.ref ?? null,
     });
-  } catch (_e) {
-    // best-effort
+    // House rule: never swallow a service-role write error — log it loudly so
+    // the next gap (a missing grant, a column drift) surfaces in the logs
+    // instead of silently leaving the dish with no cover.
+    if (error) {
+      console.error("[attachPhoto] media insert failed:", error.message);
+    }
+  } catch (e) {
+    console.error(
+      "[attachPhoto] unexpected error:",
+      e instanceof Error ? `${e.message}\n${e.stack}` : String(e),
+    );
   }
 }
 

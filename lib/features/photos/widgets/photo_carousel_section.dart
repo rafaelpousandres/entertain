@@ -28,10 +28,15 @@ class PhotoCarouselSection extends ConsumerWidget {
     super.key,
     required this.type,
     required this.entityId,
+    this.entityName,
   });
 
   final MediaEntityType type;
   final String entityId;
+
+  /// Spec 021 §B6: the entity's name, used to prefill the stock-photo search.
+  /// Optional — surfaces without a handy name (e.g. events) just omit it.
+  final String? entityName;
 
   static const double tile = 80;
 
@@ -66,9 +71,18 @@ class PhotoCarouselSection extends ConsumerWidget {
           ),
           // §6: on error fall back to the empty placeholder (just the add tile).
           error: (_, _) =>
-              _PhotoRow(type: type, entityId: entityId, photos: const []),
-          data: (photos) =>
-              _PhotoRow(type: type, entityId: entityId, photos: photos),
+              _PhotoRow(
+                type: type,
+                entityId: entityId,
+                entityName: entityName,
+                photos: const [],
+              ),
+          data: (photos) => _PhotoRow(
+            type: type,
+            entityId: entityId,
+            entityName: entityName,
+            photos: photos,
+          ),
         ),
       ],
     );
@@ -87,10 +101,12 @@ class _PhotoRow extends ConsumerStatefulWidget {
     required this.type,
     required this.entityId,
     required this.photos,
+    this.entityName,
   });
 
   final MediaEntityType type;
   final String entityId;
+  final String? entityName;
   final List<Media> photos;
 
   @override
@@ -161,6 +177,7 @@ class _PhotoRowState extends ConsumerState<_PhotoRow> {
                   context: context,
                   type: widget.type,
                   entityId: widget.entityId,
+                  entityName: widget.entityName,
                 ),
               ),
             );
@@ -177,6 +194,7 @@ class _PhotoRowState extends ConsumerState<_PhotoRow> {
                   widget.type,
                   widget.entityId,
                   index,
+                  entityName: widget.entityName,
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(12),

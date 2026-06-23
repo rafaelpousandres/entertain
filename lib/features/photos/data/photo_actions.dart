@@ -95,6 +95,7 @@ Future<bool> addEntityPhoto({
   required BuildContext context,
   required MediaEntityType type,
   required String entityId,
+  String? entityName,
 }) async {
   final choice = await showPhotoSourceSheet(context, canRemove: false);
   if (choice == null || !context.mounted) return false;
@@ -109,6 +110,8 @@ Future<bool> addEntityPhoto({
         type: type,
         entityId: entityId,
         locale: locale,
+        // Spec 021 §B6: prefill the search with the entity's name.
+        initialQuery: entityName,
       ),
     );
     return false;
