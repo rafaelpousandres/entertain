@@ -22,24 +22,31 @@ class MediaCarouselScreen extends ConsumerStatefulWidget {
     required this.type,
     required this.entityId,
     required this.initialIndex,
+    this.entityName,
   });
 
   final MediaEntityType type;
   final String entityId;
   final int initialIndex;
 
+  /// Spec 021 §B6: the entity's name, threaded to the stock-photo search to
+  /// prefill the query when adding a photo from here.
+  final String? entityName;
+
   static Future<void> open(
     BuildContext context,
     MediaEntityType type,
     String entityId,
-    int initialIndex,
-  ) {
+    int initialIndex, {
+    String? entityName,
+  }) {
     return Navigator.of(context).push<void>(
       MaterialPageRoute(
         builder: (_) => MediaCarouselScreen(
           type: type,
           entityId: entityId,
           initialIndex: initialIndex,
+          entityName: entityName,
         ),
       ),
     );
@@ -94,6 +101,7 @@ class _MediaCarouselScreenState extends ConsumerState<MediaCarouselScreen> {
               context: context,
               type: widget.type,
               entityId: widget.entityId,
+              entityName: widget.entityName,
             ),
           ),
           photosAsync.maybeWhen(

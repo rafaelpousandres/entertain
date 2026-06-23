@@ -17,6 +17,8 @@ import '../../../ui/segmented_choice.dart';
 import '../../catalog/data/catalog_providers.dart';
 import '../../catalog/data/reference_data.dart';
 import '../../events/data/events_providers.dart' show currentGroupIdProvider;
+import '../../suggestions/data/suggestions_providers.dart'
+    show suggestionsCountProvider;
 import '../data/group_supplier_setting.dart';
 import '../data/supplier_resolution.dart';
 import '../data/message_channel.dart';
@@ -329,13 +331,17 @@ class _GeneralTab extends ConsumerWidget {
             ],
           ),
         ),
+        // Spec 021 §B5: final order — Primers passos · Suggeriments · Crèdits ·
+        // Privadesa i dades. The onboarding card leads.
+        const SizedBox(height: 16),
+        const _GettingStartedCard(),
+        // Spec 021 Part A: the suggestions box, right after "Primers passos".
+        const SizedBox(height: 16),
+        const _SuggestionsCard(),
         // Spec 019 §C.3: app-level Pexels attribution (per-photo credit lives
         // on the stock-search results).
         const SizedBox(height: 16),
         const _CreditsCard(),
-        // Spec 012 §2.3: telegraphic onboarding card.
-        const SizedBox(height: 16),
-        const _GettingStartedCard(),
         // Spec 010 §2.5: the user's Supabase Auth id, near the bottom of the
         // General tab, so a data-deletion request by email can identify the
         // account. The id is exposed only here.
@@ -400,6 +406,67 @@ class _CreditsCard extends StatelessWidget {
 }
 
 const String _pexelsUrl = 'https://www.pexels.com';
+
+/// Spec 021 Part A — tappable entry to the suggestions box, sitting right after
+/// "Primers passos". Opens the [SuggestionsScreen] sub-screen. Shows the group's
+/// sent-count here too (§B-fix 1) so it's visible without entering the screen.
+class _SuggestionsCard extends ConsumerWidget {
+  const _SuggestionsCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
+    // The count line replaces the static subtitle once a positive count loads;
+    // while loading / on zero, the inviting subtitle is shown instead.
+    final count = ref.watch(suggestionsCountProvider).value;
+    final subtitle = (count != null && count > 0)
+        ? l10n.suggestionsSentCount(count)
+        : l10n.suggestionsEntrySubtitle;
+    return Material(
+      color: AppColors.surface,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: () => context.push('/settings/suggestions'),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.lightbulb_outline,
+                size: 20,
+                color: AppColors.accentSecondary,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(l10n.suggestionsTitle, style: AppTypography.sectionTitle),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: AppTypography.caption.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Icon(Icons.chevron_right, color: AppColors.disabled, size: 22),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 /// Spec 012 §2.3 — a brief, scannable "Getting started" card on the General
 /// tab. The fuller walk-through lives in the GitHub Pages tester manual (§2.5).

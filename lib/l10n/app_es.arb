@@ -436,11 +436,26 @@
   "okAction": "Aceptar",
   "settingsCreditsTitle": "Créditos",
   "settingsCreditsPexels": "Fotos proporcionadas por Pexels",
+
+  "suggestionsTitle": "Sugerencias",
+  "suggestionsEntrySubtitle": "Cuéntanos qué mejorarías",
+  "suggestionsIntro": "¿Qué te gustaría que hiciera la app? ¿Qué falta o no acaba de funcionar? Escríbelo aquí y lo tendremos en cuenta.",
+  "suggestionsFieldLabel": "Tu sugerencia",
+  "suggestionsFieldHint": "Escríbelo aquí (puedes dictar con el micrófono del teclado)…",
+  "suggestionsSendAction": "Enviar",
+  "suggestionsSentConfirm": "¡Gracias!",
+  "suggestionsSendError": "No se ha podido enviar la sugerencia.",
+  "suggestionsSentCount": "{count, plural, =0{Aún no habéis enviado ninguna sugerencia} =1{1 sugerencia enviada} other{{count} sugerencias enviadas}}",
+  "@suggestionsSentCount": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+
   "dishAssistantCreateAction": "Crea un plato con IA",
   "dishAssistantTitle": "Crea un plato con IA",
   "dishAssistantHint": "Nombre o breve descripción",
   "dishAssistantGenerateAction": "Genera",
   "dishAssistantEmptyPrompt": "Escribe un nombre de plato o una breve descripción y deja que la IA lo cree.",
+  "dishAssistantEditableNote": "Después de crearlo podrás editarlo todo: ingredientes, cantidades, foto y preparación.",
   "dishAssistantGenerating": "Generando el plato…",
   "dishAssistantSaving": "Guardando…",
   "dishAssistantError": "No se ha podido generar el plato.",

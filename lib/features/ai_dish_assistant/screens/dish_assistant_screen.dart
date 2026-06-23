@@ -8,6 +8,8 @@ import '../../../theme/app_typography.dart';
 import '../../../ui/primary_button.dart';
 import '../../catalog/data/catalog_providers.dart';
 import '../../catalog/data/dish_category.dart';
+import '../../photos/data/media.dart';
+import '../../photos/data/media_providers.dart';
 import '../data/dish_assistant_providers.dart';
 import '../data/dish_assistant_repository.dart';
 import '../data/dish_card.dart';
@@ -80,6 +82,12 @@ class _DishAssistantScreenState extends ConsumerState<DishAssistantScreen> {
       if (!mounted) return;
       ref.invalidate(dishesListProvider);
       ref.invalidate(ingredientsListProvider);
+      // Spec 021 §B1: parity with the manual stock-photo save — refresh the
+      // cover caches so the auto photo shows without leaving and re-entering.
+      ref.invalidate(entityCoverPathsProvider(MediaEntityType.dish));
+      ref.invalidate(
+        entityMediaProvider((type: MediaEntityType.dish, entityId: dishId)),
+      );
       context.pushReplacement('/dishes/$dishId');
     } catch (_) {
       if (!mounted) return;
@@ -199,6 +207,15 @@ class _DishAssistantScreenState extends ConsumerState<DishAssistantScreen> {
           l10n.dishAssistantEmptyPrompt,
           textAlign: TextAlign.center,
           style: AppTypography.body.copyWith(color: AppColors.textSecondary),
+        ),
+        // Spec 021 §B4: reassure the user that generation isn't final — the
+        // dish can be edited right after creating it. Lowers pressure on the
+        // prompt and clarifies they keep final control.
+        const SizedBox(height: 12),
+        Text(
+          l10n.dishAssistantEditableNote,
+          textAlign: TextAlign.center,
+          style: AppTypography.caption.copyWith(color: AppColors.textTertiary),
         ),
       ],
     );

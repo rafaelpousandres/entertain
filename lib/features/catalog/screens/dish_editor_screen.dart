@@ -411,6 +411,7 @@ class _DishFormState extends ConsumerState<_DishForm>
             PhotoCarouselSection(
               type: MediaEntityType.dish,
               entityId: widget.dishId!,
+              entityName: _nameController.text,
             ),
             const SizedBox(height: 20),
           ],

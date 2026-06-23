@@ -153,6 +153,39 @@ void main() {
     expect(find.text('HOME'), findsOneWidget);
   });
 
+  testWidgets('Spec 021 §B6: the search field is prefilled with the entity name',
+      (tester) async {
+    final fake = _FakeStockPhotoRepository();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          stockPhotoRepositoryProvider.overrideWithValue(fake),
+          stockPhotoQuotaProvider.overrideWith(
+            (ref) async => const QuotaStatus(used: 2, limit: 10),
+          ),
+        ],
+        child: const MaterialApp(
+          locale: Locale('en'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: StockPhotoSearchScreen(
+            args: StockPhotoSearchArgs(
+              type: MediaEntityType.dish,
+              entityId: 'dish-1',
+              locale: 'en-US',
+              initialQuery: 'Paella de marisc',
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // The field carries the entity name; no search ran on its own.
+    expect(find.text('Paella de marisc'), findsOneWidget);
+    expect(fake.searchCalls, isEmpty);
+  });
+
   testWidgets('a reached limit shows the message and blocks (stays on screen)', (
     tester,
   ) async {

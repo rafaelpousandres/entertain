@@ -26,6 +26,7 @@ import '../features/shopping/screens/supplier_editor_screen.dart';
 import '../features/shopping/screens/supplier_message_screen.dart';
 import '../features/startup/bootstrap_gate.dart';
 import '../features/stock_photos/screens/stock_photo_search_screen.dart';
+import '../features/suggestions/screens/suggestions_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -155,6 +156,12 @@ final GoRouter appRouter = GoRouter(
       path: '/settings/supplier',
       builder: (context, state) =>
           _gated(SupplierEditorScreen(args: state.extra as SupplierEditorArgs)),
+    ),
+
+    // Settings — suggestions box (Spec 021 Part A).
+    GoRoute(
+      path: '/settings/suggestions',
+      builder: (context, state) => _gated(const SuggestionsScreen()),
     ),
 
     // AI dish assistant (Spec 020) — opened from the dish catalog; creates a
