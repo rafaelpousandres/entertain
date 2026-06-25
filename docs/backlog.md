@@ -510,6 +510,19 @@ Preguntes obertes a resoldre en el triatge/spec:
 - Bloqueja: confirmar el model d'estats de la Compra actual; decisió
   adapta-sola vs mode explícit.
 
+### 💡 Edició de quantitat en afegir begudes (paritat amb plats)
+En afegir una beguda al menú d'un event —especialment via "Crea una beguda
+nova"— s'insereix directament al menú amb quantitat 1, sense passar per una
+pantalla d'edició de la còpia per-event (quantitat), a diferència dels plats,
+que sí permeten ajustar la còpia. Asimetria d'UX: el patró de còpia malleable
+per-event hauria de valer igual per a begudes.
+- Dos vessants: (a) general —no s'exposa l'edició de la còpia de beguda en
+  afegir-la; (b) camí "crea nova" —cau directa al menú sense el pas d'edició.
+- Triatge: confirmar si hi ha taula còpia event_drinks anàloga a event_dishes;
+  si no, decidir el model abans de la UI.
+- On va: spec pròpia o polit del flux de begudes a l'event.
+- Quan: algun dia; coherència d'UX, no bloqueja.
+
 ---
 
 ## 7. Limitacions conegudes (no urgents)
