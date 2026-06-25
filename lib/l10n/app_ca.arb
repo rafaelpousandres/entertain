@@ -405,6 +405,7 @@
   "eventStatusInPreparation": "En preparació",
   "eventStatusReady": "Llest",
   "eventStatusPast": "Passat",
+  "eventStatusPastGroup": "Passats",
 
   "duplicateEventAction": "Duplica",
   "duplicateEventNameTemplate": "{name} - Còpia",

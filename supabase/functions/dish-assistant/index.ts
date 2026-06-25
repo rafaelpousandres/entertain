@@ -187,7 +187,7 @@ Rules:
 - Vague amounts -> a sensible amount; never fail the card over one line.
 - name in all three languages with original_locale marked.
 - preparation: clear CONSECUTIVE NUMBERED STEPS as plain text, e.g. "1. ...\\n2. ...\\n3. ...".
-- category is one of: aperitif, starter, main, dessert, drink, other.
+- category is one of: aperitif, starter, main, dessert, other. (Beverages are NOT dishes — never use a "drink" category; drinks live in their own entity, spec 024.)
 - acquisition_mode is "cooked" (these are recipes).
 - photo_query: a short search term in ENGLISH for an illustrative stock photo — the English dish name, or its MAIN INGREDIENT for a regional dish Pexels likely won't index by name. Pexels indexes mainly in English, so NEVER use the Catalan/Spanish name. Examples: "bacallà a la llauna" -> "baked cod"; "fideuà" -> "seafood noodles"; "carbonara" -> "carbonara pasta".
 
@@ -503,7 +503,9 @@ async function persistDish(
 
   // 2. Create the dish.
   const dishLoc = localeOf(card);
-  const category = ["aperitif", "starter", "main", "dessert", "drink", "other"]
+  // Active dish categories (spec 024): no "drink" — beverages live in their own
+  // entity. Anything else (incl. a stray "drink") falls back to "main".
+  const category = ["aperitif", "starter", "main", "dessert", "other"]
     .includes(card.category)
     ? card.category
     : "main";

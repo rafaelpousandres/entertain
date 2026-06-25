@@ -974,7 +974,7 @@ class _MenuByCategoryState extends ConsumerState<_MenuByCategory> {
         // this counts dishes only (bought + cooked), never drinks.
         _MenuTotalsLine(dishes: widget.dishes, guestCount: widget.guestCount),
         const SizedBox(height: 12),
-        for (final category in dishCategoryOrder)
+        for (final category in dishCategoryActive)
           if (byCategory[category] != null) ...[
             SectionHeader(
               icon: dishCategoryIcon(category),

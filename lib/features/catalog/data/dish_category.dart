@@ -48,6 +48,21 @@ const List<DishCategory> dishCategoryOrder = [
   DishCategory.other,
 ];
 
+/// The categories a user may actively pick or see grouped — the single source
+/// of truth for "what the app offers". Excludes `drink`, deprecated in Spec 024:
+/// beverages live in the `drinks` entity, so `dish_category.drink` is an inert
+/// vestige kept only for historical `event_dishes` snapshots (the enum still
+/// carries it; `wire`/`parse` still handle it so old data loads). UI pickers and
+/// menu grouping iterate this list, never `dishCategoryOrder`, so no `drink`
+/// section is offered or rendered. See `DishCategoryWire` / the data model.
+const List<DishCategory> dishCategoryActive = [
+  DishCategory.aperitif,
+  DishCategory.starter,
+  DishCategory.main,
+  DishCategory.dessert,
+  DishCategory.other,
+];
+
 /// Outline icon for a category (design system §6). Used by the section
 /// header badge in both the dish catalog and the event menu.
 IconData dishCategoryIcon(DishCategory category) => switch (category) {
