@@ -523,6 +523,21 @@ per-event hauria de valer igual per a begudes.
 - On va: spec pròpia o polit del flux de begudes a l'event.
 - Quan: algun dia; coherència d'UX, no bloqueja.
 
+### 💡 Foto d'ingredient al menú de l'esdeveniment (paritat amb plats i catàleg)
+Les files d'ingredient al menú (event_dish_detail_screen, _LineRow) no mostren
+la foto de l'ingredient, mentre que el catàleg i les files de PLAT del menú sí.
+No és un lookup que falla: el render de foto simplement no existeix a la fila
+d'ingredient. Per això passa amb TOTS els ingredients.
+- Solució trobada (opció A, recomanada): replicar el patró que ja fan els plats
+  al mateix menú — watch entityCoverPathsProvider(MediaEntityType.ingredient) i
+  passar coverPaths[line.ingredientId] a un RowPhotoThumb(bucket:
+  'ingredient-photos') dins _LineRow, condicional. line.ingredientId ja ve a la
+  query. Cap canvi de model ni de BD; degradació neta si ingredientId és null
+  (com els plats amb sourceDishId null).
+- On va: propera passada de polits (baix risc, reaprofita providers/widgets).
+- Quan: després de 22/23; agrupar amb altres polits per no gastar un cicle
+  d'Internal Testing per a una sola fila.
+
 ---
 
 ## 7. Limitacions conegudes (no urgents)
