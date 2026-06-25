@@ -114,7 +114,7 @@ class _DishCatalogScreenState extends ConsumerState<DishCatalogScreen> {
               // category when all collapsed) as an editable default.
               onPressed: () => context.push(
                 '/dishes/new',
-                extra: _open ?? dishCategoryOrder.first,
+                extra: _open ?? dishCategoryActive.first,
               ),
             ),
           ],
@@ -153,7 +153,7 @@ class _DishesByCategory extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
       children: [
-        for (final category in dishCategoryOrder)
+        for (final category in dishCategoryActive)
           if (byCategory[category] != null) ...[
             SectionHeader(
               icon: dishCategoryIcon(category),

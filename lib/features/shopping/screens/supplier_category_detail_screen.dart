@@ -216,6 +216,33 @@ class _SupplierCategoryDetailScreenState
           title: widget.category.name,
           body: l10n.helpSuppliersBody,
         ),
+        // Spec 024 §A2: delete a user category from the overflow menu, the same
+        // destructive-action pattern as dishes/ingredients/drinks/suppliers
+        // (system categories aren't deletable, so no menu for them).
+        if (_isUser)
+          PopupMenuButton<_OverflowAction>(
+            icon: const Icon(Icons.more_vert),
+            tooltip: l10n.moreActionsLabel,
+            color: AppColors.surface,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            onSelected: (action) {
+              switch (action) {
+                case _OverflowAction.delete:
+                  _confirmDelete();
+              }
+            },
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: _OverflowAction.delete,
+                child: Text(
+                  l10n.deleteSupplierCategoryAction,
+                  style: AppTypography.body.copyWith(color: AppColors.danger),
+                ),
+              ),
+            ],
+          ),
       ],
       body: suppliersAsync.when(
         loading: () => const Center(
@@ -311,25 +338,6 @@ class _SupplierCategoryDetailScreenState
                   label: l10n.addSupplierAction,
                   icon: Icons.add,
                   onPressed: _busy ? null : _addSupplier,
-                ),
-              ],
-              if (_isUser) ...[
-                const SizedBox(height: 32),
-                Center(
-                  child: TextButton.icon(
-                    onPressed: _busy ? null : _confirmDelete,
-                    icon: const Icon(
-                      Icons.delete_outline,
-                      size: 18,
-                      color: AppColors.danger,
-                    ),
-                    label: Text(
-                      l10n.deleteSupplierCategoryAction,
-                      style: AppTypography.button.copyWith(
-                        color: AppColors.danger,
-                      ),
-                    ),
-                  ),
                 ),
               ],
             ],
@@ -471,3 +479,5 @@ class _Message extends StatelessWidget {
     );
   }
 }
+
+enum _OverflowAction { delete }

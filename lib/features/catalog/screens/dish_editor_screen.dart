@@ -462,7 +462,7 @@ class _DishFormState extends ConsumerState<_DishForm>
                 _draft.category = v;
               }),
               options: [
-                for (final c in dishCategoryOrder)
+                for (final c in dishCategoryActive)
                   SegmentedChoiceOption(c, dishCategoryLabel(l10n, c)),
               ],
             ),

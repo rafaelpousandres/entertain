@@ -539,3 +539,11 @@ Preguntes obertes a resoldre en el triatge/spec:
   com a *automàtica* (no hi ha font fiable i estructurada; manteniment i
   cobertura inviables). La via vàlida és la **curació manual** del directori
   (secció 3), no la població automàtica.
+- **Eliminar el valor `drink` de l'enum `dish_category`:** descartada (Spec 024).
+  Les begudes s'han consolidat a l'entitat pròpia `drinks`/`event_drinks`. El
+  valor `dish_category.drink` queda **deprecat, no eliminat**: Postgres no té
+  `ALTER TYPE … DROP VALUE` i recrear el tipus convertiria dades reals
+  (incloent-hi snapshots històrics d'`event_dishes`) — destructiu i irreversible
+  sense backup, i no arreglaria el símptoma (que era a la UI). El valor es manté
+  **inert** (documentat amb `comment on type`) per compatibilitat històrica i es
+  treu dels camins actius (UI/IA/menú) via `dishCategoryActive`.

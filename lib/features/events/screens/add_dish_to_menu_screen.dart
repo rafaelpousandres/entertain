@@ -217,7 +217,7 @@ class _DishesByCategoryState extends State<_DishesByCategory> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
       children: [
-        for (final category in dishCategoryOrder)
+        for (final category in dishCategoryActive)
           if (byCategory[category] != null) ...[
             SectionHeader(
               icon: dishCategoryIcon(category),

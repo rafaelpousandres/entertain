@@ -611,6 +611,8 @@
   "@eventStatusReady": {},
   "eventStatusPast": "Past",
   "@eventStatusPast": {},
+  "eventStatusPastGroup": "Past",
+  "@eventStatusPastGroup": {},
 
   "duplicateEventAction": "Duplicate",
   "@duplicateEventAction": {},

@@ -1,0 +1,14 @@
+-- Spec 024 — Beverage consolidation.
+--
+-- Beverages moved from being a dish category to their own entity (drinks /
+-- event_drinks). The dish_category enum value `drink` is now a vestige: nothing
+-- new is created with it and the menu no longer renders a "Begudes" plat section.
+--
+-- We DEPRECATE the value rather than drop it. PostgreSQL has no
+-- `ALTER TYPE ... DROP VALUE`; removing it would mean recreating the type and
+-- converting real data in dishes / event_dishes (incl. historical event
+-- snapshots) — destructive, irreversible without a backup, and it would not fix
+-- the visible symptom (which lived in the UI, now removed in code). The value
+-- stays inert in the DB for historical event_dishes compatibility; it is no
+-- longer offered in the UI / AI / menu (see dishCategoryActive in the client).
+comment on type public.dish_category is 'Values: aperitif, starter, main, dessert, other. "drink" is DEPRECATED (spec 024): beverages live in the drinks entity since the drinks feature; value kept inert for historical event_dishes compatibility, not offered in UI/AI/menu.';

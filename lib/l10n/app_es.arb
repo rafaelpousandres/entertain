@@ -405,6 +405,7 @@
   "eventStatusInPreparation": "En preparación",
   "eventStatusReady": "Listo",
   "eventStatusPast": "Pasado",
+  "eventStatusPastGroup": "Pasados",
 
   "duplicateEventAction": "Duplicar",
   "duplicateEventNameTemplate": "{name} - Copia",

@@ -100,11 +100,11 @@ class _GroupedEventList extends StatefulWidget {
 }
 
 class _GroupedEventListState extends State<_GroupedEventList> {
-  final _expanded = <DerivedEventStatus, bool>{
-    DerivedEventStatus.inPreparation: true,
-    DerivedEventStatus.ready: true,
-    DerivedEventStatus.past: false,
-  };
+  // Spec 024 §A1: accordion — at most one group open at a time (same pattern as
+  // the Menu / catalog screens, Spec 011 §2.8). "En preparació" is open by
+  // default since this is the home screen and the active events matter most.
+  // Null means all collapsed.
+  DerivedEventStatus? _open = DerivedEventStatus.inPreparation;
 
   // Section render order (Spec §2.4).
   static const _order = [
@@ -147,13 +147,19 @@ class _GroupedEventListState extends State<_GroupedEventList> {
           if (byStatus[status]!.isNotEmpty) ...[
             SectionHeader(
               icon: _icon(status),
-              label: derivedEventStatusLabel(l10n, status),
+              // Spec 024 §A1: the past *group* header is plural ("Passats"),
+              // while the singular `eventStatusPast` stays for the per-event
+              // status badge (event detail). Other groups read the same as the
+              // badge, so they reuse the shared label.
+              label: status == DerivedEventStatus.past
+                  ? l10n.eventStatusPastGroup
+                  : derivedEventStatusLabel(l10n, status),
               count: byStatus[status]!.length,
-              expanded: _expanded[status]!,
+              expanded: _open == status,
               onToggle: () =>
-                  setState(() => _expanded[status] = !_expanded[status]!),
+                  setState(() => _open = _open == status ? null : status),
             ),
-            if (_expanded[status]!)
+            if (_open == status)
               for (final event in byStatus[status]!)
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
