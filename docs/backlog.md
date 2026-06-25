@@ -474,6 +474,42 @@ El retall i el salt de mida ja es van resoldre (Spec 017 + fixos posteriors);
 residu menor que l'usuari dóna per bo.
 - **Quan:** algun dia, si molesta.
 
+### 💡 Mode compra: vista de Compra usable al supermercat
+Fer que la pantalla de Compra funcioni bé com a llista de la compra REAL al
+super (dret, en moviment, una mà ocupada, cops d'ull curts). Descarta la idea
+inicial d'un PDF "llista general": el valor és la interactivitat (marcar mentre
+compres, estat desat, sempre actualitzat) que ja és el fort de l'app — un PDF
+estàtic no aporta. La vista marcable JA existeix (és la pròpia Compra); es
+tracta de POLIR-LA per a l'ús al super, no de crear-ne una de nova.
+
+Context d'ús que mana el disseny (UX): diana tàctil gran, acció d'un sol toc,
+llegibilitat a distància de braç, feedback immediat i reversible, progrés
+visible, agrupació per recorregut de botiga.
+
+Millores candidates (per impacte):
+- Nucli: tota la fila com a toggle d'un toc (comprat/no comprat, diana gran);
+  el comprat baixa i s'atenua/tatxa (la llista "es buida" a mesura que avances);
+  comptador de progrés per secció i total ("Verduleria 3/7 · Total 12/18").
+- Mode super (palanca gran): toggle "mode compra" que transforma la vista en
+  versió XL (files altes, tipografia gran, només nom·quantitat·estat, amaga la
+  resta); mantenir la pantalla desperta mentre s'hi és.
+- Refinaments: agrupació plegable per secció (secció acabada es col·lapsa);
+  filtre "amaga el que ja tinc"; possible reordenació de seccions pel recorregut
+  habitual (potser massa per v1).
+
+Preguntes obertes a resoldre en el triatge/spec:
+- La Compra actual, ¿distingeix "comprat al super" o els seus estats
+  (received/at_home/to_order…) són d'un altre moment del flux (encarregar/rebre
+  del proveïdor)? Comprar al super pot necessitar un estat propi (p. ex. bought)
+  o reutilitzar-ne un — decisió de model, mirar com està avui abans de decidir.
+- Pantalla que s'adapta sola vs "mode compra" explícit amb botó (inclinació:
+  mode explícit, per optimitzar per al super sense espatllar la vista de gestió).
+- On va: spec pròpia ("Mode compra / vista Compra al super"), UX + interacció,
+  sense IA ni PDF.
+- Quan: algun dia; alta usabilitat real, no bloqueja. Independent de 22/23/24.
+- Bloqueja: confirmar el model d'estats de la Compra actual; decisió
+  adapta-sola vs mode explícit.
+
 ---
 
 ## 7. Limitacions conegudes (no urgents)
