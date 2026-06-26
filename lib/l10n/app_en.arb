@@ -1013,5 +1013,63 @@
         "type": "int"
       }
     }
-  }
+  },
+  "eventTabGuests": "Guests",
+  "guestAddAction": "Add guest",
+  "guestsTotalLabel": "Guests",
+  "guestCountLabel": "{count} guests",
+  "@guestCountLabel": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "guestsEmptyBody": "No guests added yet.",
+  "guestOverCapacityNotice": "You have {confirmed} confirmed but only {planned} planned.",
+  "@guestOverCapacityNotice": {
+    "placeholders": {
+      "confirmed": {
+        "type": "int"
+      },
+      "planned": {
+        "type": "int"
+      }
+    }
+  },
+  "guestStatePending": "Pending",
+  "guestStateConfirmed": "Confirmed",
+  "guestStateExcused": "Declined",
+  "guestEditorNewTitle": "New guest",
+  "guestEditorEditTitle": "Edit guest",
+  "guestNameLabel": "Name",
+  "guestNameHint": "Guest name",
+  "guestNameRequired": "Name is required.",
+  "guestPhoneLabel": "Phone",
+  "guestPhoneHint": "Optional",
+  "guestEmailLabel": "Email",
+  "guestEmailHint": "Optional",
+  "guestStateFieldLabel": "State",
+  "guestSaveError": "Couldn't save the guest.",
+  "guestDeleteAction": "Delete guest",
+  "guestDeleteConfirmTitle": "Delete guest?",
+  "guestDeleteConfirmBody": "This can't be undone.",
+  "guestInviteAction": "Send invitation",
+  "guestInviteNoContact": "Add a phone or email to send the invitation.",
+  "guestInviteChannelTitle": "How do you want to send it?",
+  "guestInviteViaText": "WhatsApp / SMS",
+  "guestInviteViaEmail": "Email",
+  "guestInviteSent": "Invitation ready.",
+  "guestInviteError": "Couldn't prepare the invitation.",
+  "invitationTextAction": "Invitation text",
+  "invitationTextTitle": "Invitation text",
+  "invitationTextHelp": "This text is sent to guests. You can edit it.",
+  "invitationTextHint": "Write the invitation…",
+  "invitationSaveError": "Couldn't save the text.",
+  "invitationSubject": "Invitation: {title}",
+  "invitationGreeting": "Hi!",
+  "invitationInviteLine": "You're invited to {title}.",
+  "invitationWhenLine": "When: {when}",
+  "invitationWhereLine": "Where: {place}",
+  "invitationCloseLine": "Can you let us know if you'll come? Thanks!"
 }

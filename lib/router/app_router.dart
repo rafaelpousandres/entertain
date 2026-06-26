@@ -19,7 +19,10 @@ import '../features/events/screens/event_dish_detail_screen.dart';
 import '../features/events/screens/event_dish_line_editor_screen.dart';
 import '../features/events/screens/event_form_screen.dart';
 import '../features/events/screens/events_list_screen.dart';
+import '../features/events/screens/guest_editor_screen.dart';
+import '../features/events/screens/invitation_text_screen.dart';
 import '../features/events/data/event_drink.dart';
+import '../features/events/data/event_guest.dart';
 import '../features/shell/home_shell.dart';
 import '../features/shopping/screens/settings_screen.dart';
 import '../features/shopping/screens/supplier_category_detail_screen.dart';
@@ -131,6 +134,29 @@ final GoRouter appRouter = GoRouter(
         ),
       ),
     ),
+    // Spec 023 Layer 1 — guests on an event. `new` is registered before the
+    // `:guestId` route so it isn't captured as an id.
+    GoRoute(
+      path: '/events/:id/guests/new',
+      builder: (context, state) =>
+          _gated(GuestEditorScreen(eventId: state.pathParameters['id']!)),
+    ),
+    GoRoute(
+      path: '/events/:id/guests/:guestId',
+      builder: (context, state) => _gated(
+        GuestEditorScreen(
+          eventId: state.pathParameters['id']!,
+          guest: state.extra as EventGuest?,
+        ),
+      ),
+    ),
+    // Spec 023 §1.6 — edit the event-level invitation template.
+    GoRoute(
+      path: '/events/:id/invitation-text',
+      builder: (context, state) =>
+          _gated(InvitationTextScreen(eventId: state.pathParameters['id']!)),
+    ),
+
     // Supplier message — composes/sends one category's order for one event.
     GoRoute(
       path: '/events/:id/orders/:categoryId',
