@@ -804,10 +804,46 @@ class _MenuView extends ConsumerWidget {
 
     final loading = dishesAsync.isLoading || drinksAsync.isLoading;
     final hasError = dishesAsync.hasError || drinksAsync.hasError;
+    // Spec 022 §5: the menu state is known once both load — empty menu offers
+    // "Crea un menú amb IA", a populated one "Completa el menú amb IA".
+    final menuEmpty = !loading && !hasError &&
+        dishesAsync.value!.isEmpty &&
+        drinksAsync.value!.isEmpty;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
       children: [
+        // Spec 022 §5: adaptive AI action, first-class and harmonized with the
+        // dish-catalog assistant (accent outline + AI symbol), above the bottom
+        // "+ Afegeix plat". Shown once the menu state is known.
+        if (!loading && !hasError) ...[
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: OutlinedButton.icon(
+              onPressed: () =>
+                  context.push('/events/${event.id}/ai-menu-wizard'),
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: AppColors.accent),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              icon: const Icon(
+                Icons.auto_awesome,
+                size: 20,
+                color: AppColors.accent,
+              ),
+              label: Text(
+                menuEmpty
+                    ? l10n.menuWizardCreateButton
+                    : l10n.menuWizardCompleteButton,
+                style: AppTypography.button.copyWith(color: AppColors.accent),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
         if (loading)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 32),
