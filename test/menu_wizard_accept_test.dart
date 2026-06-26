@@ -56,11 +56,12 @@ class _FakeEvents extends EventsRepository {
   }
 
   @override
-  Future<void> addDrinkToEvent({
+  Future<String> addDrinkToEvent({
     required String eventId,
     required String drinkId,
   }) async {
     drinkAdds.add(drinkId);
+    return 'event-drink-${drinkAdds.length}';
   }
 }
 

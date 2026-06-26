@@ -364,7 +364,9 @@ class EventsRepository {
   /// Copy on add for a drink (mirror of [addDishToEvent], no ingredients).
   /// Spec 016 §3: a drink is units-only — no servings, no guest scaling. The
   /// quantity defaults to [defaultEventDrinkQuantity] and is edited per event.
-  Future<void> addDrinkToEvent({
+  /// Returns the new `event_drinks` id so the caller can open the per-event
+  /// quantity editor right after adding (Spec 025 D3 — parity with dishes).
+  Future<String> addDrinkToEvent({
     required String eventId,
     required String drinkId,
   }) async {
@@ -378,15 +380,20 @@ class EventsRepository {
         .select('id')
         .eq('event_id', eventId);
 
-    await _client.from('event_drinks').insert({
-      'event_id': eventId,
-      'source_drink_id': drinkId,
-      'drink_name': drink['name'],
-      'supplier_category_id': drink['supplier_category_id'],
-      'denomination': drink['denomination'],
-      'quantity': defaultEventDrinkQuantity,
-      'sort_order': (existing as List).length,
-    });
+    final row = await _client
+        .from('event_drinks')
+        .insert({
+          'event_id': eventId,
+          'source_drink_id': drinkId,
+          'drink_name': drink['name'],
+          'supplier_category_id': drink['supplier_category_id'],
+          'denomination': drink['denomination'],
+          'quantity': defaultEventDrinkQuantity,
+          'sort_order': (existing as List).length,
+        })
+        .select('id')
+        .single();
+    return row['id'] as String;
   }
 
   Future<void> updateEventDrinkQuantity(

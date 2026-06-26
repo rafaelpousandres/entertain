@@ -10,6 +10,10 @@ import '../../../ui/section_header.dart';
 import '../../catalog/data/catalog_providers.dart';
 import '../../catalog/data/dish.dart';
 import '../../catalog/data/dish_category.dart';
+import '../../photos/data/media.dart';
+import '../../photos/data/media_providers.dart';
+import '../../photos/data/photo_storage.dart';
+import '../../photos/widgets/photo_image.dart';
 import '../../shopping/data/shopping_providers.dart';
 import '../data/events_providers.dart';
 
@@ -117,6 +121,10 @@ class _AddDishToMenuScreenState extends ConsumerState<AddDishToMenuScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final dishesAsync = ref.watch(dishesListProvider);
+    // Spec 025: show the catalog dish cover thumbnails in the picker too.
+    final coverPaths =
+        ref.watch(entityCoverPathsProvider(MediaEntityType.dish)).value ??
+        const <String, String>{};
     final inMenuAsync = ref.watch(eventDishesProvider(widget.eventId));
     final inMenu = <String>{
       for (final d in inMenuAsync.value ?? const [])
@@ -163,6 +171,7 @@ class _AddDishToMenuScreenState extends ConsumerState<AddDishToMenuScreen> {
                         : _DishesByCategory(
                             dishes: dishes,
                             inMenu: inMenu,
+                            coverPaths: coverPaths,
                             onTap: (dish) => _add(
                               dish,
                               alreadyInMenu: inMenu.contains(dish.id),
@@ -190,11 +199,15 @@ class _DishesByCategory extends StatefulWidget {
   const _DishesByCategory({
     required this.dishes,
     required this.inMenu,
+    required this.coverPaths,
     required this.onTap,
   });
 
   final List<Dish> dishes;
   final Set<String> inMenu;
+
+  /// Catalog dish id → cover photo path (absent when none).
+  final Map<String, String> coverPaths;
   final ValueChanged<Dish> onTap;
 
   @override
@@ -235,6 +248,7 @@ class _DishesByCategoryState extends State<_DishesByCategory> {
                   child: _DishRow(
                     dish: dish,
                     inMenu: widget.inMenu.contains(dish.id),
+                    coverPath: widget.coverPaths[dish.id],
                     onTap: () => widget.onTap(dish),
                   ),
                 ),
@@ -249,11 +263,13 @@ class _DishRow extends StatelessWidget {
   const _DishRow({
     required this.dish,
     required this.inMenu,
+    required this.coverPath,
     required this.onTap,
   });
 
   final Dish dish;
   final bool inMenu;
+  final String? coverPath;
   final VoidCallback onTap;
 
   @override
@@ -273,6 +289,13 @@ class _DishRow extends StatelessWidget {
           ),
           child: Row(
             children: [
+              // Spec 025: cover thumbnail when the dish has a photo.
+              if (coverPath != null) ...[
+                RowPhotoThumb(
+                  photoRef: (bucket: PhotoStorage.dishBucket, path: coverPath!),
+                ),
+                const SizedBox(width: 12),
+              ],
               Expanded(
                 child: Text(
                   dish.name,

@@ -8,6 +8,7 @@
 /// unsaved new dish leaves no orphan rows.
 library;
 
+import 'diet.dart';
 import 'dish_category.dart';
 
 /// How a dish is obtained (Spec 014 §2.1). `cooked` is the existing recipe
@@ -37,10 +38,15 @@ class Dish {
     this.supplierCategoryId,
     this.description,
     this.preparation,
+    this.diet = DietLevel.unknown,
+    this.glutenFree = TriState.unknown,
+    this.nameEn,
   });
 
   final String id;
   final String groupId;
+
+  /// Display name resolved to the app locale by the repository (Spec 025 A.4).
   final String name;
   final DishCategory category;
 
@@ -64,6 +70,14 @@ class Dish {
   /// the short [description].
   final String? preparation;
 
+  /// Spec 025 B.4 — MANUAL dietary, used only when the dish has no ingredients
+  /// (a dish with ingredients derives its status on read and ignores these).
+  final DietLevel diet;
+  final TriState glutenFree;
+
+  /// English name (Spec 025 D2). Attached by the repository; null when unfilled.
+  final String? nameEn;
+
   bool get isBought => acquisitionMode == DishAcquisitionMode.bought;
 
   // Spec 010 §2.4: the dish's photos now live in the polymorphic `media` table,
@@ -71,11 +85,15 @@ class Dish {
   // and the editor uses the shared PhotoCarouselSection. The old `photo_path`
   // column was dropped in Wave 2 (Spec 011 §2.2), so it is absent here.
 
-  factory Dish.fromRow(Map<String, dynamic> row) {
+  factory Dish.fromRow(
+    Map<String, dynamic> row, {
+    String? displayName,
+    String? nameEn,
+  }) {
     return Dish(
       id: row['id'] as String,
       groupId: row['group_id'] as String,
-      name: row['name'] as String,
+      name: displayName ?? row['name'] as String,
       category: DishCategoryWire.parse(row['category'] as String),
       baseServings: (row['base_servings'] as num?)?.toInt() ?? 4,
       acquisitionMode: DishAcquisitionModeWire.parse(
@@ -84,12 +102,15 @@ class Dish {
       supplierCategoryId: row['supplier_category_id'] as String?,
       description: row['description'] as String?,
       preparation: row['preparation'] as String?,
+      diet: DietLevelWire.parse(row['diet'] as String?),
+      glutenFree: TriStateWire.parse(row['gluten_free'] as String?),
+      nameEn: nameEn,
     );
   }
 
   static const String selectColumns =
       'id, group_id, name, category, base_servings, acquisition_mode, '
-      'supplier_category_id, description, preparation';
+      'supplier_category_id, description, preparation, diet, gluten_free';
 }
 
 /// One in-memory recipe line being edited inside the dish editor. Maps to a
@@ -102,6 +123,8 @@ class DishLineDraft {
     required this.quantity,
     required this.unitId,
     this.prepNote,
+    this.ingredientDiet = DietLevel.unknown,
+    this.ingredientGlutenFree = TriState.unknown,
   });
 
   /// Reference to the catalog ingredient.
@@ -115,12 +138,19 @@ class DishLineDraft {
   String unitId;
   String? prepNote;
 
+  /// Spec 025 B.3 — the referenced ingredient's dietary axes, embedded so the
+  /// dish editor can show the dish's DERIVED status from its loaded lines.
+  DietLevel ingredientDiet;
+  TriState ingredientGlutenFree;
+
   DishLineDraft copy() => DishLineDraft(
     ingredientId: ingredientId,
     ingredientName: ingredientName,
     quantity: quantity,
     unitId: unitId,
     prepNote: prepNote,
+    ingredientDiet: ingredientDiet,
+    ingredientGlutenFree: ingredientGlutenFree,
   );
 
   factory DishLineDraft.fromRow(Map<String, dynamic> row) {
@@ -133,6 +163,10 @@ class DishLineDraft {
       quantity: (row['quantity'] as num).toDouble(),
       unitId: row['unit_id'] as String,
       prepNote: row['prep_note'] as String?,
+      ingredientDiet: DietLevelWire.parse(ingredient?['diet'] as String?),
+      ingredientGlutenFree: TriStateWire.parse(
+        ingredient?['gluten_free'] as String?,
+      ),
     );
   }
 
@@ -148,10 +182,11 @@ class DishLineDraft {
     };
   }
 
-  /// Columns + embedded ingredient name read when loading a dish for edit.
+  /// Columns + embedded ingredient name and dietary axes read when loading a
+  /// dish for edit / for deriving the dish's dietary status (Spec 025 B.3).
   static const String selectColumns =
       'id, ingredient_id, quantity, unit_id, prep_note, sort_order, '
-      'ingredients(name)';
+      'ingredients(name, diet, gluten_free)';
 }
 
 /// Mutable editor view of a dish and its lines.
@@ -164,6 +199,9 @@ class DishDraft {
     this.supplierCategoryId,
     this.description,
     this.preparation,
+    this.diet = DietLevel.unknown,
+    this.glutenFree = TriState.unknown,
+    this.nameEn,
     List<DishLineDraft>? lines,
   }) : lines = lines ?? [];
 
@@ -180,6 +218,9 @@ class DishDraft {
     supplierCategoryId: dish.supplierCategoryId,
     description: dish.description,
     preparation: dish.preparation,
+    diet: dish.diet,
+    glutenFree: dish.glutenFree,
+    nameEn: dish.nameEn,
     lines: lines,
   );
 
@@ -190,9 +231,22 @@ class DishDraft {
   String? supplierCategoryId;
   String? description;
   String? preparation;
+
+  /// Spec 025 B.4 — manual dietary, persisted but only meaningful when the dish
+  /// has no ingredient [lines].
+  DietLevel diet;
+  TriState glutenFree;
+
+  /// English name (Spec 025 D2 — photo-search bridge). Display-only, not in
+  /// [toRow]; null for a brand-new dish until the first save fills translations.
+  final String? nameEn;
   final List<DishLineDraft> lines;
 
   bool get isBought => acquisitionMode == DishAcquisitionMode.bought;
+
+  /// Whether the dish derives its dietary status (has ingredient lines) vs uses
+  /// the manual fields (none).
+  bool get hasIngredients => lines.isNotEmpty;
 
   /// Row payload for the `dishes` table. `group_id` is added by the
   /// repository; the lines are persisted separately. The bought-only supplier
@@ -208,6 +262,10 @@ class DishDraft {
       'supplier_category_id': bought ? supplierCategoryId : null,
       'description': _nullIfBlank(description),
       'preparation': _nullIfBlank(preparation),
+      // Spec 025 B.4: manual dietary is stored but only consulted when the dish
+      // has no ingredients; harmless to persist for a cooked dish too.
+      'diet': diet.wire,
+      'gluten_free': glutenFree.wire,
     };
   }
 }

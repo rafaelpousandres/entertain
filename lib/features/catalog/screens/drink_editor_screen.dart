@@ -16,6 +16,7 @@ import '../../photos/data/photo_edit_session_host.dart';
 import '../../photos/data/photo_storage.dart';
 import '../../photos/widgets/photo_carousel_section.dart';
 import '../../shopping/supplier_category_format.dart';
+import '../data/catalog_naming.dart';
 import '../data/catalog_providers.dart';
 import '../data/denomination.dart';
 import '../data/drink.dart';
@@ -217,17 +218,29 @@ class _DrinkFormState extends ConsumerState<_DrinkForm>
     });
 
     final repo = ref.read(catalogRepositoryProvider);
+    final localeCode = Localizations.localeOf(context).languageCode;
     try {
       // Spec 018 §3.1: when opened from the add-to-menu flow, return the created
       // drink (via pop) so the caller can add it to the event with defaults.
       // Null on edit / catalog create — those callers ignore the pop result.
       Drink? created;
       if (widget.isEditing) {
-        await repo.updateDrink(widget.drinkId!, _draft);
+        final nameChanged =
+            _draft.name.trim() != (widget.initial?.name.trim() ?? '');
+        await repo.updateDrink(
+          widget.drinkId!,
+          _draft,
+          localeCode: localeCode,
+          nameChanged: nameChanged,
+        );
         ref.invalidate(drinkByIdProvider(widget.drinkId!));
       } else {
         final groupId = await ref.read(currentGroupIdProvider.future);
-        created = await repo.createDrink(_draft, groupId: groupId);
+        created = await repo.createDrink(
+          _draft,
+          groupId: groupId,
+          localeCode: localeCode,
+        );
       }
       ref.invalidate(drinksListProvider);
       await commitPhotoSession();
@@ -367,7 +380,10 @@ class _DrinkFormState extends ConsumerState<_DrinkForm>
             PhotoCarouselSection(
               type: MediaEntityType.drink,
               entityId: widget.drinkId!,
-              entityName: _nameController.text,
+              entityName: photoSearchTerm(
+                _nameController.text,
+                widget.initial?.nameEn,
+              ),
             ),
             const SizedBox(height: 20),
           ],

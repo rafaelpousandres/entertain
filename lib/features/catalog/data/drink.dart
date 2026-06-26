@@ -16,10 +16,13 @@ class Drink {
     required this.name,
     this.supplierCategoryId,
     this.denomination = 'bottle',
+    this.nameEn,
   });
 
   final String id;
   final String groupId;
+
+  /// Display name resolved to the app locale by the repository (Spec 025 A.4).
   final String name;
 
   /// Supplier category the drink is ordered from (resolved to a concrete
@@ -29,13 +32,21 @@ class Drink {
   /// Denomination code (see [Denomination]); rendered singular/plural per locale.
   final String denomination;
 
-  factory Drink.fromRow(Map<String, dynamic> row) {
+  /// English name (Spec 025 D2). Attached by the repository; null when unfilled.
+  final String? nameEn;
+
+  factory Drink.fromRow(
+    Map<String, dynamic> row, {
+    String? displayName,
+    String? nameEn,
+  }) {
     return Drink(
       id: row['id'] as String,
       groupId: row['group_id'] as String,
-      name: row['name'] as String,
+      name: displayName ?? row['name'] as String,
       supplierCategoryId: row['supplier_category_id'] as String?,
       denomination: parseDenomination(row['denomination'] as String?).wire,
+      nameEn: nameEn,
     );
   }
 

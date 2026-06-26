@@ -7,6 +7,7 @@ import '../../../theme/app_colors.dart';
 import '../../../theme/app_typography.dart';
 import '../../../ui/app_form_field.dart';
 import '../../../ui/edit_scaffold.dart';
+import '../../../ui/segmented_choice.dart';
 import '../../../ui/single_choice_sheet.dart';
 import '../../events/data/events_providers.dart' show currentGroupIdProvider;
 import '../../photos/data/media.dart';
@@ -14,7 +15,9 @@ import '../../photos/data/media_providers.dart';
 import '../../photos/data/photo_edit_session_host.dart';
 import '../../photos/data/photo_storage.dart';
 import '../../photos/widgets/photo_carousel_section.dart';
+import '../data/catalog_naming.dart';
 import '../data/catalog_providers.dart';
+import '../data/diet.dart';
 import '../data/ingredient.dart';
 import '../data/reference_data.dart';
 import '../widgets/unit_ordering.dart';
@@ -215,6 +218,7 @@ class _IngredientFormState extends ConsumerState<_IngredientForm>
   Future<void> _save() async {
     final l10n = AppLocalizations.of(context);
     final messenger = ScaffoldMessenger.of(context);
+    final localeCode = Localizations.localeOf(context).languageCode;
 
     setState(() => _submitted = true);
     _draft.name = _nameController.text;
@@ -242,13 +246,26 @@ class _IngredientFormState extends ConsumerState<_IngredientForm>
     final repo = ref.read(catalogRepositoryProvider);
     try {
       if (widget.isEditing) {
-        await repo.updateIngredient(widget.ingredientId!, _draft);
+        final nameChanged =
+            _draft.name.trim() != (widget.initial?.name.trim() ?? '');
+        await repo.updateIngredient(
+          widget.ingredientId!,
+          _draft,
+          localeCode: localeCode,
+          nameChanged: nameChanged,
+        );
         ref.invalidate(ingredientByIdProvider(widget.ingredientId!));
       } else {
         final groupId = await ref.read(currentGroupIdProvider.future);
-        await repo.createIngredient(_draft, groupId: groupId);
+        await repo.createIngredient(
+          _draft,
+          groupId: groupId,
+          localeCode: localeCode,
+        );
       }
       ref.invalidate(ingredientsListProvider);
+      // Dietary edits affect a dish's derived status across the catalog.
+      ref.invalidate(dishDietMapProvider);
       // §2.6: the edit is confirmed — purge any buffered photo blobs the saved
       // state no longer references.
       await commitPhotoSession();
@@ -396,7 +413,11 @@ class _IngredientFormState extends ConsumerState<_IngredientForm>
             PhotoCarouselSection(
               type: MediaEntityType.ingredient,
               entityId: widget.ingredientId!,
-              entityName: _nameController.text,
+              // Spec 025 D2: bilingual photo-search prefill (local + English).
+              entityName: photoSearchTerm(
+                _nameController.text,
+                widget.initial?.nameEn,
+              ),
             ),
             const SizedBox(height: 20),
           ],
@@ -442,6 +463,41 @@ class _IngredientFormState extends ConsumerState<_IngredientForm>
                       _draft.defaultSupplierCategoryId = null;
                     }),
             ),
+          ),
+          const SizedBox(height: 24),
+          // Spec 025 B.2: dietary marking (manual; default unknown). Two axes —
+          // the ordered diet level + the independent gluten-free tri-state.
+          Text(
+            l10n.dietSectionTitle,
+            style: AppTypography.label.copyWith(color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 8),
+          Text(l10n.dietLabel, style: AppTypography.caption),
+          const SizedBox(height: 6),
+          SegmentedChoice<DietLevel>(
+            value: _draft.diet,
+            onChanged: (v) => setState(() {
+              _draft.diet = v;
+              _dirty = true;
+            }),
+            options: [
+              for (final d in dietLevelOrder)
+                SegmentedChoiceOption(d, dietLevelLabel(l10n, d)),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Text(l10n.glutenAxisLabel, style: AppTypography.caption),
+          const SizedBox(height: 6),
+          SegmentedChoice<TriState>(
+            value: _draft.glutenFree,
+            onChanged: (v) => setState(() {
+              _draft.glutenFree = v;
+              _dirty = true;
+            }),
+            options: [
+              for (final g in triStateOrder)
+                SegmentedChoiceOption(g, glutenFreeLabel(l10n, g)),
+            ],
           ),
           const SizedBox(height: 16),
           FieldLabel(

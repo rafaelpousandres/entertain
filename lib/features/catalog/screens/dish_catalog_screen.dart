@@ -13,6 +13,7 @@ import '../../photos/data/photo_storage.dart';
 import '../../photos/widgets/photo_image.dart';
 import '../data/dish.dart';
 import '../data/dish_category.dart';
+import '../data/diet.dart';
 import '../data/catalog_providers.dart';
 
 /// Dish catalog (Specification 004 screen 1). Lists the group's dishes
@@ -60,16 +61,37 @@ class _DishCatalogScreenState extends ConsumerState<DishCatalogScreen> {
             message: l10n.dishesLoadError,
             onRetry: () => ref.invalidate(dishesListProvider),
           ),
-          data: (dishes) => dishes.isEmpty
-              ? const _EmptyState()
-              : _DishesByCategory(
-                  dishes: dishes,
-                  coverPaths: coverPaths,
-                  open: _open,
-                  onToggle: (category) => setState(
-                    () => _open = _open == category ? null : category,
-                  ),
+          data: (dishes) {
+            if (dishes.isEmpty) return const _EmptyState();
+            // Spec 025 Part C: effective dietary per dish (derived for cooked
+            // dishes with ingredients, else manual) drives the filter + badges.
+            final dietMap = ref.watch(dishDietMapProvider).value ??
+                const <String, ({DietLevel diet, TriState gf})>{};
+            final filter = ref.watch(catalogFilterProvider);
+            final filtered = dishes.where((d) {
+              final eff = effectiveDishDietOf(d, dietMap);
+              return dishMatchesDietary(eff.diet, eff.gf, filter.diet) &&
+                  dishMatchesAcquisition(d.acquisitionMode, filter.acquisition);
+            }).toList();
+            return Column(
+              children: [
+                _buildFilterBar(l10n, filter),
+                Expanded(
+                  child: filtered.isEmpty
+                      ? _NoMatch(message: l10n.catalogNoMatch)
+                      : _DishesByCategory(
+                          dishes: filtered,
+                          coverPaths: coverPaths,
+                          dietMap: dietMap,
+                          open: _open,
+                          onToggle: (category) => setState(
+                            () => _open = _open == category ? null : category,
+                          ),
+                        ),
                 ),
+              ],
+            );
+          },
         ),
       ),
       bottomNavigationBar: Container(
@@ -122,12 +144,116 @@ class _DishCatalogScreenState extends ConsumerState<DishCatalogScreen> {
       ),
     );
   }
+
+  Widget _buildFilterBar(AppLocalizations l10n, CatalogFilter filter) {
+    final notifier = ref.read(catalogFilterProvider.notifier);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(20, 10, 20, 6),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          for (final c in DietChip.values)
+            _FilterChip(
+              label: dietChipLabel(l10n, c),
+              selected: filter.diet.contains(c),
+              onTap: () => notifier.toggleDiet(c),
+            ),
+          _FilterChip(
+            label: l10n.filterCooked,
+            selected: filter.acquisition == DishAcquisitionMode.cooked,
+            onTap: () => notifier.toggleAcquisition(DishAcquisitionMode.cooked),
+          ),
+          _FilterChip(
+            label: l10n.filterBought,
+            selected: filter.acquisition == DishAcquisitionMode.bought,
+            onTap: () => notifier.toggleAcquisition(DishAcquisitionMode.bought),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A compact toggle chip for the catalog filter bar (Spec 025 Part C).
+class _FilterChip extends StatelessWidget {
+  const _FilterChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = selected ? AppColors.accentSecondarySoft : AppColors.surface;
+    final fg = selected ? AppColors.accentSecondary : AppColors.textPrimary;
+    final border = selected ? AppColors.accentSecondary : AppColors.border;
+    return Material(
+      color: bg,
+      borderRadius: BorderRadius.circular(999),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(999),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: border),
+          ),
+          child: Text(
+            label,
+            style: AppTypography.label.copyWith(
+              color: fg,
+              fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Neutral state when an active filter matches no dishes (Spec 025 Part C).
+class _NoMatch extends StatelessWidget {
+  const _NoMatch({required this.message});
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+        child: Text(
+          message,
+          textAlign: TextAlign.center,
+          style: AppTypography.body.copyWith(color: AppColors.textSecondary),
+        ),
+      ),
+    );
+  }
+}
+
+/// A dish's effective dietary status: derived (cooked + has ingredients) or the
+/// manual fields (bought, or cooked with no lines). Spec 025 B.4.
+({DietLevel diet, TriState gf}) effectiveDishDietOf(
+  Dish d,
+  Map<String, ({DietLevel diet, TriState gf})> dietMap,
+) {
+  final e = dietMap[d.id];
+  if (!d.isBought && e != null) return e;
+  return (diet: d.diet, gf: d.glutenFree);
 }
 
 class _DishesByCategory extends StatelessWidget {
   const _DishesByCategory({
     required this.dishes,
     required this.coverPaths,
+    required this.dietMap,
     required this.open,
     required this.onToggle,
   });
@@ -136,6 +262,9 @@ class _DishesByCategory extends StatelessWidget {
 
   /// Dish id → cover photo path (first by position), or absent when none.
   final Map<String, String> coverPaths;
+
+  /// Dish id → derived dietary status (for dishes with ingredients).
+  final Map<String, ({DietLevel diet, TriState gf})> dietMap;
 
   /// The currently open accordion category, owned by the parent so the "New
   /// dish" action can preselect it. Null when all sections are collapsed.
@@ -170,6 +299,7 @@ class _DishesByCategory extends StatelessWidget {
                   child: _DishRow(
                     dish: dish,
                     coverPath: coverPaths[dish.id],
+                    effective: effectiveDishDietOf(dish, dietMap),
                     onTap: () => context.push('/dishes/${dish.id}'),
                   ),
                 ),
@@ -181,14 +311,35 @@ class _DishesByCategory extends StatelessWidget {
 }
 
 class _DishRow extends StatelessWidget {
-  const _DishRow({required this.dish, required this.coverPath, required this.onTap});
+  const _DishRow({
+    required this.dish,
+    required this.coverPath,
+    required this.effective,
+    required this.onTap,
+  });
 
   final Dish dish;
   final String? coverPath;
+  final ({DietLevel diet, TriState gf}) effective;
   final VoidCallback onTap;
+
+  /// Concise positive-attribute subtitle (e.g. "Vegà · Sense gluten"); null when
+  /// the dish has nothing we can vouch for (Spec 025 — unknown is never shown).
+  String? _positives(AppLocalizations l10n) {
+    final parts = <String>[];
+    if (effective.diet == DietLevel.vegan) {
+      parts.add(l10n.filterVegan);
+    } else if (effective.diet == DietLevel.vegetarian) {
+      parts.add(l10n.filterVegetarian);
+    }
+    if (effective.gf == TriState.yes) parts.add(l10n.filterGlutenFree);
+    return parts.isEmpty ? null : parts.join(' · ');
+  }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final positives = _positives(l10n);
     return Material(
       color: AppColors.surface,
       borderRadius: BorderRadius.circular(14),
@@ -214,11 +365,27 @@ class _DishRow extends StatelessWidget {
                 const SizedBox(width: 12),
               ],
               Expanded(
-                child: Text(
-                  dish.name,
-                  style: AppTypography.body,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      dish.name,
+                      style: AppTypography.body,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (positives != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          positives,
+                          style: AppTypography.caption.copyWith(
+                            color: AppColors.accentSecondary,
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
               const Icon(

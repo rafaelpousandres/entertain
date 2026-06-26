@@ -19,7 +19,9 @@ import '../../photos/data/photo_edit_session_host.dart';
 import '../../photos/data/photo_storage.dart';
 import '../../photos/widgets/photo_carousel_section.dart';
 import '../../shopping/supplier_category_format.dart';
+import '../data/catalog_naming.dart';
 import '../data/catalog_providers.dart';
+import '../data/diet.dart';
 import '../data/dish.dart';
 import '../data/dish_category.dart';
 import '../data/ingredient.dart';
@@ -100,6 +102,9 @@ class _DishFormState extends ConsumerState<_DishForm>
   late final TextEditingController _preparationController;
   // Spec 014 §2.1: bought-dish fields (used only when acquisitionMode is bought).
   late final DishDraft _draft;
+  // The name at load, to detect a name change on save (the draft is mutated in
+  // place, so we snapshot the original to know whether to re-translate, §A.2).
+  late final String _originalName;
 
   bool _saving = false;
   bool _deleting = false;
@@ -122,6 +127,7 @@ class _DishFormState extends ConsumerState<_DishForm>
   void initState() {
     super.initState();
     _draft = widget.initial;
+    _originalName = _draft.name;
     _nameController = TextEditingController(text: _draft.name);
     _descriptionController = TextEditingController(
       text: _draft.description ?? '',
@@ -206,6 +212,7 @@ class _DishFormState extends ConsumerState<_DishForm>
   Future<void> _save() async {
     final l10n = AppLocalizations.of(context);
     final messenger = ScaffoldMessenger.of(context);
+    final localeCode = Localizations.localeOf(context).languageCode;
 
     setState(() => _submitted = true);
     _draft.name = _nameController.text;
@@ -229,14 +236,26 @@ class _DishFormState extends ConsumerState<_DishForm>
       // there ignore the pop result.
       Dish? created;
       if (widget.isEditing) {
-        await repo.updateDish(widget.dishId!, _draft);
+        final nameChanged = _draft.name.trim() != _originalName.trim();
+        await repo.updateDish(
+          widget.dishId!,
+          _draft,
+          localeCode: localeCode,
+          nameChanged: nameChanged,
+        );
         ref.invalidate(dishByIdProvider(widget.dishId!));
         ref.invalidate(dishLinesProvider(widget.dishId!));
       } else {
         final groupId = await ref.read(currentGroupIdProvider.future);
-        created = await repo.createDish(_draft, groupId: groupId);
+        created = await repo.createDish(
+          _draft,
+          groupId: groupId,
+          localeCode: localeCode,
+        );
       }
       ref.invalidate(dishesListProvider);
+      // The recipe (lines) determines a dish's derived dietary status.
+      ref.invalidate(dishDietMapProvider);
       // §2.6: the edit is confirmed, so purge any buffered (deleted/replaced)
       // photo blobs the saved state no longer references.
       await commitPhotoSession();
@@ -411,7 +430,7 @@ class _DishFormState extends ConsumerState<_DishForm>
             PhotoCarouselSection(
               type: MediaEntityType.dish,
               entityId: widget.dishId!,
-              entityName: _nameController.text,
+              entityName: photoSearchTerm(_nameController.text, _draft.nameEn),
             ),
             const SizedBox(height: 20),
           ],
@@ -568,6 +587,53 @@ class _DishFormState extends ConsumerState<_DishForm>
                 textInputAction: TextInputAction.newline,
                 onChanged: (_) => _markDirty(),
               ),
+            ),
+          ],
+          // Spec 025 B.4: dietary. A cooked dish with ingredients shows its
+          // DERIVED status (read-only — it comes from the ingredients); any
+          // other dish (bought, or cooked with no lines) carries MANUAL fields.
+          const SizedBox(height: 24),
+          Text(
+            l10n.dietSectionTitle,
+            style: AppTypography.label.copyWith(color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 8),
+          if (!_draft.isBought && _draft.lines.isNotEmpty) ...[
+            Text(l10n.dietDerivedNote, style: AppTypography.caption),
+            const SizedBox(height: 6),
+            Text(
+              '${dietLevelLabel(l10n, deriveDishDiet([for (final l in _draft.lines) l.ingredientDiet]))}'
+              ' · '
+              '${glutenFreeLabel(l10n, deriveDishGlutenFree([for (final l in _draft.lines) l.ingredientGlutenFree]))}',
+              style: AppTypography.body,
+            ),
+          ] else ...[
+            Text(l10n.dietLabel, style: AppTypography.caption),
+            const SizedBox(height: 6),
+            SegmentedChoice<DietLevel>(
+              value: _draft.diet,
+              onChanged: (v) => setState(() {
+                _draft.diet = v;
+                _dirty = true;
+              }),
+              options: [
+                for (final d in dietLevelOrder)
+                  SegmentedChoiceOption(d, dietLevelLabel(l10n, d)),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Text(l10n.glutenAxisLabel, style: AppTypography.caption),
+            const SizedBox(height: 6),
+            SegmentedChoice<TriState>(
+              value: _draft.glutenFree,
+              onChanged: (v) => setState(() {
+                _draft.glutenFree = v;
+                _dirty = true;
+              }),
+              options: [
+                for (final g in triStateOrder)
+                  SegmentedChoiceOption(g, glutenFreeLabel(l10n, g)),
+              ],
             ),
           ],
         ],
