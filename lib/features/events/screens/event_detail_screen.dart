@@ -23,6 +23,7 @@ import '../../photos/data/photo_storage.dart';
 import '../../photos/widgets/photo_carousel_section.dart';
 import '../../photos/widgets/photo_image.dart';
 import '../../shopping/screens/event_shopping_panel.dart';
+import 'event_guests_view.dart';
 import '../data/event.dart';
 import '../../shopping/data/shopping_providers.dart' show eventShoppingProvider;
 import '../data/event_dish.dart';
@@ -105,7 +106,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
 
   void _initTabController(int initialIndex) {
     setState(() {
-      _tab = TabController(length: 3, vsync: this, initialIndex: initialIndex)
+      _tab = TabController(length: 4, vsync: this, initialIndex: initialIndex)
         ..addListener(_onTabChanged);
     });
   }
@@ -474,9 +475,12 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
             indicatorColor: AppColors.accentSecondary,
             labelStyle: AppTypography.label,
             unselectedLabelStyle: AppTypography.label,
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
             tabs: [
               Tab(text: l10n.eventTabEvent),
               Tab(text: l10n.eventTabMenu),
+              Tab(text: l10n.eventTabGuests),
               Tab(text: l10n.eventTabShopping),
             ],
           ),
@@ -498,6 +502,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
                 children: [
                   _buildEventTab(event, locale),
                   _MenuView(event: event, drinksOpen: _menuDrinksOpen),
+                  EventGuestsView(event: event),
                   EventShoppingPanel(eventId: event.id),
                 ],
               );
@@ -538,6 +543,16 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
             ),
           );
         },
+      );
+    }
+    // Spec 023: the Convidats tab (index 2) adds a guest.
+    if (_tab!.index == 2) {
+      return _ActionBar(
+        child: PrimaryButton(
+          label: l10n.guestAddAction,
+          icon: Icons.person_add_alt_1,
+          onPressed: () => context.push('/events/${event.id}/guests/new'),
+        ),
       );
     }
     return null;

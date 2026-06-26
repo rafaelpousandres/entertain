@@ -5,6 +5,7 @@ import 'event_dish.dart';
 import 'event_dish_line.dart';
 import 'event_draft.dart';
 import 'event_drink.dart';
+import 'event_guest.dart';
 
 /// Thin data-access wrapper around the `events` table. Keeps the Supabase
 /// SDK calls in one place so screens and providers can stay declarative.
@@ -629,5 +630,91 @@ class EventsRepository {
         .delete()
         .eq('event_dish_id', eventDishId);
     await _client.from('event_dishes').delete().eq('id', eventDishId);
+  }
+
+  // --- Guests on an event (Spec 023 Layer 1) ---------------------------
+
+  /// The event's guest list, oldest first (the accordion regroups by state).
+  Future<List<EventGuest>> listEventGuests(String eventId) async {
+    final rows = await _client
+        .from('event_guests')
+        .select(EventGuest.selectColumns)
+        .eq('event_id', eventId)
+        .order('created_at', ascending: true);
+    return (rows as List)
+        .map((r) => EventGuest.fromRow(r as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// Adds a guest in the default `pendent` state (§1.3). `group_id` is set from
+  /// the caller's membership so the RLS `is_group_member` check passes.
+  Future<void> addEventGuest(
+    String eventId, {
+    required String name,
+    String? phone,
+    String? email,
+    GuestState state = GuestState.pendent,
+  }) async {
+    final groupId = await currentGroupId();
+    await _client.from('event_guests').insert({
+      'event_id': eventId,
+      'group_id': groupId,
+      'name': name,
+      'phone': phone,
+      'email': email,
+      'state': state.wire,
+    });
+  }
+
+  /// Edits a guest's fields + state from the editor (§1.4).
+  Future<void> updateEventGuest(
+    String guestId, {
+    required String name,
+    String? phone,
+    String? email,
+    required GuestState state,
+  }) async {
+    await _client
+        .from('event_guests')
+        .update({
+          'name': name,
+          'phone': phone,
+          'email': email,
+          'state': state.wire,
+        })
+        .eq('id', guestId);
+  }
+
+  /// Quick state change (§1.3 "tap to change") without touching contact fields.
+  Future<void> updateEventGuestState(String guestId, GuestState state) async {
+    await _client
+        .from('event_guests')
+        .update({'state': state.wire})
+        .eq('id', guestId);
+  }
+
+  /// Marks the guest as invited at [at] (§1.6) — set after the invitation is
+  /// handed to the host's channel.
+  Future<void> markGuestInvited(String guestId, DateTime at) async {
+    await _client
+        .from('event_guests')
+        .update({'invited_at': at.toUtc().toIso8601String()})
+        .eq('id', guestId);
+  }
+
+  Future<void> deleteEventGuest(String guestId) async {
+    await _client.from('event_guests').delete().eq('id', guestId);
+  }
+
+  Future<EventGuest> fetchEventGuest(String guestId) async {
+    final row = await _client
+        .from('event_guests')
+        .select(EventGuest.selectColumns)
+        .eq('id', guestId)
+        .maybeSingle();
+    if (row == null) {
+      throw StateError('Event guest not found.');
+    }
+    return EventGuest.fromRow(row);
   }
 }

@@ -54,6 +54,7 @@ class Event {
     this.eventTime,
     this.locationName,
     this.notes,
+    this.invitationText,
   });
 
   final String id;
@@ -66,6 +67,10 @@ class Event {
   final String? locationName;
   final int guestCount;
   final String? notes;
+
+  /// Spec 023 §1.6 — the event-level invitation template (prefilled in the app,
+  /// editable by the host). Null until the host saves one.
+  final String? invitationText;
   final DateTime createdAt;
 
   factory Event.fromRow(Map<String, dynamic> row) {
@@ -80,6 +85,7 @@ class Event {
       locationName: row['location_name'] as String?,
       guestCount: (row['guest_count'] as num).toInt(),
       notes: row['notes'] as String?,
+      invitationText: row['invitation_text'] as String?,
       createdAt: DateTime.parse(row['created_at'] as String),
     );
   }
@@ -88,7 +94,7 @@ class Event {
   /// the repository so reads stay consistent.
   static const String selectColumns =
       'id, group_id, title, type, format, event_date, event_time, '
-      'location_name, guest_count, notes, created_at';
+      'location_name, guest_count, notes, invitation_text, created_at';
 }
 
 DateTime? _parseDate(Object? raw) {

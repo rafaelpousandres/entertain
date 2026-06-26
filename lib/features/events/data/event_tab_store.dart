@@ -2,18 +2,21 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 /// Spec 011 §2.7 — remembers each event's last active detail tab on this device.
 ///
-/// Key `event_last_tab:{eventId}` → `event` | `menu` | `shopping`. Persistence
-/// is **local** (SharedPreferences): it survives app restarts but does not sync
-/// across devices — a fresh install starts every event on the default tab. An
-/// orphan key left after an event is deleted is harmless and never cleaned up.
+/// Key `event_last_tab:{eventId}` → `event` | `menu` | `guests` | `shopping`.
+/// Persistence is **local** (SharedPreferences): it survives app restarts but
+/// does not sync across devices — a fresh install starts every event on the
+/// default tab. An orphan key left after an event is deleted is harmless and
+/// never cleaned up.
 class EventTabStore {
   const EventTabStore._();
 
   static const String _prefix = 'event_last_tab:';
 
   /// Wire values in the event detail screen's tab order: 0 Event · 1 Menu ·
-  /// 2 Shopping. The index into this list is the [TabController] index.
-  static const List<String> _wire = ['event', 'menu', 'shopping'];
+  /// 2 Guests · 3 Shopping (Spec 023 inserts Convidats before Compra). The
+  /// index into this list is the [TabController] index; values are matched by
+  /// name, so inserting a tab keeps previously-stored values valid.
+  static const List<String> _wire = ['event', 'menu', 'guests', 'shopping'];
 
   /// Default landing tab for an event with no remembered value: **Menu** (the
   /// most common starting point for planning), index 1.

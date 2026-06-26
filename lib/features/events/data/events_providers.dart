@@ -5,6 +5,7 @@ import 'event.dart';
 import 'event_dish.dart';
 import 'event_dish_line.dart';
 import 'event_drink.dart';
+import 'event_guest.dart';
 import 'events_repository.dart';
 
 final _supabaseClientProvider = Provider<SupabaseClient>((ref) {
@@ -67,6 +68,15 @@ final eventDrinksProvider = FutureProvider.family<List<EventDrink>, String>((
   eventId,
 ) async {
   return ref.watch(eventsRepositoryProvider).listEventDrinks(eventId);
+});
+
+/// Guests attached to an event (Spec 023 Layer 1), for the Convidats tab.
+/// Invalidated after any guest mutation so the accordion/totals stay live.
+final eventGuestsProvider = FutureProvider.family<List<EventGuest>, String>((
+  ref,
+  eventId,
+) async {
+  return ref.watch(eventsRepositoryProvider).listEventGuests(eventId);
 });
 
 final eventDrinkByIdProvider = FutureProvider.family<EventDrink, String>((

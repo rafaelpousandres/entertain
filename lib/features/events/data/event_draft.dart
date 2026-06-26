@@ -15,6 +15,7 @@ class EventDraft {
     this.eventTime,
     this.locationName,
     this.notes,
+    this.invitationText,
   });
 
   /// Defaults used when starting a new event from scratch. Decisions
@@ -35,6 +36,7 @@ class EventDraft {
     eventTime: event.eventTime,
     locationName: event.locationName,
     notes: event.notes,
+    invitationText: event.invitationText,
   );
 
   String title;
@@ -45,6 +47,10 @@ class EventDraft {
   TimeOfDay? eventTime;
   String? locationName;
   String? notes;
+
+  /// Spec 023 §1.6 — event-level invitation template; preserved on event edits
+  /// (the event form doesn't touch it) and written by the invitation editor.
+  String? invitationText;
 
   /// Build the row payload for `insert` / `update`. `group_id` is added by
   /// the repository to keep this struct UI-only.
@@ -58,6 +64,7 @@ class EventDraft {
       'location_name': _nullIfBlank(locationName),
       'guest_count': guestCount,
       'notes': _nullIfBlank(notes),
+      'invitation_text': _nullIfBlank(invitationText),
     };
   }
 }

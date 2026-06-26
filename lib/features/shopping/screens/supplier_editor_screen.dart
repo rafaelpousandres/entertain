@@ -10,26 +10,16 @@ import '../../../ui/app_form_field.dart';
 import '../../../ui/edit_scaffold.dart';
 import '../../../ui/secondary_button.dart';
 import '../../../ui/single_choice_sheet.dart';
+import '../../../util/contact_picker.dart';
+import '../../../util/email_validator.dart';
 import '../../catalog/data/reference_data.dart';
 import '../../events/data/events_providers.dart' show currentGroupIdProvider;
-import '../data/contact_picker.dart';
 import '../data/group_supplier_setting.dart';
 import '../data/message_channel.dart';
 import '../data/shopping_providers.dart';
 import '../data/supplier_resolution.dart';
 import '../supplier_category_format.dart';
 import '../widgets/phone_field.dart';
-
-/// RFC 5322-subset email check (the HTML5 `type=email` grammar): a local part of
-/// permitted characters, an `@`, then one or more dot-separated labels. Gates
-/// the supplier email and the email channel (Spec 009 §3).
-final _emailRegExp = RegExp(
-  r"^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@"
-  r'[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?'
-  r'(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$',
-);
-
-bool isValidSupplierEmail(String value) => _emailRegExp.hasMatch(value.trim());
 
 /// Arguments for the per-supplier editor (Spec 013 §2.2): the category the
 /// supplier belongs to and the supplier being edited (null when adding).
@@ -106,11 +96,11 @@ class _SupplierEditorScreenState extends ConsumerState<SupplierEditorScreen> {
     final localPhone = _phoneController.text.trim();
     final email = _emailController.text.trim();
     final phoneInvalid = localPhone.isNotEmpty && !isValidLocalPhone(localPhone);
-    final emailInvalid = email.isNotEmpty && !isValidSupplierEmail(email);
+    final emailInvalid = email.isNotEmpty && !isValidEmail(email);
     final whatsappNeedsPhone =
         _channel == MessageChannel.whatsapp && !isValidLocalPhone(localPhone);
     final emailNeedsEmail =
-        _channel == MessageChannel.email && !isValidSupplierEmail(email);
+        _channel == MessageChannel.email && !isValidEmail(email);
     if (phoneInvalid || emailInvalid || whatsappNeedsPhone || emailNeedsEmail) {
       setState(() {
         _phoneError = (phoneInvalid || whatsappNeedsPhone)
@@ -265,7 +255,7 @@ class _SupplierEditorScreenState extends ConsumerState<SupplierEditorScreen> {
       return;
     }
     if (channel == MessageChannel.email &&
-        !isValidSupplierEmail(_emailController.text)) {
+        !isValidEmail(_emailController.text)) {
       messenger.showSnackBar(
         SnackBar(content: Text(l10n.channelNeedsValidEmail)),
       );
@@ -287,7 +277,7 @@ class _SupplierEditorScreenState extends ConsumerState<SupplierEditorScreen> {
   void _onEmailChanged(String value) {
     setState(() {
       _dirty = true;
-      if (_emailError != null && isValidSupplierEmail(value)) _emailError = null;
+      if (_emailError != null && isValidEmail(value)) _emailError = null;
     });
   }
 
