@@ -7,21 +7,66 @@
 > (pla, spec, ADR); no els substitueix. En incorporar-se a un canònic, aquí es
 > marca com a incorporada.
 >
-> **Estats:** 💡 capturada · 🔍 en triatge · ✅ incorporada · ❌ descartada
+> **Estats:** 💡 capturada · 🔍 en triatge · ✅ incorporada · ⏸️ aparcada · ❌ descartada
 > **Cada idea:** descripció · reptes (si escau) · **on va / quan / què bloqueja**
 
 ## Índex
 
+> **Cua de specs (planificada):** 025 catàleg ric + escombra de polits · 026 mode
+> compra al súper · 027 convidats Capa 2 (RSVP) · Google Play Billing. (Detall
+> just a sota.)
+
 0. **Principis de producte** — AI-native, ecosistema foodappslab
-1. **Catàleg** — filtres, atributs dietètics (plats), atributs de begudes
-1B. **Convidats i esdeveniment social** — llista de convidats, invitacions, RSVP
-2. **Creació assistida (IA)** — assistent de plats, wizard de menú, feedback amb bucle IA
-3. **Plataforma i directori** — directori curat geolocalitzat + afiliació
-4. **Administració** — panell d'admin, rols de grup
+1. **Catàleg** — filtres ✅→cua, atributs dietètics plats →cua, atributs begudes (aparcat)
+1B. **Convidats i esdeveniment social** — Capa 1 ✅ (Spec 023); Capa 2 RSVP pendent →cua
+2. **Creació assistida (IA)** — assistent de plats ✅, wizard de menú ✅, feedback ✅
+3. **Plataforma i directori** — directori curat geolocalitzat + afiliació (aparcat)
+4. **Administració** — panell d'admin, rols de grup (aparcats)
 5. **Monetització** — model (decidit) + Google Play Billing
 6. **Polits i millores menors**
 7. **Limitacions conegudes**
 8. **Decisions descartades** (per no tornar-hi)
+9. **Higiene de dades i pendents tècnics** — proliferació de grups buits
+10. **Fites de llançament** — Closed Testing, versió iOS
+
+---
+
+## Cua de specs (planificada)
+
+> Seqüència decidida en el triatge. Els números **025–027 són orientatius**: el
+> número real serà el següent lliure en redactar cada spec. Captura la direcció
+> decidida, no un compromís de dates. El detall de cada idea viu a la seva secció.
+
+### Spec 025 — Catàleg ric + polits (escombra)
+Bloc per fer que el catàleg "es noti madur", en una spec:
+- **Ingredients multilingües** (§1): model + i18n (ca/es/en) + l'IA omple en crear
+  (020) + **backfill** dels existents. Desbloqueja mostrar en l'idioma de l'usuari
+  i el pont anglès per a millors fotos d'stock.
+- **Atributs dietètics dels plats** (§1): conjunt d'etiquetes (vegà, vegetarià,
+  sense gluten…), manuals als plats (la derivació des dels ingredients, més tard).
+- **Filtre de catàleg** (§1): per mode d'adquisició, proveïdor, categoria i
+  atributs dietètics.
+- **Escombra dels polits oberts** que hi encaixen: **foto d'ingredient al menú**
+  (§6), **preomplir bilingüe** de la cerca d'stock (§6, la part local+anglès que
+  faltava) i **quantitat en afegir begudes** (§6, paritat amb plats).
+- **Begudes (atributs/filtre) NO** hi entren: **aparcades** (§1).
+- **Quan:** següent bloc gran; el catàleg ja és el cor de l'app.
+
+### Spec 026 — Mode compra al súper
+Polir la vista de Compra per a l'ús real al supermercat (§6): diana d'un toc,
+mode XL, progrés per secció, pantalla desperta. Sense IA ni PDF.
+
+### Spec 027 — Convidats Capa 2 (RSVP per enllaç)
+La **primera superfície web pública** del projecte: token per convidat, landing
+mínima (Confirmo / No puc), Edge Function `rsvp` (que llavors **sí** necessitarà
+grant `service_role` sobre `event_guests`), l'enllaç dins la invitació, i les
+respostes entrant a l'accordion/totals de la Capa 1. Ja **especificada** a la
+Spec 023 (§Capa 2); pendent de construir. Tractar-ne la seguretat (abast del
+token, capability-scoped) amb cura.
+
+### Google Play Billing
+El flux de pagament que activa premium (§5). Quan les funcions premium (fotos +
+IA) justifiquin cobrar, i després que hi hagi prou valor premium acumulat.
 
 ---
 
@@ -67,6 +112,8 @@ portes a compartir infraestructura amb futures apps germanes:
 ## 1. Catàleg
 
 ### 💡 Filtres al catàleg
+**→ A la cua: Spec 025** (catàleg ric), junt amb els atributs dietètics.
+
 Poder filtrar el catàleg (començant pels plats) per criteris combinables:
 - **Mode d'adquisició**: només cuinats / només comprats.
 - **Proveïdor / categoria de proveïdor**: només d'un proveïdor concret, o cap.
@@ -82,6 +129,8 @@ d'ingredients (per proveïdor) i begudes (per proveïdor) per coherència.
   de filtres.
 
 ### 💡 Atributs dietètics als plats (i ingredients)
+**→ A la cua: Spec 025** (catàleg ric), manuals als plats; habiliten el filtre dietètic.
+
 Informació de preferències/restriccions als plats: **vegetarià, vegà, sense
 gluten, sense lactosa, sense fruita seca…** (conjunt d'etiquetes dietètiques).
 Habilita el filtre dietètic i obre la porta a fer-ho coincidir amb restriccions
@@ -102,7 +151,13 @@ Disseny a decidir:
 - **Bloqueja:** decisió manual vs derivat; conjunt d'etiquetes; (si derivat)
   atributs dietètics als ingredients.
 
-### 💡 Atributs i filtre propis de begudes
+### ⏸️ Atributs i filtre propis de begudes — APARCAT
+**Aparcat (decisió estratègica, no descartat).** **NO entra a la Spec 025**: el
+bloc de catàleg ric prioritza plats (atributs dietètics + filtre) i els ingredients
+multilingües. Els atributs/filtre de begudes es reprendran si calen (p. ex. quan
+el wizard hagi de proposar begudes amb/sense alcohol o el catàleg de begudes
+creixi); de moment no s'hi inverteix.
+
 Les begudes tenen el seu **propi conjunt d'atributs** i el seu **filtre**, amb
 dimensions pròpies (no les mateixes que els plats):
 - **Alcohòlica / sense alcohol** (i possible graduació).
@@ -119,6 +174,9 @@ alcohol, infantil…) i amb restriccions dels convidats.
   (compartida amb plats/ingredients).
 
 ### 💡 Ingredients multilingües (i18n d'ingredient) — DECIDIT
+**→ A la cua: Spec 025** (catàleg ric): model + i18n + l'IA omple en crear (020) +
+backfill dels existents.
+
 **Decidit:** cada ingredient guarda els seus noms en **ca/es/en** (taronja /
 naranja / orange), no només en l'idioma en què es va escriure. Resol un deute
 d'i18n latent (ara els ingredients són monolingües, incomplint el principi
@@ -163,7 +221,18 @@ Disseny:
 
 ## 1B. Convidats i esdeveniment social
 
-### 💡 Llista de convidats + invitacions + RSVP
+### ✅ Llista de convidats + invitacions (Capa 1) · ⏳ RSVP per enllaç (Capa 2, pendent)
+**Capa 1 incorporada a la Spec 023** (NOMÉS Capa 1): llista de convidats + estats
+manuals {pendent / confirmat / excusat} + text d'invitació enviat pel canal propi
+(WhatsApp/SMS/email), reutilitzant els patrons de **contactes de proveïdor**
+(afegir des del dispositiu) i de **missatge a proveïdor** (enviar). La connexió
+confirmats→comensals es va deixar **fora** per decisió (la llista és independent;
+només un avís informatiu de sobre-aforament).
+
+**Capa 2 (RSVP per enllaç) queda ESPECIFICADA i PENDENT** — token per convidat +
+landing pública + Edge Function `rsvp`; és la primera superfície web pública del
+projecte. Planificada a la cua (orientativament **Spec 027**).
+
 Afegir als esdeveniments una **llista de convidats**, amb la possibilitat
 d'**enviar invitacions** per **text (SMS/WhatsApp)** o **email**, i fer **control
 de RSVP** (qui ve, qui no, qui no ha respost).
@@ -202,7 +271,11 @@ restriccions dels convidats.
 > genèrica** (`quota_key`) per limitar-ne l'ús. Candidates a **premium** (cost
 > real per crida).
 
-### 💡 Assistent de creació de plats (substitueix l'"importador d'URL")
+### ✅ Assistent de creació de plats (substitueix l'"importador d'URL")
+**Incorporada a la Spec 020** (assistent: genera → revisió → desa, amb foto
+d'stock i quota `dish_assistant`). La URL com a font es va deixar fora; Claude
+genera la fitxa del seu coneixement.
+
 Replantejament de la idea original d'importador d'URL: en lloc que la URL sigui
 el mecanisme principal, és un **assistent**:
 - Diàleg "Quin plat vols afegir?" → l'usuari escriu un nom ("canelons",
@@ -223,7 +296,11 @@ segur: no copiar passos de tercers en producte de pagament); procedència
 - **Bloqueja:** infra IA (019); decisions pròpies (font de receptes: Claude vs
   API de receptes; flux de revisió; drets).
 
-### 💡 Wizard de menú amb IA ("Crea / Completa el menú amb IA")
+### ✅ Wizard de menú amb IA ("Crea / Completa el menú amb IA")
+**Incorporada a la Spec 022** (botó adaptatiu Crea/Completa, preguntes, proposta
+que barreja catàleg + plats nous via 020 + begudes de catàleg, quota
+`menu_wizard`).
+
 Assistent que **proposa o completa el menú** d'un esdeveniment. Concreció de
 l'antic "wizard d'esdeveniment":
 - **Entrada**: a la pestanya **Menú**, un botó a sobre de "+ Afegeix plat",
@@ -251,7 +328,12 @@ restriccions; els paràmetres de l'esdeveniment fixen les quantitats.
 - **Bloqueja:** infra IA (feta, 019/020); catàleg prou ric; disseny de les
   preguntes i del flux de proposta/edició; com es barregen plats catàleg + nous.
 
-### 💡 Eina de feedback amb bucle IA (l'app s'adapta als usuaris)
+### ✅ Eina de feedback amb bucle IA (l'app s'adapta als usuaris)
+**Incorporada a la Spec 021** com a **"Suggeriments"** (a Configuració, caixa de
+text lliure + comptador, desa a la BD per a export i processament posterior a
+claude.ai). El bucle de processament (agregar → proposar backlog/specs) segueix
+fent-se a claude.ai a partir de l'export, com estava previst.
+
 Una eina dins l'app perquè l'usuari digui **ràpidament i sovint** què troba a
 faltar i què no funciona (captura barata: pocs tocs, sense fricció). El feedback
 **arriba a la BD** de manera estructurada, i el **format ha de ser fàcil de
@@ -305,7 +387,13 @@ amb foodappslab (§0).
 
 ## 3. Plataforma i directori
 
-### 💡 Directori curat de proveïdors i plats geolocalitzat (+ afiliació)
+### ⏸️ Directori curat de proveïdors i plats geolocalitzat (+ afiliació) — APARCAT
+**Aparcat (decisió estratègica, no descartat).** És un **gir de producte** gran;
+de moment Entertain segueix com a **eina privada**. Es reprendrà si/quan es
+decideixi fer el gir d'aparador + afiliació. No condiciona la cua actual
+(025–027). En quedar aparcat, els seus dependents (panell d'admin, rols de grup)
+perden urgència — vegeu §4.
+
 **Gir de producte gran.** Entertain deixa de ser només eina privada i incorpora
 un **directori curat** de proveïdors reals i els seus plats preparats, visibles
 per **radi** segons la ubicació de l'usuari. Idealment amb **afiliació/comissions**
@@ -342,7 +430,11 @@ servidor (Edge Functions de 019) és base per geolocalització/afiliació.
 
 ## 4. Administració
 
-### 💡 Panell d'admin de plataforma
+### ⏸️ Panell d'admin de plataforma — APARCAT
+**Aparcat:** perd urgència sense el directori curat (§3, també aparcat) — el seu
+ús principal era curar/gestionar. El rol `platform_admins` segueix latent (019);
+es reprendrà amb el directori o amb Billing (donar/treure premium a grups).
+
 Per a l'operador/propietari (rol que transcendeix grups). Gestionar paràmetres
 globals sense tocar la BD: límits per defecte, donar/treure premium a grups
 (escriure `quota_entitlements`), veure ús agregat. El **rol** admin-plataforma
@@ -352,7 +444,10 @@ automàticament).
 - **Quan:** amb volum / amb Billing.
 - **Bloqueja:** rol latent (019, fet); abast del panell.
 
-### 💡 Rols dins d'un grup (group-admin)
+### ⏸️ Rols dins d'un grup (group-admin) — APARCAT
+**Aparcat:** sense urgència mentre els grups siguin petits i el directori (§3)
+estigui aparcat. Es reprendrà si els grups creixen en membres.
+
 Membres amb permisos elevats dins del seu grup (gestionar membres, configuració).
 Diferent de l'admin de plataforma (Entertain és multi-grup; això és intra-grup).
 - **Quan:** algun dia, si els grups creixen en membres.
@@ -386,7 +481,11 @@ tres eixos; la 019 deixa la costura al missatge de límit assolit.
 
 ## 6. Polits i millores menors
 
-### 🐛 La foto auto de l'assistent no apareix com a capçalera de la fitxa
+### ✅ La foto auto de l'assistent no apareix com a capçalera de la fitxa
+**Resolt a la Spec 021 (B1):** la inserció de `media` de l'assistent es va alinear
+amb la del selector manual (position 0 + provinença Pexels) perquè la foto auto
+quedi com a coberta.
+
 Bug (020): la foto de plat que l'assistent afegeix automàticament (via Pexels)
 **no apareix com a imatge de capçalera** de la fitxa del plat. **Pista clau:** les
 fotos d'stock afegides **manualment** (selector "Cerca a Pexels") **SÍ** que surten
@@ -400,7 +499,9 @@ selector manual** i alinear-les.
   selector manual de Pexels (019).
 - **Quan:** aviat (és un bug, no un polit); afecta la percepció de l'assistent.
 
-### 💡 Recordatori "editable després" sota el botó de crear plat amb IA
+### ✅ Recordatori "editable després" sota el botó de crear plat amb IA
+**Incorporat a la Spec 021 (B4).**
+
 Sota el botó/camp de crear plat amb IA, posar un missatge que recordi que
 **immediatament després de crear-lo, el plat es podrà editar** (ingredients,
 quantitats, foto, preparació…). Treu pressió a la generació (no cal que surti
@@ -408,7 +509,10 @@ perfecte) i deixa clar que l'usuari té el control final.
 - **On va:** client, pantalla de l'assistent (020).
 - **Quan:** aviat, trivial.
 
-### 💡 Afinar el prompt de l'assistent de plats (020): camps + query de foto
+### ✅ Afinar el prompt de l'assistent de plats (020): camps + query de foto
+**Incorporat a la Spec 021:** (a) nota de proveïdor vs pas de cuina vs nom →
+**B2**; (b) query de foto en anglès → **B3**.
+
 Diversos ajustos del prompt que rep Claude a l'Edge Function dish-assistant,
 detectats provant amb Sonnet. Es fan junts (mateix prompt/funció):
 
@@ -436,16 +540,13 @@ query). La foto és il·lustrativa i editable després.
 - **Quan:** aviat; millora de qualitat percebuda alta, cost baix, una passada.
 - Cap és greu (tot editable després), però "un sol error fa dubtar de tot".
 
-### 💡 Velocitat del desar de fotos d'stock (resolució més petita)
-Desar una foto de Pexels va una mica lent: la imatge fa un viatge doble per la
-xarxa (Edge Function descarrega de Pexels → puja al storage). És inherent al
-disseny (copiem la foto al storage, no hotlink), però es pot accelerar
-**descarregant una resolució més petita** de Pexels (la mida `large`/`medium`
-en lloc de l'`original`) — per a fotos de plats/ingredients n'hi ha de sobres.
-- **On va:** ajust a l'Edge Function stock-photos (quin `src` descarrega) + 019.
-- **Quan:** algun dia; millora de rendiment, no bloqueja.
+### 🔄 Preomplir el camp de cerca d'stock amb el nom de l'entitat (idioma local + anglès)
+**Part SIMPLE ✅ (Spec 021, B6):** la cerca es preomple amb el nom de l'entitat tal
+qual (idioma local). **Part BILINGÜE (local + anglès) PENDENT:** el terme amb
+anglès depèn de tenir el nom anglès, que arriba amb els **ingredients multilingües**
+(§1) → planificada a la cua (**Spec 025**, escombra de polits). El valor real és la
+bilingüe.
 
-### 💡 Preomplir el camp de cerca d'stock amb el nom de l'entitat (idioma local + anglès)
 En obrir la cerca de Pexels des d'un plat/ingredient/beguda, preomplir el camp
 amb el nom de l'entitat. **Important (remarcat per Rafael):** el terme de cerca
 ha de ser **idioma local + anglès** (no només el nom en català) — l'anglès
@@ -460,7 +561,9 @@ l'usuari + anglès.
   amb §1 + 020.
 - **Quan:** preomplir simple aviat; el bilingüe (el que aporta valor), amb §1/020.
 
-### 💡 Ordre de la fitxa Crèdits a Settings
+### ✅ Ordre de la fitxa Crèdits a Settings
+**Incorporat a la Spec 021 (B5).**
+
 La fitxa "Crèdits" ("Fotos proporcionades per Pexels") ha d'anar **entre
 "Primers passos" i "Privadesa i dades"**, no on és ara. Només canvi d'ordre de
 UI, sense tocar contingut.
@@ -468,13 +571,14 @@ UI, sense tocar contingut.
 - **Quan:** agrupar amb altres polits en una passada futura (no val un cicle
   d'Internal Testing sol).
 
-### 💡 Parpelleig residual del splash
-A l'arrencada queda un "flash" lleu (doble càrrega) en el traspàs natiu→overlay.
-El retall i el salt de mida ja es van resoldre (Spec 017 + fixos posteriors);
-residu menor que l'usuari dóna per bo.
-- **Quan:** algun dia, si molesta.
+### ✅ Parpelleig residual del splash — resolt
+**Verificat al Pixel: ja no passa.** El retall i el salt de mida es van resoldre
+(Spec 017 + fixos posteriors) i el flaix residual del traspàs natiu→overlay ja no
+s'observa. Tancat.
 
 ### 💡 Mode compra: vista de Compra usable al supermercat
+**→ A la cua: Spec 026** (mode compra al súper).
+
 Fer que la pantalla de Compra funcioni bé com a llista de la compra REAL al
 super (dret, en moviment, una mà ocupada, cops d'ull curts). Descarta la idea
 inicial d'un PDF "llista general": el valor és la interactivitat (marcar mentre
@@ -511,6 +615,8 @@ Preguntes obertes a resoldre en el triatge/spec:
   adapta-sola vs mode explícit.
 
 ### 💡 Edició de quantitat en afegir begudes (paritat amb plats)
+**→ A la cua: Spec 025** (escombra de polits).
+
 En afegir una beguda al menú d'un event —especialment via "Crea una beguda
 nova"— s'insereix directament al menú amb quantitat 1, sense passar per una
 pantalla d'edició de la còpia per-event (quantitat), a diferència dels plats,
@@ -524,6 +630,8 @@ per-event hauria de valer igual per a begudes.
 - Quan: algun dia; coherència d'UX, no bloqueja.
 
 ### 💡 Foto d'ingredient al menú de l'esdeveniment (paritat amb plats i catàleg)
+**→ A la cua: Spec 025** (escombra de polits).
+
 Les files d'ingredient al menú (event_dish_detail_screen, _LineRow) no mostren
 la foto de l'ingredient, mentre que el catàleg i les files de PLAT del menú sí.
 No és un lookup que falla: el render de foto simplement no existeix a la fila
@@ -549,6 +657,12 @@ d'ingredient. Per això passa amb TOTS els ingredients.
 - **Un proveïdor per categoria-comanda:** no es pot repartir una categoria entre
   dos proveïdors dins el mateix esdeveniment. Opcions futures: nivell per
   ingredient, o divisió a la comanda.
+- **Velocitat de desar fotos d'stock (no és problema actual):** desar una foto de
+  Pexels fa un viatge doble per la xarxa (Edge Function descarrega → puja al
+  storage), inherent al disseny (copiem al storage, no hotlink). **No molesta en
+  l'ús actual**, així que **no s'hi inverteix**. Si algun dia molesta, l'accelerador
+  conegut és descarregar una resolució més petita (`large`/`medium` en lloc d'
+  `original`) a l'Edge Function stock-photos (019).
 
 ---
 
@@ -575,3 +689,56 @@ d'ingredient. Per això passa amb TOTS els ingredients.
   sense backup, i no arreglaria el símptoma (que era a la UI). El valor es manté
   **inert** (documentat amb `comment on type`) per compatibilitat històrica i es
   treu dels camins actius (UI/IA/menú) via `dishCategoryActive`.
+
+---
+
+## 9. Higiene de dades i pendents tècnics
+
+### 🔍 Proliferació de grups "My group" buits a la BD
+La taula `groups` té **100+ files**, totes **buides** (sense esdeveniments/dades),
+una per usuari Auth diferent — fruit de **reinstal·lacions i proves** durant el
+desenvolupament (cada arrencada anònima provisiona un grup). **No és un bug que
+afecti l'ús normal:** el compte real de Rafael (acaba en `8f70`) té **UN sol grup**
+(`5fe643a0-…`); cadascú només veu el seu via RLS. És **brossa de dades**, no un
+defecte funcional.
+
+PENDENT (en aquest ordre):
+1. **Confirmar la causa** amb una investigació **de només lectura** del flux
+   d'arrencada / creació de grup (provisió anònima → quan i com es crea un grup;
+   per què en queden de buits).
+2. **Decidir si cal un fix de codi** (p. ex. no crear el grup fins que hi hagi
+   contingut, o reaprofitar-lo) — o si n'hi ha prou amb netejar.
+3. **Netejar la brossa amb rigor** (com la neteja del Maduixer): identificar els
+   grups buits orfes, verificar que cap té dades, i esborrar-los amb cura
+   (dry-run + recompte abans/després).
+- **Prerequisit abans de Closed Testing** (§10): entrar a testers externs amb la
+  taula neta.
+- **Bloqueja:** investigació de la causa; decisió fix vs només neteja.
+
+---
+
+## 10. Fites de llançament (camí cap a producció)
+
+### 🔍 Closed Testing (requisit de Google Play)
+Per promoure de **Internal** a **Closed/Production**, Google exigeix **12 testers
+durant 14 dies continus** — però **NOMÉS per a comptes de desenvolupador personals
+creats després del 13/11/2023**; els d'**organització** o **anteriors** n'estan
+**exempts**.
+- **PREREQUISIT:** **confirmar el tipus i la data del compte** de Google Play
+  Console (personal vs organització; data d'alta) per saber si aplica el requisit.
+- **Pla de testing real:** contractar una empresa de **crowdtesting** amb informe
+  **ESCRIT** (no vídeo) i cost raonable — demanar **quote** a **test IO /
+  Testbirds / MyCrowd / BetaTesting**. Els informes es converteixen en **specs de
+  millora** (lligar amb la cua i amb la "Suggeriments" §2).
+- **Quan:** **DESPRÉS** de 025–027 i de resoldre la proliferació de grups (§9) +
+  tenir la **store listing completa**.
+- **Bloqueja:** tipus/data del compte; quote de crowdtesting; store listing.
+
+### 💡 Versió iOS (expansió després d'Android)
+Flutter ja compila a iOS, però cal infraestructura i comptes propis:
+- **Compte Apple Developer** (~99 USD/any), **CI d'iOS** (Codemagic), **App Store
+  Connect + TestFlight**, i **ajustos específics d'iOS** (permisos Info.plist —
+  p. ex. contactes—, icones, signing, revisió d'App Store).
+- **Decisió de prioritat:** **Android primer**; iOS quan l'Android estigui validat
+  en **Closed/producció**. Android com a base, iOS com a expansió.
+- **Bloqueja:** compte Apple Developer; CI iOS; pas d'Android a Closed/producció.
