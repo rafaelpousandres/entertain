@@ -1,17 +1,14 @@
 {
   "@@locale": "ca",
   "appTitle": "Entertain",
-
   "startupErrorTitle": "No s'ha pogut connectar",
   "startupErrorBody": "No hem pogut establir la connexió amb el servidor. Comprova la connexió i torna-ho a provar.",
   "retryAction": "Reintenta",
-
   "eventsScreenTitle": "Esdeveniments",
   "eventsEmptyTitle": "Encara no tens cap esdeveniment",
   "eventsEmptyBody": "Crea el primer per començar a organitzar el menú.",
   "newEventAction": "Nou esdeveniment",
   "eventsLoadError": "No s'han pogut carregar els esdeveniments.",
-
   "eventNewScreenTitle": "Nou esdeveniment",
   "eventEditScreenTitle": "Editar esdeveniment",
   "saveAction": "Desa",
@@ -19,7 +16,6 @@
   "discardChangesAction": "Sortir sense desar",
   "unsavedChangesTitle": "Canvis sense desar",
   "unsavedChangesBody": "Hi ha canvis sense desar. Vols sortir sense desar-los?",
-
   "fieldTitleLabel": "Títol",
   "fieldTitleHint": "Anomena l'esdeveniment",
   "fieldTitleRequired": "Cal un títol per desar.",
@@ -34,53 +30,48 @@
   "fieldLocationHint": "On serà",
   "fieldNotesLabel": "Notes",
   "fieldNotesHint": "Detalls, comentaris…",
-
   "eventTypeLunch": "Dinar",
   "eventTypeDinner": "Sopar",
   "eventTypeOther": "Altre",
   "eventFormatSeated": "Asseguts",
   "eventFormatBuffet": "Bufet",
   "eventFormatOther": "Altre",
-
   "guestsCount": "{count, plural, =1{1 convidat} other{{count} convidats}}",
   "@guestsCount": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "metadataSeparator": " · ",
   "ingredientNameWithUnit": "{name} ({unit})",
-
   "deleteEventConfirmTitle": "Esborrar l'esdeveniment?",
   "deleteEventConfirmBody": "Aquest esdeveniment desapareixerà de la teva llista.",
   "deleteEventConfirmButton": "Esborra l'esdeveniment",
   "cancelAction": "Cancel·la",
-
   "menuSectionTitle": "Menú",
   "menuEmptyBody": "Aquest esdeveniment encara no té cap plat.",
   "editAction": "Editar",
   "backAction": "Enrere",
   "moreActionsLabel": "Més accions",
   "noDateLabel": "Sense data",
-
   "dishCategoryAperitif": "Aperitius",
   "dishCategoryStarter": "Entrants",
   "dishCategoryMain": "Plats principals",
   "dishCategoryDessert": "Postres",
   "dishCategoryDrink": "Begudes",
   "dishCategoryOther": "Altres",
-
   "saveError": "No s'ha pogut desar l'esdeveniment.",
   "deleteEventError": "No s'ha pogut esborrar l'esdeveniment.",
-
   "navEvents": "Esdeveniments",
   "navDishes": "Plats",
   "navIngredients": "Ingredients",
-
   "ingredientsScreenTitle": "Ingredients",
   "ingredientsEmptyTitle": "Encara no tens cap ingredient",
   "ingredientsEmptyBody": "Afegeix els que cuines per poder muntar-hi plats.",
   "newIngredientAction": "Nou ingredient",
   "ingredientsLoadError": "No s'han pogut carregar els ingredients.",
-
   "ingredientNewScreenTitle": "Nou ingredient",
   "ingredientEditScreenTitle": "Editar ingredient",
   "ingredientNameLabel": "Nom",
@@ -100,13 +91,11 @@
   "deleteIngredientConfirmBody": "Desapareixerà del teu catàleg. Els plats i esdeveniments que ja l'usen conserven la seva còpia.",
   "deleteIngredientConfirmButton": "Esborra l'ingredient",
   "ingredientSaveError": "No s'ha pogut desar l'ingredient.",
-
   "dishesScreenTitle": "Plats",
   "dishesEmptyTitle": "Encara no tens cap plat",
   "dishesEmptyBody": "Crea el primer plat per començar a muntar menús.",
   "newDishAction": "Nou plat",
   "dishesLoadError": "No s'han pogut carregar els plats.",
-
   "dishNewScreenTitle": "Nou plat",
   "dishEditScreenTitle": "Editar plat",
   "dishNameLabel": "Nom",
@@ -126,7 +115,6 @@
   "deleteDishConfirmBody": "Desapareixerà del teu catàleg. Els esdeveniments que ja l'usen conserven la seva còpia.",
   "deleteDishConfirmButton": "Esborra el plat",
   "dishSaveError": "No s'ha pogut desar el plat.",
-
   "lineEditorNewTitle": "Afegir ingredient",
   "lineEditorEditTitle": "Editar ingredient",
   "lineIngredientLabel": "Ingredient",
@@ -142,7 +130,6 @@
   "removeLineAction": "Treu del plat",
   "promoteLineToRecipeLabel": "Afegir aquesta línia també a la recepta original",
   "promoteLineToRecipeHint": "S'afegirà al catàleg del plat. Per desfer-ho hauràs d'editar el catàleg directament.",
-
   "ingredientPickerTitle": "Tria un ingredient",
   "ingredientPickerSearchHint": "Cerca…",
   "ingredientPickerEmpty": "Cap ingredient coincident.",
@@ -209,10 +196,8 @@
   "@supplierCategoryPickerTitle": {},
   "supplierCategoryNoneLabel": "Cap",
   "@supplierCategoryNoneLabel": {},
-
   "eventTabMenu": "Menú",
   "eventTabShopping": "Compra",
-
   "shoppingEmptyBody": "Aquest esdeveniment encara no té res per comprar. Afegeix-hi plats al menú primer.",
   "pantryConsultiveHint": "El que ja necessites tenir a casa per a l'esdeveniment.",
   "shoppingUncategorisedLabel": "Sense categoria",
@@ -224,21 +209,36 @@
   "addExtraAction": "Afegeix extra",
   "shoppingUnsentCount": "{count, plural, =1{1 ingredient sense enviar} other{{count} ingredients sense enviar}}",
   "@shoppingUnsentCount": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "shoppingAllSentLabel": "Tot enviat",
   "shoppingSentOrderTitle": "Enviada el {date}",
   "@shoppingSentOrderTitle": {
-    "placeholders": { "date": { "type": "String" } }
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
   },
   "shoppingSentOrderItemCount": "{count, plural, =1{1 ítem} other{{count} ítems}}",
   "@shoppingSentOrderItemCount": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
-
   "shoppingSummaryTotal": "{count, plural, =1{1 ingredient} other{{count} ingredients}}",
   "@shoppingSummaryTotal": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "shoppingStateToOrder": "Per demanar",
   "shoppingStateOrdered": "Demanat",
@@ -249,9 +249,12 @@
   "shoppingMarkAllReceivedAction": "Marca tot com a rebut",
   "shoppingStateChangeSubtitle": "Ara: {state}",
   "@shoppingStateChangeSubtitle": {
-    "placeholders": { "state": { "type": "String" } }
+    "placeholders": {
+      "state": {
+        "type": "String"
+      }
+    }
   },
-
   "supplierMessageSendAction": "Envia",
   "supplierMessageChangeDestination": "Canvia el destinatari d'aquest enviament",
   "supplierMessageNothingToSendTitle": "Res per enviar",
@@ -268,14 +271,17 @@
   "suppliersPantrySummary": "Coses que ja tens a casa",
   "supplierMessageNeededBy": "Per al dia {date}",
   "@supplierMessageNeededBy": {
-    "placeholders": { "date": { "type": "String" } }
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
   },
   "supplierMessageConfirmSentTitle": "Has enviat el missatge?",
   "supplierMessageConfirmSentBody": "Confirma que el missatge s'ha enviat correctament al proveïdor abans de marcar la comanda com a enviada.",
   "supplierMessageConfirmSentYes": "Sí, enviat",
   "supplierMessageConfirmSentNo": "No",
   "messageItemConnector": "de",
-
   "channelWhatsApp": "WhatsApp",
   "channelEmail": "Correu electrònic",
   "channelShare": "Compartir",
@@ -296,7 +302,6 @@
   "supplierDefaultChannelTag": "Per defecte",
   "destinationOverrideTitle": "Destinatari d'aquest enviament",
   "applyAction": "Aplica",
-
   "navSettings": "Configuració",
   "navCatalog": "Catàleg",
   "navDrinks": "Begudes",
@@ -352,15 +357,12 @@
   "settingsChannelLabel": "Canal",
   "settingsLoadError": "No s'ha pogut carregar la configuració.",
   "settingsSaveError": "No s'ha pogut desar la configuració. Comprova la connexió.",
-
   "eventTabEvent": "Esdeveniment",
-
   "settingsTabGeneral": "General",
   "settingsTabSuppliers": "Proveïdors",
   "settingsTabMessages": "Missatges",
   "settingsAboutVersion": "Versió {version}",
   "settingsAboutDescription": "Organitza esdeveniments domèstics: menús, plats, ingredients i llistes de compra per proveïdor.",
-
   "settingsPrivacyTitle": "Privadesa i dades",
   "settingsAccountIdLabel": "El teu identificador de compte",
   "settingsAccountIdHelp": "Fes servir aquest identificador quan sol·licitis l'eliminació de les teves dades. Correu: rafael.pous@gmail.com",
@@ -368,7 +370,6 @@
   "settingsAccountIdUnavailable": "No disponible",
   "settingsCopyAction": "Copia",
   "settingsAccountIdCopied": "Identificador copiat",
-
   "supplierCategoryAddAction": "Afegeix categoria",
   "supplierCategoryAddTitle": "Nova categoria",
   "supplierCategoryNameLabel": "Nom",
@@ -381,7 +382,6 @@
   "deleteSupplierCategoryConfirmBody": "Els ingredients que hi estiguin assignats passaran a «Sense categoria». No es pot desfer.",
   "deleteSupplierCategoryConfirmButton": "Esborra categoria",
   "deleteSupplierCategoryError": "No s'ha pogut esborrar la categoria. Potser té comandes enviades.",
-
   "supplierNameLabel": "Nom",
   "supplierNameHint": "P. ex. Peixos Samba",
   "supplierUnnamed": "Proveïdor sense nom",
@@ -406,18 +406,15 @@
   "eventStatusReady": "Llest",
   "eventStatusPast": "Passat",
   "eventStatusPastGroup": "Passats",
-
   "duplicateEventAction": "Duplica",
   "duplicateEventNameTemplate": "{name} - Còpia",
   "duplicateEventConfirmTitle": "Vols duplicar aquest esdeveniment?",
   "duplicateEventConfirmBody": "La còpia tindrà el mateix menú però sense data ni ingredients demanats.",
-
   "pickFromContactsAction": "Tria del contactes",
   "contactPickPhoneTitle": "Aquest contacte té diversos telèfons. Quin vols fer servir?",
   "contactPickEmailTitle": "Aquest contacte té diversos correus electrònics. Quin vols fer servir?",
   "contactsPermissionDeniedBody": "Per fer servir aquesta opció, has d'autoritzar l'accés als contactes a la configuració del telèfon.",
   "openSettingsAction": "Configuració",
-
   "photoLabel": "Foto",
   "eventPhotosLabel": "Fotos",
   "addPhotoAction": "Afegeix una foto",
@@ -437,7 +434,6 @@
   "okAction": "D'acord",
   "settingsCreditsTitle": "Crèdits",
   "settingsCreditsPexels": "Fotos proporcionades per Pexels",
-
   "suggestionsTitle": "Suggeriments",
   "suggestionsEntrySubtitle": "Explica'ns què milloraries",
   "suggestionsIntro": "Què t'agradaria que fes l'app? Què falta o no acaba de funcionar? Explica-ho aquí i ho tindrem en compte.",
@@ -448,9 +444,12 @@
   "suggestionsSendError": "No s'ha pogut enviar el suggeriment.",
   "suggestionsSentCount": "{count, plural, =0{Encara no heu enviat cap suggeriment} =1{1 suggeriment enviat} other{{count} suggeriments enviats}}",
   "@suggestionsSentCount": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
-
   "dishAssistantCreateAction": "Crea un plat amb IA",
   "dishAssistantTitle": "Crea un plat amb IA",
   "dishAssistantHint": "Nom o breu descripció",
@@ -477,27 +476,36 @@
   "photoLoadError": "No s'ha pogut carregar la foto.",
   "photoRollbackWarning": "No s'han pogut desfer alguns canvis de les fotos. Revisa l'editor.",
   "cameraPermissionDeniedBody": "Per fer una foto, has d'autoritzar l'accés a la càmera a la configuració del telèfon.",
-
   "dishCountLabel": "{count, plural, =1{1 plat} other{{count} plats}}",
   "@dishCountLabel": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "ingredientCountLabel": "{count, plural, =1{1 ingredient} other{{count} ingredients}}",
   "@ingredientCountLabel": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "menuServingsPerPerson": "{ratio} racions per persona",
   "@menuServingsPerPerson": {
-    "placeholders": { "ratio": { "type": "String" } }
+    "placeholders": {
+      "ratio": {
+        "type": "String"
+      }
+    }
   },
-
   "gettingStartedTitle": "Primers passos",
   "gettingStartedStep1": "A Configuració, posa la teva salutació i signatura, i dona nom als proveïdors que faràs servir.",
   "gettingStartedStep2": "Al Catàleg, afegeix ingredients (amb unitat i proveïdor) i begudes.",
   "gettingStartedStep3": "Crea plats: cuinats a casa (amb ingredients) o comprats fets (d'un proveïdor).",
   "gettingStartedStep4": "Crea un esdeveniment i munta'n el menú amb plats i begudes.",
   "gettingStartedStep5": "A Compra, l'app agrupa tot per proveïdor i en prepara els missatges.",
-
   "helpCloseAction": "Entesos",
   "helpEventsBody": "Aquí veus tots els esdeveniments, agrupats per estat: en preparació, a punt i passats. Toca'n un per obrir-lo, o crea'n un de nou amb el botó de baix.",
   "helpEventTabBody": "Les dades de l'esdeveniment: títol, tipus, format, data, convidats i fotos. El nombre de convidats escala les quantitats dels plats.",
@@ -518,5 +526,40 @@
   "denominationLitre": "{count, plural, =1{1 litre} other{{count} litres}}",
   "denominationLitreName": "litre",
   "drinkDenominationLabel": "Denominació",
-  "drinkQuantityLabel": "Quantitat"
+  "drinkQuantityLabel": "Quantitat",
+  "menuWizardCreateButton": "Crea un menú amb IA",
+  "menuWizardCompleteButton": "Completa el menú amb IA",
+  "menuWizardTitle": "Menú amb IA",
+  "menuWizardRemainingLabel": "En queden {remaining} de {limit} aquest mes",
+  "menuWizardMealTypeQuestion": "Quin àpat és?",
+  "menuWizardMealAperitif": "Aperitiu",
+  "menuWizardMealLunch": "Dinar",
+  "menuWizardMealDinner": "Sopar",
+  "menuWizardFormalityQuestion": "Quin to vols?",
+  "menuWizardFormalityInformal": "Informal",
+  "menuWizardFormalityFestive": "Festiu",
+  "menuWizardFormalityFormal": "Formal",
+  "menuWizardDietaryQuestion": "Alguna restricció alimentària?",
+  "menuWizardDietaryVegetarian": "Vegetarià",
+  "menuWizardDietaryVegan": "Vegà",
+  "menuWizardDietaryGlutenFree": "Sense gluten",
+  "menuWizardFreeTextQuestion": "Alguna cosa més?",
+  "menuWizardFreeTextHint": "P. ex. de temporada, ingredients a destacar, plats a evitar…",
+  "menuWizardGenerateAction": "Proposa un menú",
+  "menuWizardGenerating": "Preparant la proposta…",
+  "menuWizardAdding": "Afegint al menú…",
+  "menuWizardError": "No s'ha pogut generar la proposta.",
+  "menuWizardAcceptError": "No s'han pogut afegir els plats.",
+  "menuWizardNoneSelected": "Selecciona almenys un element.",
+  "menuWizardReviewIntro": "Tria què afegir al menú. Pots desmarcar el que no vulguis.",
+  "menuWizardNewDishMarker": "nou",
+  "menuWizardCatalogMarker": "del catàleg",
+  "menuWizardDrinkLabel": "Beguda",
+  "menuWizardBackAction": "Enrere",
+  "menuWizardConfirmAction": "Afegeix ({count})",
+  "menuWizardAddedSnack": "{count} elements afegits al menú.",
+  "menuWizardAddedPartialSnack": "{added} afegits, {failed} amb errors.",
+  "menuWizardEmptyProposal": "La IA no ha proposat cap element. Torna-ho a provar amb altres respostes.",
+  "menuWizardLimitReachedTitle": "Límit assolit",
+  "menuWizardLimitReachedBody": "Has fet servir els {limit} menús amb IA gratuïts d'aquest mes."
 }

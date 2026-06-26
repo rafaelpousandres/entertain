@@ -1,17 +1,14 @@
 {
   "@@locale": "en",
   "appTitle": "Entertain",
-
   "startupErrorTitle": "Couldn't connect",
   "startupErrorBody": "We couldn't reach the server. Check your connection and try again.",
   "retryAction": "Retry",
-
   "eventsScreenTitle": "Events",
   "eventsEmptyTitle": "No events yet",
   "eventsEmptyBody": "Create your first one to start planning the menu.",
   "newEventAction": "New event",
   "eventsLoadError": "Couldn't load events.",
-
   "eventNewScreenTitle": "New event",
   "eventEditScreenTitle": "Edit event",
   "saveAction": "Save",
@@ -19,7 +16,6 @@
   "discardChangesAction": "Discard and exit",
   "unsavedChangesTitle": "Unsaved changes",
   "unsavedChangesBody": "You have unsaved changes. Leave without saving?",
-
   "fieldTitleLabel": "Title",
   "fieldTitleHint": "Name the event",
   "fieldTitleRequired": "A title is required to save.",
@@ -34,61 +30,60 @@
   "fieldLocationHint": "Where it'll happen",
   "fieldNotesLabel": "Notes",
   "fieldNotesHint": "Details, comments…",
-
   "eventTypeLunch": "Lunch",
   "eventTypeDinner": "Dinner",
   "eventTypeOther": "Other",
   "eventFormatSeated": "Seated",
   "eventFormatBuffet": "Buffet",
   "eventFormatOther": "Other",
-
   "guestsCount": "{count, plural, =1{1 guest} other{{count} guests}}",
   "@guestsCount": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "metadataSeparator": " · ",
   "ingredientNameWithUnit": "{name} ({unit})",
   "@ingredientNameWithUnit": {
     "description": "Catalog ingredient label combining the name and its default unit, e.g. 'Parmesan (g)'.",
     "placeholders": {
-      "name": { "type": "String" },
-      "unit": { "type": "String" }
+      "name": {
+        "type": "String"
+      },
+      "unit": {
+        "type": "String"
+      }
     }
   },
-
   "deleteEventConfirmTitle": "Delete this event?",
   "deleteEventConfirmBody": "This event will disappear from your list.",
   "deleteEventConfirmButton": "Delete event",
   "cancelAction": "Cancel",
-
   "menuSectionTitle": "Menu",
   "menuEmptyBody": "This event has no dishes yet.",
   "editAction": "Edit",
   "backAction": "Back",
   "moreActionsLabel": "More actions",
   "noDateLabel": "No date",
-
   "dishCategoryAperitif": "Aperitifs",
   "dishCategoryStarter": "Starters",
   "dishCategoryMain": "Mains",
   "dishCategoryDessert": "Desserts",
   "dishCategoryDrink": "Drinks",
   "dishCategoryOther": "Other",
-
   "saveError": "Couldn't save the event.",
   "deleteEventError": "Couldn't delete the event.",
   "@deleteEventError": {},
-
   "navEvents": "Events",
   "navDishes": "Dishes",
   "navIngredients": "Ingredients",
-
   "ingredientsScreenTitle": "Ingredients",
   "ingredientsEmptyTitle": "No ingredients yet",
   "ingredientsEmptyBody": "Add the ones you cook with so you can build dishes from them.",
   "newIngredientAction": "New ingredient",
   "ingredientsLoadError": "Couldn't load ingredients.",
-
   "ingredientNewScreenTitle": "New ingredient",
   "ingredientEditScreenTitle": "Edit ingredient",
   "ingredientNameLabel": "Name",
@@ -108,13 +103,11 @@
   "deleteIngredientConfirmBody": "It will be removed from your catalog. Dishes and events that already use it keep their copy.",
   "deleteIngredientConfirmButton": "Delete ingredient",
   "ingredientSaveError": "Couldn't save the ingredient.",
-
   "dishesScreenTitle": "Dishes",
   "dishesEmptyTitle": "No dishes yet",
   "dishesEmptyBody": "Create your first dish to start building menus.",
   "newDishAction": "New dish",
   "dishesLoadError": "Couldn't load dishes.",
-
   "dishNewScreenTitle": "New dish",
   "dishEditScreenTitle": "Edit dish",
   "dishNameLabel": "Name",
@@ -134,7 +127,6 @@
   "deleteDishConfirmBody": "It will be removed from your catalog. Events that already use it keep their copy.",
   "deleteDishConfirmButton": "Delete dish",
   "dishSaveError": "Couldn't save the dish.",
-
   "lineEditorNewTitle": "Add ingredient",
   "lineEditorEditTitle": "Edit ingredient",
   "lineIngredientLabel": "Ingredient",
@@ -150,14 +142,17 @@
   "removeLineAction": "Remove from dish",
   "promoteLineToRecipeLabel": "Add this line to the original recipe too",
   "promoteLineToRecipeHint": "It will be added to the dish's catalog recipe. To undo it you'll have to edit the catalog directly.",
-
   "ingredientPickerTitle": "Pick an ingredient",
   "ingredientPickerSearchHint": "Search…",
   "ingredientPickerEmpty": "No matching ingredients.",
   "ingredientPickerCreateNew": "Create a new ingredient",
   "ingredientPickerCreateNamed": "Create “{name}”",
   "@ingredientPickerCreateNamed": {
-    "placeholders": { "name": { "type": "String" } }
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   },
   "quickCreateTitle": "New ingredient",
   "createAction": "Create",
@@ -223,12 +218,10 @@
   "@supplierCategoryPickerTitle": {},
   "supplierCategoryNoneLabel": "None",
   "@supplierCategoryNoneLabel": {},
-
   "eventTabMenu": "Menu",
   "@eventTabMenu": {},
   "eventTabShopping": "Shopping",
   "@eventTabShopping": {},
-
   "shoppingEmptyBody": "This event has nothing to shop for yet. Add dishes to its menu first.",
   "@shoppingEmptyBody": {},
   "pantryConsultiveHint": "What you already need at home for this event.",
@@ -249,22 +242,37 @@
   "@addExtraAction": {},
   "shoppingUnsentCount": "{count, plural, =1{1 ingredient not sent} other{{count} ingredients not sent}}",
   "@shoppingUnsentCount": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "shoppingAllSentLabel": "Everything sent",
   "@shoppingAllSentLabel": {},
   "shoppingSentOrderTitle": "Sent {date}",
   "@shoppingSentOrderTitle": {
-    "placeholders": { "date": { "type": "String" } }
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
   },
   "shoppingSentOrderItemCount": "{count, plural, =1{1 item} other{{count} items}}",
   "@shoppingSentOrderItemCount": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
-
   "shoppingSummaryTotal": "{count, plural, =1{1 ingredient} other{{count} ingredients}}",
   "@shoppingSummaryTotal": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "shoppingStateToOrder": "To order",
   "@shoppingStateToOrder": {},
@@ -284,9 +292,12 @@
   "@shoppingMarkAllReceivedAction": {},
   "shoppingStateChangeSubtitle": "Now: {state}",
   "@shoppingStateChangeSubtitle": {
-    "placeholders": { "state": { "type": "String" } }
+    "placeholders": {
+      "state": {
+        "type": "String"
+      }
+    }
   },
-
   "supplierMessageSendAction": "Send",
   "@supplierMessageSendAction": {},
   "supplierMessageChangeDestination": "Change destination for this send",
@@ -309,13 +320,21 @@
   "@supplierMessageNeededByEmpty": {},
   "supplierMessageNeededBy": "Needed by {date}",
   "@supplierMessageNeededBy": {
-    "placeholders": { "date": { "type": "String" } }
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
   },
   "supplierMessageNeededByWithTime": "Needed by {date} at {time}",
   "@supplierMessageNeededByWithTime": {
     "placeholders": {
-      "date": { "type": "String" },
-      "time": { "type": "String" }
+      "date": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
     }
   },
   "supplierMessageNeededByTimeLabel": "Time (optional)",
@@ -336,7 +355,6 @@
   "@messageItemConnector": {
     "description": "Connector between the measure and the ingredient name in a supplier-message item line, e.g. '250 g of tuna'. Catalan/Spanish: 'de'."
   },
-
   "channelWhatsApp": "WhatsApp",
   "@channelWhatsApp": {},
   "channelEmail": "Email",
@@ -391,7 +409,6 @@
   "@destinationOverrideTitle": {},
   "applyAction": "Apply",
   "@applyAction": {},
-
   "navSettings": "Settings",
   "@navSettings": {},
   "navCatalog": "Catalog",
@@ -432,7 +449,11 @@
   "@newDrinkAction": {},
   "drinkCountLabel": "{count, plural, =1{1 drink} other{{count} drinks}}",
   "@drinkCountLabel": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "helpDrinksBody": "Your drinks catalog. Each drink has a supplier and a denomination (bottle, can, jug…). Unlike dishes, drinks have no servings: for each event you set the number of units directly (3 bottles, 2 cans…). In Shopping they appear grouped by their supplier.",
   "@helpDrinksBody": {},
@@ -504,10 +525,8 @@
   "@settingsLoadError": {},
   "settingsSaveError": "Couldn't save the settings. Check your connection.",
   "@settingsSaveError": {},
-
   "eventTabEvent": "Event",
   "@eventTabEvent": {},
-
   "settingsTabGeneral": "General",
   "@settingsTabGeneral": {},
   "settingsTabSuppliers": "Suppliers",
@@ -516,11 +535,14 @@
   "@settingsTabMessages": {},
   "settingsAboutVersion": "Version {version}",
   "@settingsAboutVersion": {
-    "placeholders": { "version": { "type": "String" } }
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
   },
   "settingsAboutDescription": "Organize domestic events: menus, dishes, ingredients, and per-supplier shopping lists.",
   "@settingsAboutDescription": {},
-
   "settingsPrivacyTitle": "Privacy & data",
   "@settingsPrivacyTitle": {
     "description": "Settings section header for the account id / data-deletion info (Spec 010 §2.5)."
@@ -537,7 +559,6 @@
   "@settingsCopyAction": {},
   "settingsAccountIdCopied": "Account ID copied",
   "@settingsAccountIdCopied": {},
-
   "supplierCategoryAddAction": "Add category",
   "@supplierCategoryAddAction": {},
   "supplierCategoryAddTitle": "New category",
@@ -562,7 +583,6 @@
   "@deleteSupplierCategoryConfirmButton": {},
   "deleteSupplierCategoryError": "Couldn't delete the category. It may have sent orders.",
   "@deleteSupplierCategoryError": {},
-
   "supplierNameLabel": "Name",
   "@supplierNameLabel": {},
   "supplierNameHint": "e.g. Peixos Samba",
@@ -577,7 +597,11 @@
   "@suppliersNoneSummary": {},
   "suppliersCountLabel": "{count, plural, =1{1 supplier} other{{count} suppliers}}",
   "@suppliersCountLabel": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "addSupplierAction": "Add supplier",
   "@addSupplierAction": {},
@@ -613,18 +637,20 @@
   "@eventStatusPast": {},
   "eventStatusPastGroup": "Past",
   "@eventStatusPastGroup": {},
-
   "duplicateEventAction": "Duplicate",
   "@duplicateEventAction": {},
   "duplicateEventNameTemplate": "{name} - Copy",
   "@duplicateEventNameTemplate": {
-    "placeholders": { "name": { "type": "String" } }
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   },
   "duplicateEventConfirmTitle": "Duplicate this event?",
   "@duplicateEventConfirmTitle": {},
   "duplicateEventConfirmBody": "The copy will have the same menu but no date and no ordered ingredients.",
   "@duplicateEventConfirmBody": {},
-
   "pickFromContactsAction": "Pick from contacts",
   "@pickFromContactsAction": {},
   "contactPickPhoneTitle": "This contact has several phones. Which one do you want to use?",
@@ -635,7 +661,6 @@
   "@contactsPermissionDeniedBody": {},
   "openSettingsAction": "Settings",
   "@openSettingsAction": {},
-
   "photoLabel": "Photo",
   "@photoLabel": {},
   "eventPhotosLabel": "Photos",
@@ -663,19 +688,31 @@
   "stockRemainingLabel": "{remaining} of {limit} left this month",
   "@stockRemainingLabel": {
     "placeholders": {
-      "remaining": { "type": "int" },
-      "limit": { "type": "int" }
+      "remaining": {
+        "type": "int"
+      },
+      "limit": {
+        "type": "int"
+      }
     }
   },
   "stockPhotoCredit": "Photo by {name}",
   "@stockPhotoCredit": {
-    "placeholders": { "name": { "type": "String" } }
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   },
   "stockLimitReachedTitle": "Limit reached",
   "@stockLimitReachedTitle": {},
   "stockLimitReachedBody": "You've used your {limit} free stock photos this month.",
   "@stockLimitReachedBody": {
-    "placeholders": { "limit": { "type": "int" } }
+    "placeholders": {
+      "limit": {
+        "type": "int"
+      }
+    }
   },
   "okAction": "OK",
   "@okAction": {},
@@ -683,7 +720,6 @@
   "@settingsCreditsTitle": {},
   "settingsCreditsPexels": "Photos provided by Pexels",
   "@settingsCreditsPexels": {},
-
   "suggestionsTitle": "Suggestions",
   "@suggestionsTitle": {},
   "suggestionsEntrySubtitle": "Tell us what you'd improve",
@@ -702,9 +738,12 @@
   "@suggestionsSendError": {},
   "suggestionsSentCount": "{count, plural, =0{No suggestions sent yet} =1{1 suggestion sent} other{{count} suggestions sent}}",
   "@suggestionsSentCount": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
-
   "dishAssistantCreateAction": "Create a dish with AI",
   "@dishAssistantCreateAction": {},
   "dishAssistantTitle": "Create a dish with AI",
@@ -737,20 +776,32 @@
   "@dishAssistantDiscardAction": {},
   "dishAssistantServingsLabel": "{count} servings",
   "@dishAssistantServingsLabel": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "dishAssistantRemainingLabel": "{remaining} of {limit} left this month",
   "@dishAssistantRemainingLabel": {
     "placeholders": {
-      "remaining": { "type": "int" },
-      "limit": { "type": "int" }
+      "remaining": {
+        "type": "int"
+      },
+      "limit": {
+        "type": "int"
+      }
     }
   },
   "dishAssistantLimitReachedTitle": "Limit reached",
   "@dishAssistantLimitReachedTitle": {},
   "dishAssistantLimitReachedBody": "You've used your {limit} free AI dishes this month.",
   "@dishAssistantLimitReachedBody": {
-    "placeholders": { "limit": { "type": "int" } }
+    "placeholders": {
+      "limit": {
+        "type": "int"
+      }
+    }
   },
   "photoRemovePhoto": "Remove photo",
   "@photoRemovePhoto": {},
@@ -766,23 +817,33 @@
   "@photoRollbackWarning": {},
   "cameraPermissionDeniedBody": "To take a photo, you need to allow camera access in the phone's settings.",
   "@cameraPermissionDeniedBody": {},
-
   "dishCountLabel": "{count, plural, =1{1 dish} other{{count} dishes}}",
   "@dishCountLabel": {
     "description": "Spec 012 §2.6/§2.7 — dish count shown in Menu and Dishes accordion headers.",
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "ingredientCountLabel": "{count, plural, =1{1 ingredient} other{{count} ingredients}}",
   "@ingredientCountLabel": {
     "description": "Spec 012 §2.8 — ingredient count shown in Ingredients accordion headers.",
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "menuServingsPerPerson": "{ratio} servings per person",
   "@menuServingsPerPerson": {
     "description": "Spec 012 §2.6 — servings-per-guest ratio on the Menu totals line; ratio is pre-formatted with the locale decimal separator.",
-    "placeholders": { "ratio": { "type": "String" } }
+    "placeholders": {
+      "ratio": {
+        "type": "String"
+      }
+    }
   },
-
   "gettingStartedTitle": "Getting started",
   "@gettingStartedTitle": {
     "description": "Spec 012 §2.3 — onboarding card title in Settings ▸ General."
@@ -797,7 +858,6 @@
   "@gettingStartedStep4": {},
   "gettingStartedStep5": "In Shopping, the app groups everything by supplier and drafts the messages.",
   "@gettingStartedStep5": {},
-
   "helpCloseAction": "Got it",
   "@helpCloseAction": {
     "description": "Spec 012 §2.4 — dismiss button on the per-screen help pop-up."
@@ -815,31 +875,143 @@
   "helpIngredientsBody": "Your ingredient catalog, by supplier. Each ingredient has a default unit and supplier used in the shopping lists.",
   "@helpIngredientsBody": {},
   "denominationBottle": "{count, plural, =1{1 bottle} other{{count} bottles}}",
-  "@denominationBottle": { "placeholders": { "count": { "type": "int" } } },
+  "@denominationBottle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "denominationBottleName": "bottle",
   "@denominationBottleName": {},
   "denominationCan": "{count, plural, =1{1 can} other{{count} cans}}",
-  "@denominationCan": { "placeholders": { "count": { "type": "int" } } },
+  "@denominationCan": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "denominationCanName": "can",
   "@denominationCanName": {},
   "denominationJug": "{count, plural, =1{1 jug} other{{count} jugs}}",
-  "@denominationJug": { "placeholders": { "count": { "type": "int" } } },
+  "@denominationJug": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "denominationJugName": "jug",
   "@denominationJugName": {},
   "denominationUnit": "{count, plural, =1{1 unit} other{{count} units}}",
-  "@denominationUnit": { "placeholders": { "count": { "type": "int" } } },
+  "@denominationUnit": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "denominationUnitName": "unit",
   "@denominationUnitName": {},
   "denominationPack": "{count, plural, =1{1 pack} other{{count} packs}}",
-  "@denominationPack": { "placeholders": { "count": { "type": "int" } } },
+  "@denominationPack": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "denominationPackName": "pack",
   "@denominationPackName": {},
   "denominationLitre": "{count, plural, =1{1 litre} other{{count} litres}}",
-  "@denominationLitre": { "placeholders": { "count": { "type": "int" } } },
+  "@denominationLitre": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "denominationLitreName": "litre",
   "@denominationLitreName": {},
   "drinkDenominationLabel": "Denomination",
   "@drinkDenominationLabel": {},
   "drinkQuantityLabel": "Quantity",
-  "@drinkQuantityLabel": {}
+  "@drinkQuantityLabel": {},
+  "menuWizardCreateButton": "Create a menu with AI",
+  "menuWizardCompleteButton": "Complete the menu with AI",
+  "menuWizardTitle": "AI menu",
+  "menuWizardRemainingLabel": "{remaining} of {limit} left this month",
+  "@menuWizardRemainingLabel": {
+    "placeholders": {
+      "remaining": {
+        "type": "int"
+      },
+      "limit": {
+        "type": "int"
+      }
+    }
+  },
+  "menuWizardMealTypeQuestion": "What meal is it?",
+  "menuWizardMealAperitif": "Aperitif",
+  "menuWizardMealLunch": "Lunch",
+  "menuWizardMealDinner": "Dinner",
+  "menuWizardFormalityQuestion": "What tone do you want?",
+  "menuWizardFormalityInformal": "Informal",
+  "menuWizardFormalityFestive": "Festive",
+  "menuWizardFormalityFormal": "Formal",
+  "menuWizardDietaryQuestion": "Any dietary restrictions?",
+  "menuWizardDietaryVegetarian": "Vegetarian",
+  "menuWizardDietaryVegan": "Vegan",
+  "menuWizardDietaryGlutenFree": "Gluten-free",
+  "menuWizardFreeTextQuestion": "Anything else?",
+  "menuWizardFreeTextHint": "E.g. seasonal, ingredients to feature, dishes to avoid…",
+  "menuWizardGenerateAction": "Propose a menu",
+  "menuWizardGenerating": "Preparing the proposal…",
+  "menuWizardAdding": "Adding to the menu…",
+  "menuWizardError": "Couldn't generate the proposal.",
+  "menuWizardAcceptError": "Couldn't add the dishes.",
+  "menuWizardNoneSelected": "Select at least one item.",
+  "menuWizardReviewIntro": "Choose what to add to the menu. Untick anything you don't want.",
+  "menuWizardNewDishMarker": "new",
+  "menuWizardCatalogMarker": "from catalog",
+  "menuWizardDrinkLabel": "Drink",
+  "menuWizardBackAction": "Back",
+  "menuWizardConfirmAction": "Add ({count})",
+  "@menuWizardConfirmAction": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "menuWizardAddedSnack": "{count} items added to the menu.",
+  "@menuWizardAddedSnack": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "menuWizardAddedPartialSnack": "{added} added, {failed} failed.",
+  "@menuWizardAddedPartialSnack": {
+    "placeholders": {
+      "added": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      }
+    }
+  },
+  "menuWizardEmptyProposal": "The AI didn't propose anything. Try again with different answers.",
+  "menuWizardLimitReachedTitle": "Limit reached",
+  "menuWizardLimitReachedBody": "You've used your {limit} free AI menus this month.",
+  "@menuWizardLimitReachedBody": {
+    "placeholders": {
+      "limit": {
+        "type": "int"
+      }
+    }
+  }
 }

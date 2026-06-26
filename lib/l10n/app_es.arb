@@ -1,17 +1,14 @@
 {
   "@@locale": "es",
   "appTitle": "Entertain",
-
   "startupErrorTitle": "No se ha podido conectar",
   "startupErrorBody": "No hemos podido establecer la conexión con el servidor. Comprueba la conexión e inténtalo de nuevo.",
   "retryAction": "Reintentar",
-
   "eventsScreenTitle": "Eventos",
   "eventsEmptyTitle": "Aún no tienes ningún evento",
   "eventsEmptyBody": "Crea el primero para empezar a organizar el menú.",
   "newEventAction": "Nuevo evento",
   "eventsLoadError": "No se han podido cargar los eventos.",
-
   "eventNewScreenTitle": "Nuevo evento",
   "eventEditScreenTitle": "Editar evento",
   "saveAction": "Guardar",
@@ -19,7 +16,6 @@
   "discardChangesAction": "Salir sin guardar",
   "unsavedChangesTitle": "Cambios sin guardar",
   "unsavedChangesBody": "Hay cambios sin guardar. ¿Quieres salir sin guardarlos?",
-
   "fieldTitleLabel": "Título",
   "fieldTitleHint": "Nombra el evento",
   "fieldTitleRequired": "Hace falta un título para guardar.",
@@ -34,53 +30,48 @@
   "fieldLocationHint": "Dónde será",
   "fieldNotesLabel": "Notas",
   "fieldNotesHint": "Detalles, comentarios…",
-
   "eventTypeLunch": "Comida",
   "eventTypeDinner": "Cena",
   "eventTypeOther": "Otro",
   "eventFormatSeated": "Sentados",
   "eventFormatBuffet": "Bufé",
   "eventFormatOther": "Otro",
-
   "guestsCount": "{count, plural, =1{1 invitado} other{{count} invitados}}",
   "@guestsCount": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "metadataSeparator": " · ",
   "ingredientNameWithUnit": "{name} ({unit})",
-
   "deleteEventConfirmTitle": "¿Eliminar el evento?",
   "deleteEventConfirmBody": "Este evento desaparecerá de tu lista.",
   "deleteEventConfirmButton": "Eliminar el evento",
   "cancelAction": "Cancelar",
-
   "menuSectionTitle": "Menú",
   "menuEmptyBody": "Este evento aún no tiene ningún plato.",
   "editAction": "Editar",
   "backAction": "Atrás",
   "moreActionsLabel": "Más acciones",
   "noDateLabel": "Sin fecha",
-
   "dishCategoryAperitif": "Aperitivos",
   "dishCategoryStarter": "Entrantes",
   "dishCategoryMain": "Platos principales",
   "dishCategoryDessert": "Postres",
   "dishCategoryDrink": "Bebidas",
   "dishCategoryOther": "Otros",
-
   "saveError": "No se ha podido guardar el evento.",
   "deleteEventError": "No se ha podido eliminar el evento.",
-
   "navEvents": "Eventos",
   "navDishes": "Platos",
   "navIngredients": "Ingredientes",
-
   "ingredientsScreenTitle": "Ingredientes",
   "ingredientsEmptyTitle": "Aún no tienes ningún ingrediente",
   "ingredientsEmptyBody": "Añade los que cocinas para poder crear platos con ellos.",
   "newIngredientAction": "Nuevo ingrediente",
   "ingredientsLoadError": "No se han podido cargar los ingredientes.",
-
   "ingredientNewScreenTitle": "Nuevo ingrediente",
   "ingredientEditScreenTitle": "Editar ingrediente",
   "ingredientNameLabel": "Nombre",
@@ -100,13 +91,11 @@
   "deleteIngredientConfirmBody": "Desaparecerá de tu catálogo. Los platos y eventos que ya lo usan conservan su copia.",
   "deleteIngredientConfirmButton": "Eliminar el ingrediente",
   "ingredientSaveError": "No se ha podido guardar el ingrediente.",
-
   "dishesScreenTitle": "Platos",
   "dishesEmptyTitle": "Aún no tienes ningún plato",
   "dishesEmptyBody": "Crea tu primer plato para empezar a montar menús.",
   "newDishAction": "Nuevo plato",
   "dishesLoadError": "No se han podido cargar los platos.",
-
   "dishNewScreenTitle": "Nuevo plato",
   "dishEditScreenTitle": "Editar plato",
   "dishNameLabel": "Nombre",
@@ -126,7 +115,6 @@
   "deleteDishConfirmBody": "Desaparecerá de tu catálogo. Los eventos que ya lo usan conservan su copia.",
   "deleteDishConfirmButton": "Eliminar el plato",
   "dishSaveError": "No se ha podido guardar el plato.",
-
   "lineEditorNewTitle": "Añadir ingrediente",
   "lineEditorEditTitle": "Editar ingrediente",
   "lineIngredientLabel": "Ingrediente",
@@ -142,7 +130,6 @@
   "removeLineAction": "Quitar del plato",
   "promoteLineToRecipeLabel": "Añadir esta línea también a la receta original",
   "promoteLineToRecipeHint": "Se añadirá al catálogo del plato. Para deshacerlo tendrás que editar el catálogo directamente.",
-
   "ingredientPickerTitle": "Elige un ingrediente",
   "ingredientPickerSearchHint": "Buscar…",
   "ingredientPickerEmpty": "Ningún ingrediente coincide.",
@@ -209,10 +196,8 @@
   "@supplierCategoryPickerTitle": {},
   "supplierCategoryNoneLabel": "Ninguna",
   "@supplierCategoryNoneLabel": {},
-
   "eventTabMenu": "Menú",
   "eventTabShopping": "Compra",
-
   "shoppingEmptyBody": "Este evento todavía no tiene nada que comprar. Añade platos al menú primero.",
   "pantryConsultiveHint": "Lo que ya necesitas tener en casa para el evento.",
   "shoppingUncategorisedLabel": "Sin categoría",
@@ -224,21 +209,36 @@
   "addExtraAction": "Añadir extra",
   "shoppingUnsentCount": "{count, plural, =1{1 ingrediente sin enviar} other{{count} ingredientes sin enviar}}",
   "@shoppingUnsentCount": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "shoppingAllSentLabel": "Todo enviado",
   "shoppingSentOrderTitle": "Enviada el {date}",
   "@shoppingSentOrderTitle": {
-    "placeholders": { "date": { "type": "String" } }
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
   },
   "shoppingSentOrderItemCount": "{count, plural, =1{1 ítem} other{{count} ítems}}",
   "@shoppingSentOrderItemCount": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
-
   "shoppingSummaryTotal": "{count, plural, =1{1 ingrediente} other{{count} ingredientes}}",
   "@shoppingSummaryTotal": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "shoppingStateToOrder": "Por pedir",
   "shoppingStateOrdered": "Pedido",
@@ -249,9 +249,12 @@
   "shoppingMarkAllReceivedAction": "Marcar todo como recibido",
   "shoppingStateChangeSubtitle": "Ahora: {state}",
   "@shoppingStateChangeSubtitle": {
-    "placeholders": { "state": { "type": "String" } }
+    "placeholders": {
+      "state": {
+        "type": "String"
+      }
+    }
   },
-
   "supplierMessageSendAction": "Enviar",
   "supplierMessageChangeDestination": "Cambiar el destinatario de este envío",
   "supplierMessageNothingToSendTitle": "Nada que enviar",
@@ -268,14 +271,17 @@
   "suppliersPantrySummary": "Cosas que ya tienes en casa",
   "supplierMessageNeededBy": "Para el día {date}",
   "@supplierMessageNeededBy": {
-    "placeholders": { "date": { "type": "String" } }
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
   },
   "supplierMessageConfirmSentTitle": "¿Has enviado el mensaje?",
   "supplierMessageConfirmSentBody": "Confirma que el mensaje se ha enviado correctamente al proveedor antes de marcar el pedido como enviado.",
   "supplierMessageConfirmSentYes": "Sí, enviado",
   "supplierMessageConfirmSentNo": "No",
   "messageItemConnector": "de",
-
   "channelWhatsApp": "WhatsApp",
   "channelEmail": "Correo electrónico",
   "channelShare": "Compartir",
@@ -296,7 +302,6 @@
   "supplierDefaultChannelTag": "Por defecto",
   "destinationOverrideTitle": "Destinatario de este envío",
   "applyAction": "Aplicar",
-
   "navSettings": "Configuración",
   "navCatalog": "Catálogo",
   "navDrinks": "Bebidas",
@@ -352,15 +357,12 @@
   "settingsChannelLabel": "Canal",
   "settingsLoadError": "No se ha podido cargar la configuración.",
   "settingsSaveError": "No se ha podido guardar la configuración. Comprueba la conexión.",
-
   "eventTabEvent": "Evento",
-
   "settingsTabGeneral": "General",
   "settingsTabSuppliers": "Proveedores",
   "settingsTabMessages": "Mensajes",
   "settingsAboutVersion": "Versión {version}",
   "settingsAboutDescription": "Organiza eventos domésticos: menús, platos, ingredientes y listas de compra por proveedor.",
-
   "settingsPrivacyTitle": "Privacidad y datos",
   "settingsAccountIdLabel": "Tu identificador de cuenta",
   "settingsAccountIdHelp": "Usa este identificador cuando solicites la eliminación de tus datos. Correo: rafael.pous@gmail.com",
@@ -368,7 +370,6 @@
   "settingsAccountIdUnavailable": "No disponible",
   "settingsCopyAction": "Copiar",
   "settingsAccountIdCopied": "Identificador copiado",
-
   "supplierCategoryAddAction": "Añadir categoría",
   "supplierCategoryAddTitle": "Nueva categoría",
   "supplierCategoryNameLabel": "Nombre",
@@ -381,7 +382,6 @@
   "deleteSupplierCategoryConfirmBody": "Los ingredientes asignados pasarán a «Sin categoría». No se puede deshacer.",
   "deleteSupplierCategoryConfirmButton": "Eliminar categoría",
   "deleteSupplierCategoryError": "No se ha podido eliminar la categoría. Puede que tenga pedidos enviados.",
-
   "supplierNameLabel": "Nombre",
   "supplierNameHint": "P. ej. Peixos Samba",
   "supplierUnnamed": "Proveedor sin nombre",
@@ -406,18 +406,15 @@
   "eventStatusReady": "Listo",
   "eventStatusPast": "Pasado",
   "eventStatusPastGroup": "Pasados",
-
   "duplicateEventAction": "Duplicar",
   "duplicateEventNameTemplate": "{name} - Copia",
   "duplicateEventConfirmTitle": "¿Quieres duplicar este evento?",
   "duplicateEventConfirmBody": "La copia tendrá el mismo menú pero sin fecha ni ingredientes pedidos.",
-
   "pickFromContactsAction": "Elegir de contactos",
   "contactPickPhoneTitle": "Este contacto tiene varios teléfonos. ¿Cuál quieres usar?",
   "contactPickEmailTitle": "Este contacto tiene varios correos electrónicos. ¿Cuál quieres usar?",
   "contactsPermissionDeniedBody": "Para usar esta opción, debes autorizar el acceso a los contactos en la configuración del teléfono.",
   "openSettingsAction": "Configuración",
-
   "photoLabel": "Foto",
   "eventPhotosLabel": "Fotos",
   "addPhotoAction": "Añadir foto",
@@ -437,7 +434,6 @@
   "okAction": "Aceptar",
   "settingsCreditsTitle": "Créditos",
   "settingsCreditsPexels": "Fotos proporcionadas por Pexels",
-
   "suggestionsTitle": "Sugerencias",
   "suggestionsEntrySubtitle": "Cuéntanos qué mejorarías",
   "suggestionsIntro": "¿Qué te gustaría que hiciera la app? ¿Qué falta o no acaba de funcionar? Escríbelo aquí y lo tendremos en cuenta.",
@@ -448,9 +444,12 @@
   "suggestionsSendError": "No se ha podido enviar la sugerencia.",
   "suggestionsSentCount": "{count, plural, =0{Aún no habéis enviado ninguna sugerencia} =1{1 sugerencia enviada} other{{count} sugerencias enviadas}}",
   "@suggestionsSentCount": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
-
   "dishAssistantCreateAction": "Crea un plato con IA",
   "dishAssistantTitle": "Crea un plato con IA",
   "dishAssistantHint": "Nombre o breve descripción",
@@ -477,27 +476,36 @@
   "photoLoadError": "No se ha podido cargar la foto.",
   "photoRollbackWarning": "No se han podido deshacer algunos cambios de las fotos. Revisa el editor.",
   "cameraPermissionDeniedBody": "Para hacer una foto, debes autorizar el acceso a la cámara en la configuración del teléfono.",
-
   "dishCountLabel": "{count, plural, =1{1 plato} other{{count} platos}}",
   "@dishCountLabel": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "ingredientCountLabel": "{count, plural, =1{1 ingrediente} other{{count} ingredientes}}",
   "@ingredientCountLabel": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "menuServingsPerPerson": "{ratio} raciones por persona",
   "@menuServingsPerPerson": {
-    "placeholders": { "ratio": { "type": "String" } }
+    "placeholders": {
+      "ratio": {
+        "type": "String"
+      }
+    }
   },
-
   "gettingStartedTitle": "Primeros pasos",
   "gettingStartedStep1": "En Ajustes, pon tu saludo y firma, y da nombre a los proveedores que vayas a usar.",
   "gettingStartedStep2": "En el Catálogo, añade ingredientes (con unidad y proveedor) y bebidas.",
   "gettingStartedStep3": "Crea platos: cocinados en casa (con ingredientes) o comprados hechos (de un proveedor).",
   "gettingStartedStep4": "Crea un evento y monta su menú con platos y bebidas.",
   "gettingStartedStep5": "En Compra, la app agrupa todo por proveedor y prepara los mensajes.",
-
   "helpCloseAction": "Entendido",
   "helpEventsBody": "Aquí ves todos los eventos, agrupados por estado: en preparación, listos y pasados. Toca uno para abrirlo, o crea uno nuevo con el botón de abajo.",
   "helpEventTabBody": "Los datos del evento: título, tipo, formato, fecha, invitados y fotos. El número de invitados escala las cantidades de los platos.",
@@ -518,5 +526,40 @@
   "denominationLitre": "{count, plural, =1{1 litro} other{{count} litros}}",
   "denominationLitreName": "litro",
   "drinkDenominationLabel": "Denominación",
-  "drinkQuantityLabel": "Cantidad"
+  "drinkQuantityLabel": "Cantidad",
+  "menuWizardCreateButton": "Crea un menú con IA",
+  "menuWizardCompleteButton": "Completa el menú con IA",
+  "menuWizardTitle": "Menú con IA",
+  "menuWizardRemainingLabel": "Te quedan {remaining} de {limit} este mes",
+  "menuWizardMealTypeQuestion": "¿Qué comida es?",
+  "menuWizardMealAperitif": "Aperitivo",
+  "menuWizardMealLunch": "Comida",
+  "menuWizardMealDinner": "Cena",
+  "menuWizardFormalityQuestion": "¿Qué tono quieres?",
+  "menuWizardFormalityInformal": "Informal",
+  "menuWizardFormalityFestive": "Festivo",
+  "menuWizardFormalityFormal": "Formal",
+  "menuWizardDietaryQuestion": "¿Alguna restricción alimentaria?",
+  "menuWizardDietaryVegetarian": "Vegetariano",
+  "menuWizardDietaryVegan": "Vegano",
+  "menuWizardDietaryGlutenFree": "Sin gluten",
+  "menuWizardFreeTextQuestion": "¿Algo más?",
+  "menuWizardFreeTextHint": "P. ej. de temporada, ingredientes a destacar, platos a evitar…",
+  "menuWizardGenerateAction": "Propón un menú",
+  "menuWizardGenerating": "Preparando la propuesta…",
+  "menuWizardAdding": "Añadiendo al menú…",
+  "menuWizardError": "No se ha podido generar la propuesta.",
+  "menuWizardAcceptError": "No se han podido añadir los platos.",
+  "menuWizardNoneSelected": "Selecciona al menos un elemento.",
+  "menuWizardReviewIntro": "Elige qué añadir al menú. Puedes desmarcar lo que no quieras.",
+  "menuWizardNewDishMarker": "nuevo",
+  "menuWizardCatalogMarker": "del catálogo",
+  "menuWizardDrinkLabel": "Bebida",
+  "menuWizardBackAction": "Atrás",
+  "menuWizardConfirmAction": "Añadir ({count})",
+  "menuWizardAddedSnack": "{count} elementos añadidos al menú.",
+  "menuWizardAddedPartialSnack": "{added} añadidos, {failed} con errores.",
+  "menuWizardEmptyProposal": "La IA no ha propuesto ningún elemento. Inténtalo de nuevo con otras respuestas.",
+  "menuWizardLimitReachedTitle": "Límite alcanzado",
+  "menuWizardLimitReachedBody": "Has usado los {limit} menús con IA gratuitos de este mes."
 }
