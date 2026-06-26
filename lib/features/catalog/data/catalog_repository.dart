@@ -1,5 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'catalog_naming.dart';
+import 'diet.dart';
 import 'dish.dart';
 import 'drink.dart';
 import 'ingredient.dart';
@@ -129,21 +131,104 @@ class CatalogRepository {
     };
   }
 
+  /// Spec 025 A.4 — the app-locale and English name maps for a catalog entity
+  /// type, used to localize the display name and supply the D2 English bridge.
+  /// One extra query per list (English is skipped when the locale already is en).
+  Future<({Map<String, String> local, Map<String, String> en})> _nameMaps(
+    String entityType,
+    String localeCode,
+  ) async {
+    final local = await _translationNames(entityType, localeCode);
+    final en = localeCode == 'en'
+        ? local
+        : await _translationNames(entityType, 'en');
+    return (local: local, en: en);
+  }
+
+  /// Spec 025 A.2/A.3 — fire the un-metered `translate-name` Edge Function so an
+  /// entity's name exists in all three locales. Best-effort: a failure never
+  /// blocks the save (the typed name is the original; a later backfill fills the
+  /// rest). The client cannot write `translations` directly (service-role only),
+  /// so this must go through the server.
+  Future<void> _ensureNameI18n(
+    String entityType,
+    String entityId,
+    String name,
+    String localeCode,
+  ) async {
+    try {
+      await _client.functions.invoke(
+        'translate-name',
+        body: {
+          'entity_type': entityType,
+          'entity_id': entityId,
+          'name': name.trim(),
+          'locale': localeCode,
+        },
+      );
+    } catch (_) {
+      // Best-effort i18n; the backfill (or a later edit) can fill the gap.
+    }
+  }
+
+  /// Spec 025 B.3 — derived dietary status per dish that HAS ingredients, from a
+  /// single grouped read of the group's `dish_ingredients` joined to the
+  /// ingredients' axes. Dishes with no ingredients are absent (the caller uses
+  /// their manual fields).
+  Future<Map<String, ({DietLevel diet, TriState gf})>> dishDietByDish(
+    String groupId,
+  ) async {
+    final rows = await _client
+        .from('dish_ingredients')
+        .select('dish_id, ingredients!inner(diet, gluten_free, group_id)')
+        .eq('ingredients.group_id', groupId);
+    final diets = <String, List<DietLevel>>{};
+    final gfs = <String, List<TriState>>{};
+    for (final r in rows as List) {
+      final row = r as Map<String, dynamic>;
+      final dishId = row['dish_id'] as String;
+      final ing = row['ingredients'] as Map<String, dynamic>?;
+      if (ing == null) continue;
+      (diets[dishId] ??= []).add(DietLevelWire.parse(ing['diet'] as String?));
+      (gfs[dishId] ??= []).add(TriStateWire.parse(ing['gluten_free'] as String?));
+    }
+    return {
+      for (final dishId in diets.keys)
+        dishId: (
+          diet: deriveDishDiet(diets[dishId]!),
+          gf: deriveDishGlutenFree(gfs[dishId]!),
+        ),
+    };
+  }
+
   // --- Ingredients -------------------------------------------------------
 
-  Future<List<Ingredient>> listIngredients(String groupId) async {
+  Future<List<Ingredient>> listIngredients(
+    String groupId,
+    String localeCode,
+  ) async {
     final rows = await _client
         .from('ingredients')
         .select(Ingredient.selectColumns)
         .eq('group_id', groupId)
         .filter('deleted_at', 'is', null)
         .order('name', ascending: true);
-    return (rows as List)
-        .map((r) => Ingredient.fromRow(r as Map<String, dynamic>))
-        .toList();
+    final names = await _nameMaps('ingredient', localeCode);
+    final list = (rows as List).map((r) {
+      final row = r as Map<String, dynamic>;
+      final id = row['id'] as String;
+      return Ingredient.fromRow(
+        row,
+        displayName: localizedName(names.local[id], row['name'] as String),
+        nameEn: names.en[id],
+      );
+    }).toList();
+    // Sort by the localized display name (the query ordered by the raw name).
+    list.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    return list;
   }
 
-  Future<Ingredient> fetchIngredient(String id) async {
+  Future<Ingredient> fetchIngredient(String id, String localeCode) async {
     final row = await _client
         .from('ingredients')
         .select(Ingredient.selectColumns)
@@ -153,29 +238,56 @@ class CatalogRepository {
     if (row == null) {
       throw StateError('Ingredient not found.');
     }
-    return Ingredient.fromRow(row);
+    final names = await _nameMaps('ingredient', localeCode);
+    return Ingredient.fromRow(
+      row,
+      displayName: localizedName(names.local[id], row['name'] as String),
+      nameEn: names.en[id],
+    );
   }
 
   Future<Ingredient> createIngredient(
     IngredientDraft draft, {
     required String groupId,
+    required String localeCode,
   }) async {
     final row = await _client
         .from('ingredients')
-        .insert({...draft.toRow(), 'group_id': groupId})
+        .insert({
+          ...draft.toRow(),
+          'group_id': groupId,
+          'original_locale': localeCode,
+        })
         .select(Ingredient.selectColumns)
         .single();
-    return Ingredient.fromRow(row);
+    final ingredient = Ingredient.fromRow(row);
+    await _ensureNameI18n('ingredient', ingredient.id, ingredient.name, localeCode);
+    return ingredient;
   }
 
-  Future<Ingredient> updateIngredient(String id, IngredientDraft draft) async {
+  Future<Ingredient> updateIngredient(
+    String id,
+    IngredientDraft draft, {
+    required String localeCode,
+    required bool nameChanged,
+  }) async {
     final row = await _client
         .from('ingredients')
-        .update(draft.toRow())
+        .update({
+          ...draft.toRow(),
+          // A name edit re-establishes the editing locale as the original and
+          // triggers a fresh translation (Spec 025 A.2). Dietary-only edits
+          // leave the i18n untouched (no wasted AI call).
+          if (nameChanged) 'original_locale': localeCode,
+        })
         .eq('id', id)
         .select(Ingredient.selectColumns)
         .single();
-    return Ingredient.fromRow(row);
+    final ingredient = Ingredient.fromRow(row);
+    if (nameChanged) {
+      await _ensureNameI18n('ingredient', id, ingredient.name, localeCode);
+    }
+    return ingredient;
   }
 
   /// Sets an ingredient's default supplier category (Spec 008 §2.5). The
@@ -195,6 +307,11 @@ class CatalogRepository {
 
   /// Soft delete — `ingredients` is marked 🗑 in the data model, and catalog
   /// rows are referenced from event snapshots, so the row is kept.
+  ///
+  /// NOTE (Spec 025, captured for a future cleanup — not fixed here): the
+  /// entity's `translations` name rows are polymorphic (no FK), so deleting an
+  /// ingredient/dish/drink leaves its translation rows ORPHANED. Minor garbage;
+  /// a future maintenance pass can sweep translations with no live entity.
   Future<void> deleteIngredient(String id) async {
     await _client
         .from('ingredients')
@@ -204,19 +321,28 @@ class CatalogRepository {
 
   // --- Dishes ------------------------------------------------------------
 
-  Future<List<Dish>> listDishes(String groupId) async {
+  Future<List<Dish>> listDishes(String groupId, String localeCode) async {
     final rows = await _client
         .from('dishes')
         .select(Dish.selectColumns)
         .eq('group_id', groupId)
         .filter('deleted_at', 'is', null)
         .order('name', ascending: true);
-    return (rows as List)
-        .map((r) => Dish.fromRow(r as Map<String, dynamic>))
-        .toList();
+    final names = await _nameMaps('dish', localeCode);
+    final list = (rows as List).map((r) {
+      final row = r as Map<String, dynamic>;
+      final id = row['id'] as String;
+      return Dish.fromRow(
+        row,
+        displayName: localizedName(names.local[id], row['name'] as String),
+        nameEn: names.en[id],
+      );
+    }).toList();
+    list.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    return list;
   }
 
-  Future<Dish> fetchDish(String id) async {
+  Future<Dish> fetchDish(String id, String localeCode) async {
     final row = await _client
         .from('dishes')
         .select(Dish.selectColumns)
@@ -226,7 +352,12 @@ class CatalogRepository {
     if (row == null) {
       throw StateError('Dish not found.');
     }
-    return Dish.fromRow(row);
+    final names = await _nameMaps('dish', localeCode);
+    return Dish.fromRow(
+      row,
+      displayName: localizedName(names.local[id], row['name'] as String),
+      nameEn: names.en[id],
+    );
   }
 
   /// Recipe lines of a dish, ordered by `sort_order`, with the current
@@ -242,22 +373,39 @@ class CatalogRepository {
         .toList();
   }
 
-  Future<Dish> createDish(DishDraft draft, {required String groupId}) async {
+  Future<Dish> createDish(
+    DishDraft draft, {
+    required String groupId,
+    required String localeCode,
+  }) async {
     final row = await _client
         .from('dishes')
-        .insert({...draft.toRow(), 'group_id': groupId})
+        .insert({
+          ...draft.toRow(),
+          'group_id': groupId,
+          'original_locale': localeCode,
+        })
         .select(Dish.selectColumns)
         .single();
     final dish = Dish.fromRow(row);
     // §2.1: only a cooked dish owns ingredient lines.
     if (!draft.isBought) await _replaceLines(dish.id, draft.lines);
+    await _ensureNameI18n('dish', dish.id, dish.name, localeCode);
     return dish;
   }
 
-  Future<Dish> updateDish(String id, DishDraft draft) async {
+  Future<Dish> updateDish(
+    String id,
+    DishDraft draft, {
+    required String localeCode,
+    required bool nameChanged,
+  }) async {
     final row = await _client
         .from('dishes')
-        .update(draft.toRow())
+        .update({
+          ...draft.toRow(),
+          if (nameChanged) 'original_locale': localeCode,
+        })
         .eq('id', id)
         .select(Dish.selectColumns)
         .single();
@@ -265,7 +413,9 @@ class CatalogRepository {
     // switching the toggle back to cooked restores them — no data loss. Only a
     // cooked dish replaces its lines from the editor.
     if (!draft.isBought) await _replaceLines(id, draft.lines);
-    return Dish.fromRow(row);
+    final dish = Dish.fromRow(row);
+    if (nameChanged) await _ensureNameI18n('dish', id, dish.name, localeCode);
+    return dish;
   }
 
   /// Soft delete the dish. Its `dish_ingredients` are left in place — they
@@ -328,19 +478,28 @@ class CatalogRepository {
   // A drink is the bought-item shape without ingredients, so its CRUD mirrors
   // dishes minus the recipe lines.
 
-  Future<List<Drink>> listDrinks(String groupId) async {
+  Future<List<Drink>> listDrinks(String groupId, String localeCode) async {
     final rows = await _client
         .from('drinks')
         .select(Drink.selectColumns)
         .eq('group_id', groupId)
         .filter('deleted_at', 'is', null)
         .order('name', ascending: true);
-    return (rows as List)
-        .map((r) => Drink.fromRow(r as Map<String, dynamic>))
-        .toList();
+    final names = await _nameMaps('drink', localeCode);
+    final list = (rows as List).map((r) {
+      final row = r as Map<String, dynamic>;
+      final id = row['id'] as String;
+      return Drink.fromRow(
+        row,
+        displayName: localizedName(names.local[id], row['name'] as String),
+        nameEn: names.en[id],
+      );
+    }).toList();
+    list.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    return list;
   }
 
-  Future<Drink> fetchDrink(String id) async {
+  Future<Drink> fetchDrink(String id, String localeCode) async {
     final row = await _client
         .from('drinks')
         .select(Drink.selectColumns)
@@ -350,26 +509,51 @@ class CatalogRepository {
     if (row == null) {
       throw StateError('Drink not found.');
     }
-    return Drink.fromRow(row);
+    final names = await _nameMaps('drink', localeCode);
+    return Drink.fromRow(
+      row,
+      displayName: localizedName(names.local[id], row['name'] as String),
+      nameEn: names.en[id],
+    );
   }
 
-  Future<Drink> createDrink(DrinkDraft draft, {required String groupId}) async {
+  Future<Drink> createDrink(
+    DrinkDraft draft, {
+    required String groupId,
+    required String localeCode,
+  }) async {
     final row = await _client
         .from('drinks')
-        .insert({...draft.toRow(), 'group_id': groupId})
+        .insert({
+          ...draft.toRow(),
+          'group_id': groupId,
+          'original_locale': localeCode,
+        })
         .select(Drink.selectColumns)
         .single();
-    return Drink.fromRow(row);
+    final drink = Drink.fromRow(row);
+    await _ensureNameI18n('drink', drink.id, drink.name, localeCode);
+    return drink;
   }
 
-  Future<Drink> updateDrink(String id, DrinkDraft draft) async {
+  Future<Drink> updateDrink(
+    String id,
+    DrinkDraft draft, {
+    required String localeCode,
+    required bool nameChanged,
+  }) async {
     final row = await _client
         .from('drinks')
-        .update(draft.toRow())
+        .update({
+          ...draft.toRow(),
+          if (nameChanged) 'original_locale': localeCode,
+        })
         .eq('id', id)
         .select(Drink.selectColumns)
         .single();
-    return Drink.fromRow(row);
+    final drink = Drink.fromRow(row);
+    if (nameChanged) await _ensureNameI18n('drink', id, drink.name, localeCode);
+    return drink;
   }
 
   Future<void> deleteDrink(String id) async {

@@ -8,6 +8,10 @@ import '../../../theme/app_typography.dart';
 import '../../../ui/create_new_tile.dart';
 import '../../catalog/data/catalog_providers.dart';
 import '../../catalog/data/drink.dart';
+import '../../photos/data/media.dart';
+import '../../photos/data/media_providers.dart';
+import '../../photos/data/photo_storage.dart';
+import '../../photos/widgets/photo_image.dart';
 import '../../shopping/data/shopping_providers.dart' show eventShoppingProvider;
 import '../data/events_providers.dart';
 
@@ -44,15 +48,23 @@ class _AddDrinkToMenuScreenState extends ConsumerState<AddDrinkToMenuScreen> {
     final messenger = ScaffoldMessenger.of(context);
     setState(() => _busy = true);
     try {
-      await ref
-          .read(eventsRepositoryProvider)
-          .addDrinkToEvent(eventId: widget.eventId, drinkId: drink.id);
+      final repo = ref.read(eventsRepositoryProvider);
+      final eventDrinkId = await repo.addDrinkToEvent(
+        eventId: widget.eventId,
+        drinkId: drink.id,
+      );
+      final eventDrink = await repo.fetchEventDrink(eventDrinkId);
       ref.invalidate(eventDrinksProvider(widget.eventId));
       ref.invalidate(eventShoppingProvider(widget.eventId));
       ref.invalidate(eventReadinessProvider);
       ref.invalidate(eventsListProvider);
       if (!mounted) return;
-      context.pop();
+      // Spec 025 D3: land on the per-event quantity editor (parity with dishes),
+      // replacing this picker so saving the quantity returns to the menu.
+      context.pushReplacement(
+        '/events/${widget.eventId}/drinks/$eventDrinkId/edit',
+        extra: eventDrink,
+      );
     } catch (_) {
       if (!mounted) return;
       setState(() => _busy = false);
@@ -64,6 +76,10 @@ class _AddDrinkToMenuScreenState extends ConsumerState<AddDrinkToMenuScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final drinksAsync = ref.watch(drinksListProvider);
+    // Spec 025: show the catalog drink cover thumbnails in the picker too.
+    final coverPaths =
+        ref.watch(entityCoverPathsProvider(MediaEntityType.drink)).value ??
+        const <String, String>{};
     final inMenuAsync = ref.watch(eventDrinksProvider(widget.eventId));
     final inMenu = {
       for (final d in inMenuAsync.value ?? const []) d.sourceDrinkId,
@@ -76,8 +92,10 @@ class _AddDrinkToMenuScreenState extends ConsumerState<AddDrinkToMenuScreen> {
       ),
       body: SafeArea(
         top: false,
-        child: Column(
+        child: Stack(
           children: [
+            Column(
+              children: [
             // Spec 018 §3: inline "create new" entry, pinned at the top so it
             // is reachable even when there are no drinks yet or the list is
             // still loading.
@@ -127,6 +145,7 @@ class _AddDrinkToMenuScreenState extends ConsumerState<AddDrinkToMenuScreen> {
                   _DrinkPickRow(
                     drink: drink,
                     alreadyInMenu: inMenu.contains(drink.id),
+                    coverPath: coverPaths[drink.id],
                     onTap: () => _add(drink),
                   ),
                   const SizedBox(height: 8),
@@ -137,8 +156,22 @@ class _AddDrinkToMenuScreenState extends ConsumerState<AddDrinkToMenuScreen> {
                 ),
               ),
             ],
-          ),
+            ),
+            // Spec 025 polish: an opaque overlay while adding hides the list so
+            // the transition goes straight to the quantity editor (no flash of
+            // the list, especially after the create-new editor pops).
+            if (_busy)
+              const Positioned.fill(
+                child: ColoredBox(
+                  color: AppColors.bg,
+                  child: Center(
+                    child: CircularProgressIndicator(color: AppColors.accent),
+                  ),
+                ),
+              ),
+          ],
         ),
+      ),
     );
   }
 }
@@ -147,11 +180,13 @@ class _DrinkPickRow extends StatelessWidget {
   const _DrinkPickRow({
     required this.drink,
     required this.alreadyInMenu,
+    required this.coverPath,
     required this.onTap,
   });
 
   final Drink drink;
   final bool alreadyInMenu;
+  final String? coverPath;
   final VoidCallback onTap;
 
   @override
@@ -171,6 +206,13 @@ class _DrinkPickRow extends StatelessWidget {
           ),
           child: Row(
             children: [
+              // Spec 025: cover thumbnail when the drink has a photo.
+              if (coverPath != null) ...[
+                RowPhotoThumb(
+                  photoRef: (bucket: PhotoStorage.drinkBucket, path: coverPath!),
+                ),
+                const SizedBox(width: 12),
+              ],
               Expanded(
                 child: Text(
                   drink.name,

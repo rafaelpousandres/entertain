@@ -5,6 +5,8 @@
 /// of scope (Specification 004 §4) and intentionally absent.
 library;
 
+import 'diet.dart';
+
 class Ingredient {
   const Ingredient({
     required this.id,
@@ -13,14 +15,28 @@ class Ingredient {
     required this.defaultUnitId,
     this.defaultSupplierCategoryId,
     this.prepDescription,
+    this.diet = DietLevel.unknown,
+    this.glutenFree = TriState.unknown,
+    this.nameEn,
   });
 
   final String id;
   final String groupId;
+
+  /// Display name resolved to the app locale by the repository (Spec 025 A.4),
+  /// falling back to the stored original-locale name.
   final String name;
   final String defaultUnitId;
   final String? defaultSupplierCategoryId;
   final String? prepDescription;
+
+  /// Spec 025 Part B — dietary axes, user-marked, default unknown.
+  final DietLevel diet;
+  final TriState glutenFree;
+
+  /// English name (Spec 025 D2 — the photo-search English bridge). Attached by
+  /// the repository from the `en` translations; null when not yet filled.
+  final String? nameEn;
 
   // Spec 010 §2.4: the ingredient's photos now live in the polymorphic `media`
   // table, not a `photo_path` column — the cover is read via
@@ -28,20 +44,27 @@ class Ingredient {
   // PhotoCarouselSection. The old `photo_path` column was dropped in Wave 2
   // (Spec 011 §2.2), so it is absent here.
 
-  factory Ingredient.fromRow(Map<String, dynamic> row) {
+  factory Ingredient.fromRow(
+    Map<String, dynamic> row, {
+    String? displayName,
+    String? nameEn,
+  }) {
     return Ingredient(
       id: row['id'] as String,
       groupId: row['group_id'] as String,
-      name: row['name'] as String,
+      name: displayName ?? row['name'] as String,
       defaultUnitId: row['default_unit_id'] as String,
       defaultSupplierCategoryId: row['default_supplier_category_id'] as String?,
       prepDescription: row['prep_description'] as String?,
+      diet: DietLevelWire.parse(row['diet'] as String?),
+      glutenFree: TriStateWire.parse(row['gluten_free'] as String?),
+      nameEn: nameEn,
     );
   }
 
   static const String selectColumns =
       'id, group_id, name, default_unit_id, '
-      'default_supplier_category_id, prep_description';
+      'default_supplier_category_id, prep_description, diet, gluten_free';
 }
 
 /// Mutable editor view of an ingredient. Converted to a row payload at save
@@ -52,6 +75,8 @@ class IngredientDraft {
     this.defaultUnitId,
     this.defaultSupplierCategoryId,
     this.prepDescription,
+    this.diet = DietLevel.unknown,
+    this.glutenFree = TriState.unknown,
   });
 
   factory IngredientDraft.empty() => IngredientDraft(name: '');
@@ -62,12 +87,16 @@ class IngredientDraft {
         defaultUnitId: ingredient.defaultUnitId,
         defaultSupplierCategoryId: ingredient.defaultSupplierCategoryId,
         prepDescription: ingredient.prepDescription,
+        diet: ingredient.diet,
+        glutenFree: ingredient.glutenFree,
       );
 
   String name;
   String? defaultUnitId;
   String? defaultSupplierCategoryId;
   String? prepDescription;
+  DietLevel diet;
+  TriState glutenFree;
 
   Map<String, dynamic> toRow() {
     return {
@@ -75,6 +104,8 @@ class IngredientDraft {
       'default_unit_id': defaultUnitId,
       'default_supplier_category_id': defaultSupplierCategoryId,
       'prep_description': _nullIfBlank(prepDescription),
+      'diet': diet.wire,
+      'gluten_free': glutenFree.wire,
     };
   }
 }

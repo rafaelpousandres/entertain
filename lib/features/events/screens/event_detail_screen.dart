@@ -29,7 +29,6 @@ import '../../shopping/data/shopping_providers.dart' show eventShoppingProvider;
 import '../data/event_dish.dart';
 import '../data/event_drink.dart';
 import '../data/event_draft.dart';
-import '../data/menu_add_target.dart';
 import '../data/menu_totals.dart';
 import '../data/event_tab_store.dart';
 import '../data/event_status.dart';
@@ -79,7 +78,12 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
   // Spec 017 §A.1: which Menu section is open, lifted here so the single bottom
   // "add" button can follow it (drinks open → beguda; else → plat). The menu
   // accordion (one section open at a time) reports its state into this.
-  final ValueNotifier<bool> _menuDrinksOpen = ValueNotifier(false);
+  // Spec 025 A1 (refined): the Menú add button is contextual — it reflects the
+  // open accordion section (a dish category → "Afegeix plat", Begudes →
+  // "Afegeix beguda"), and falls back to the Plat/Beguda chooser when nothing is
+  // open. The accordion reports its open section here.
+  final ValueNotifier<_MenuAddContext> _menuAddContext =
+      ValueNotifier(_MenuAddContext.none);
   late EventDraft _draft;
   bool _seeded = false;
   bool _saving = false;
@@ -127,7 +131,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
     _titleController.dispose();
     _locationController.dispose();
     _notesController.dispose();
-    _menuDrinksOpen.dispose();
+    _menuAddContext.dispose();
     super.dispose();
   }
 
@@ -501,7 +505,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
                 controller: tab,
                 children: [
                   _buildEventTab(event, locale),
-                  _MenuView(event: event, drinksOpen: _menuDrinksOpen),
+                  _MenuView(event: event, addContext: _menuAddContext),
                   EventGuestsView(event: event),
                   EventShoppingPanel(eventId: event.id),
                 ],
@@ -521,26 +525,33 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
   }
 
   Widget? _buildBottomBar(Event event, AppLocalizations l10n) {
-    // §2.3: the Esdeveniment save lives in the AppBar; Compra has none (the panel
-    // owns its per-section actions). Spec 017 §A.1: the Menú action is contextual
-    // to the open accordion section — drinks open → "Afegeix beguda", otherwise
-    // "Afegeix plat" — so there is one add affordance, not two.
+    // §2.3: the Esdeveniment save lives in the AppBar; Compra has none. Spec 025
+    // A1 (refined): the Menú add button is CONTEXTUAL — a dish category open →
+    // "Afegeix plat" (direct), Begudes open → "Afegeix beguda" (direct), nothing
+    // open → "Afegeix" opening the Plat/Beguda chooser. This saves a tap when the
+    // intent is clear while never losing access to either (the original bug).
     if (_tab!.index == 1) {
-      return ValueListenableBuilder<bool>(
-        valueListenable: _menuDrinksOpen,
-        builder: (context, drinksOpen, _) {
-          final target = menuAddTargetFor(drinksSectionOpen: drinksOpen);
-          final isDrink = target == MenuAddTarget.drink;
+      return ValueListenableBuilder<_MenuAddContext>(
+        valueListenable: _menuAddContext,
+        builder: (context, ctx, _) {
           return _ActionBar(
-            child: PrimaryButton(
-              label: isDrink
-                  ? l10n.addDrinkToMenuAction
-                  : l10n.addDishToMenuAction,
-              icon: Icons.add,
-              onPressed: () => context.push(
-                '/events/${event.id}/${isDrink ? 'add-drink' : 'add-dish'}',
+            child: switch (ctx) {
+              _MenuAddContext.dish => PrimaryButton(
+                label: l10n.addDishToMenuAction,
+                icon: Icons.add,
+                onPressed: () => context.push('/events/${event.id}/add-dish'),
               ),
-            ),
+              _MenuAddContext.drink => PrimaryButton(
+                label: l10n.addDrinkToMenuAction,
+                icon: Icons.add,
+                onPressed: () => context.push('/events/${event.id}/add-drink'),
+              ),
+              _MenuAddContext.none => PrimaryButton(
+                label: l10n.addToMenuAction,
+                icon: Icons.add,
+                onPressed: () => _showAddToMenuChooser(event),
+              ),
+            },
           );
         },
       );
@@ -556,6 +567,54 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
       );
     }
     return null;
+  }
+
+  /// Spec 025 A1: pick what to add to the menu — a dish or a drink — from a
+  /// single always-present action, then route to the matching add flow.
+  Future<void> _showAddToMenuChooser(Event event) async {
+    final l10n = AppLocalizations.of(context);
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+              child: Text(
+                l10n.addToMenuTitle,
+                style: AppTypography.sectionTitle,
+              ),
+            ),
+            ListTile(
+              leading: const Icon(
+                Icons.restaurant_outlined,
+                color: AppColors.accentSecondary,
+              ),
+              title: Text(l10n.addDishToMenuAction, style: AppTypography.body),
+              onTap: () => Navigator.of(sheetContext).pop('dish'),
+            ),
+            ListTile(
+              leading: const Icon(
+                Icons.local_bar_outlined,
+                color: AppColors.accentSecondary,
+              ),
+              title: Text(l10n.addDrinkToMenuAction, style: AppTypography.body),
+              onTap: () => Navigator.of(sheetContext).pop('drink'),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (!mounted || choice == null) return;
+    final path = choice == 'drink' ? 'add-drink' : 'add-dish';
+    context.push('/events/${event.id}/$path');
   }
 
   Widget _buildEventTab(Event event, Locale locale) {
@@ -793,13 +852,16 @@ class _ActionBar extends StatelessWidget {
   }
 }
 
+/// Which add action the Menú tab offers, by the open accordion section.
+enum _MenuAddContext { none, dish, drink }
+
 class _MenuView extends ConsumerWidget {
-  const _MenuView({required this.event, required this.drinksOpen});
+  const _MenuView({required this.event, required this.addContext});
 
   final Event event;
 
   /// §A.1: reports which Menu section is open up to the screen's bottom action.
-  final ValueNotifier<bool> drinksOpen;
+  final ValueNotifier<_MenuAddContext> addContext;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -815,6 +877,11 @@ class _MenuView extends ConsumerWidget {
     // loads and rows render without them in the meantime.
     final catalogPhotos =
         ref.watch(entityCoverPathsProvider(MediaEntityType.dish)).value ??
+        const <String, String>{};
+    // Same pattern for drink rows — the cover of the catalog drink the menu
+    // drink came from (source_drink_id). Mirrors dishes and D1's ingredients.
+    final drinkPhotos =
+        ref.watch(entityCoverPathsProvider(MediaEntityType.drink)).value ??
         const <String, String>{};
 
     final loading = dishesAsync.isLoading || drinksAsync.isLoading;
@@ -883,7 +950,8 @@ class _MenuView extends ConsumerWidget {
             eventId: event.id,
             guestCount: event.guestCount,
             catalogPhotos: catalogPhotos,
-            drinksOpen: drinksOpen,
+            drinkPhotos: drinkPhotos,
+            addContext: addContext,
           ),
       ],
     );
@@ -920,7 +988,8 @@ class _MenuByCategory extends ConsumerStatefulWidget {
     required this.eventId,
     required this.guestCount,
     required this.catalogPhotos,
-    required this.drinksOpen,
+    required this.drinkPhotos,
+    required this.addContext,
   });
 
   final List<EventDish> dishes;
@@ -935,9 +1004,13 @@ class _MenuByCategory extends ConsumerStatefulWidget {
   /// §2: catalog dish id → photo_path (null when none), for the menu thumbnails.
   final Map<String, String?> catalogPhotos;
 
-  /// §A.1: set to true while the Begudes section is the open one, so the
-  /// screen's bottom add button switches to "Afegeix beguda".
-  final ValueNotifier<bool> drinksOpen;
+  /// Catalog drink id → cover photo path (null when none), for the drink rows.
+  final Map<String, String?> drinkPhotos;
+
+  /// §A.1 (Spec 025): reports the open accordion section so the screen's bottom
+  /// add button becomes contextual (dish → "Afegeix plat", drink → "Afegeix
+  /// beguda", none → the "Afegeix" chooser).
+  final ValueNotifier<_MenuAddContext> addContext;
 
   @override
   ConsumerState<_MenuByCategory> createState() => _MenuByCategoryState();
@@ -955,7 +1028,7 @@ class _MenuByCategoryState extends ConsumerState<_MenuByCategory> {
       _open = _open == category ? null : category;
       _drinksOpen = false;
     });
-    widget.drinksOpen.value = _drinksOpen;
+    _reportContext();
   }
 
   void _toggleDrinks() {
@@ -963,7 +1036,14 @@ class _MenuByCategoryState extends ConsumerState<_MenuByCategory> {
       _drinksOpen = !_drinksOpen;
       _open = null;
     });
-    widget.drinksOpen.value = _drinksOpen;
+    _reportContext();
+  }
+
+  /// Reports the open section so the screen's bottom add button is contextual.
+  void _reportContext() {
+    widget.addContext.value = _drinksOpen
+        ? _MenuAddContext.drink
+        : (_open != null ? _MenuAddContext.dish : _MenuAddContext.none);
   }
 
   Future<void> _removeDrink(EventDrink drink) async {
@@ -1074,6 +1154,9 @@ class _MenuByCategoryState extends ConsumerState<_MenuByCategory> {
                   // screen, not an on-the-fly bottom sheet.
                   child: _DrinkRow(
                     drink: drink,
+                    coverPath: drink.sourceDrinkId == null
+                        ? null
+                        : widget.drinkPhotos[drink.sourceDrinkId],
                     onTap: () => context.push(
                       '/events/${widget.eventId}/drinks/${drink.id}/edit',
                       extra: drink,
@@ -1105,11 +1188,15 @@ class _MenuByCategoryState extends ConsumerState<_MenuByCategory> {
 class _DrinkRow extends StatelessWidget {
   const _DrinkRow({
     required this.drink,
+    required this.coverPath,
     required this.onTap,
     required this.onRemove,
   });
 
   final EventDrink drink;
+
+  /// Cover photo of the catalog drink this menu drink came from (null = none).
+  final String? coverPath;
   final VoidCallback onTap;
   final VoidCallback onRemove;
 
@@ -1130,6 +1217,17 @@ class _DrinkRow extends StatelessWidget {
           ),
           child: Row(
             children: [
+              // Spec 014/D1-pattern: drink thumbnail when the catalog drink has
+              // a cover; rows without one stay unchanged.
+              if (coverPath != null) ...[
+                RowPhotoThumb(
+                  photoRef: (
+                    bucket: PhotoStorage.drinkBucket,
+                    path: coverPath!,
+                  ),
+                ),
+                const SizedBox(width: 12),
+              ],
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

@@ -6,10 +6,12 @@ import '../../../theme/app_colors.dart';
 import '../../../theme/app_typography.dart';
 import '../../../ui/app_form_field.dart';
 import '../../../ui/primary_button.dart';
+import '../../../ui/segmented_choice.dart';
 import '../../../ui/single_choice_sheet.dart';
 import '../../../util/search_text.dart';
 import '../../events/data/events_providers.dart' show currentGroupIdProvider;
 import '../data/catalog_providers.dart';
+import '../data/diet.dart';
 import '../data/ingredient.dart';
 import '../data/reference_data.dart';
 import 'unit_ordering.dart';
@@ -302,6 +304,10 @@ class _QuickCreateSheetState extends State<_QuickCreateSheet> {
   late final TextEditingController _nameController;
   String? _unitId;
   String? _categoryId;
+  // Spec 025: dietary classification, settable when creating an ingredient from
+  // a dish (parity with the full catalog editor). Default unknown.
+  DietLevel _diet = DietLevel.unknown;
+  TriState _glutenFree = TriState.unknown;
   bool _saving = false;
   bool _submitted = false;
 
@@ -375,6 +381,7 @@ class _QuickCreateSheetState extends State<_QuickCreateSheet> {
     final name = _nameController.text.trim();
     if (name.isEmpty || _unitId == null) return;
 
+    final localeCode = Localizations.localeOf(context).languageCode;
     setState(() => _saving = true);
     try {
       final groupId = await widget.ref.read(currentGroupIdProvider.future);
@@ -387,8 +394,12 @@ class _QuickCreateSheetState extends State<_QuickCreateSheet> {
               // §2.2: persist the chosen supplier category at creation time so
               // the ingredient lands in the right shopping group from the start.
               defaultSupplierCategoryId: _categoryId,
+              // Spec 025: carry the dietary classification chosen here.
+              diet: _diet,
+              glutenFree: _glutenFree,
             ),
             groupId: groupId,
+            localeCode: localeCode,
           );
       widget.ref.invalidate(ingredientsListProvider);
       navigator.pop(created);
@@ -413,79 +424,107 @@ class _QuickCreateSheetState extends State<_QuickCreateSheet> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const _SheetHandle(),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
-              child: Text(
-                l10n.quickCreateTitle,
-                style: AppTypography.sectionTitle,
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-              child: FieldLabel(
-                label: l10n.ingredientNameLabel,
-                child: AppTextField(
-                  controller: _nameController,
-                  hintText: l10n.ingredientNameHint,
-                  autofocus:
-                      widget.initialName == null || widget.initialName!.isEmpty,
-                  onChanged: (_) => setState(() {}),
+            // Scrollable so the added dietary controls never overflow when the
+            // keyboard is up (Spec 025).
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(0, 4, 0, 12),
+                      child: Text(
+                        l10n.quickCreateTitle,
+                        style: AppTypography.sectionTitle,
+                      ),
+                    ),
+                    FieldLabel(
+                      label: l10n.ingredientNameLabel,
+                      child: AppTextField(
+                        controller: _nameController,
+                        hintText: l10n.ingredientNameHint,
+                        autofocus: widget.initialName == null ||
+                            widget.initialName!.isEmpty,
+                        onChanged: (_) => setState(() {}),
+                      ),
+                    ),
+                    if (_submitted && nameEmpty)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 6),
+                        child: _InlineError(),
+                      ),
+                    const SizedBox(height: 16),
+                    FieldLabel(
+                      label: l10n.ingredientUnitLabel,
+                      child: FormFieldTile(
+                        onTap: _pickUnit,
+                        placeholder: l10n.ingredientUnitHint,
+                        value: _selectedUnit?.name,
+                      ),
+                    ),
+                    if (_submitted && _unitId == null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Text(
+                          l10n.ingredientUnitRequired,
+                          style: AppTypography.caption.copyWith(
+                            color: AppColors.danger,
+                          ),
+                        ),
+                      ),
+                    const SizedBox(height: 16),
+                    // §2.2: supplier category — the third structural attribute,
+                    // defaulting to "no category". §2.11.b: pre-fixed read-only
+                    // in the extras flow.
+                    FieldLabel(
+                      label: l10n.ingredientSupplierLabel,
+                      child: FormFieldTile(
+                        onTap: _categoryLocked ? () {} : _pickCategory,
+                        placeholder: l10n.ingredientSupplierHint,
+                        value: _selectedCategory?.name,
+                        onClear: (_categoryLocked || _categoryId == null)
+                            ? null
+                            : () => setState(() => _categoryId = null),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    // Spec 025: dietary classification (parity with the catalog
+                    // ingredient editor), so an ingredient created from a dish
+                    // can be classified here too. Default unknown.
+                    Text(l10n.dietLabel, style: AppTypography.caption),
+                    const SizedBox(height: 6),
+                    SegmentedChoice<DietLevel>(
+                      value: _diet,
+                      onChanged: (v) => setState(() => _diet = v),
+                      options: [
+                        for (final d in dietLevelOrder)
+                          SegmentedChoiceOption(d, dietLevelLabel(l10n, d)),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    Text(l10n.glutenAxisLabel, style: AppTypography.caption),
+                    const SizedBox(height: 6),
+                    SegmentedChoice<TriState>(
+                      value: _glutenFree,
+                      onChanged: (v) => setState(() => _glutenFree = v),
+                      options: [
+                        for (final g in triStateOrder)
+                          SegmentedChoiceOption(g, glutenFreeLabel(l10n, g)),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: PrimaryButton(
+                        label: l10n.createAction,
+                        icon: Icons.check,
+                        onPressed: _saving ? null : _create,
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ),
-            if (_submitted && nameEmpty)
-              const Padding(
-                padding: EdgeInsets.fromLTRB(20, 6, 20, 0),
-                child: _InlineError(),
-              ),
-            const SizedBox(height: 16),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-              child: FieldLabel(
-                label: l10n.ingredientUnitLabel,
-                child: FormFieldTile(
-                  onTap: _pickUnit,
-                  placeholder: l10n.ingredientUnitHint,
-                  value: _selectedUnit?.name,
-                ),
-              ),
-            ),
-            if (_submitted && _unitId == null)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 6, 20, 0),
-                child: Text(
-                  l10n.ingredientUnitRequired,
-                  style: AppTypography.caption.copyWith(
-                    color: AppColors.danger,
-                  ),
-                ),
-              ),
-            const SizedBox(height: 16),
-            // §2.2: supplier category is the third structural attribute, so it
-            // sits here below the unit — defaulting to "no category". §2.11.b:
-            // in the extras flow it is pre-fixed to the section's supplier and
-            // shown read-only (no picker, no clear).
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-              child: FieldLabel(
-                label: l10n.ingredientSupplierLabel,
-                child: FormFieldTile(
-                  onTap: _categoryLocked ? () {} : _pickCategory,
-                  placeholder: l10n.ingredientSupplierHint,
-                  value: _selectedCategory?.name,
-                  onClear: (_categoryLocked || _categoryId == null)
-                      ? null
-                      : () => setState(() => _categoryId = null),
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-              child: PrimaryButton(
-                label: l10n.createAction,
-                icon: Icons.check,
-                onPressed: _saving ? null : _create,
               ),
             ),
           ],

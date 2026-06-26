@@ -13,6 +13,10 @@ import '../../catalog/data/dish.dart'
     show formatQuantity, quantityDecimalSeparator;
 import '../../catalog/data/dish_category.dart';
 import '../../catalog/data/reference_data.dart';
+import '../../photos/data/media.dart';
+import '../../photos/data/media_providers.dart';
+import '../../photos/data/photo_storage.dart';
+import '../../photos/widgets/photo_image.dart';
 import '../../shopping/data/shopping_providers.dart';
 import '../data/event_dish_line.dart';
 import '../data/events_providers.dart';
@@ -96,6 +100,11 @@ class EventDishDetailScreen extends ConsumerWidget {
     final linesAsync = ref.watch(eventDishLinesProvider(eventDishId));
     final units = ref.watch(unitsProvider(localeCode)).value;
     final categories = ref.watch(supplierCategoriesProvider(localeCode)).value;
+    // Spec 025 D1: ingredient cover photos, so the menu's ingredient rows show a
+    // thumbnail like the catalog and dish rows do.
+    final ingredientCovers =
+        ref.watch(entityCoverPathsProvider(MediaEntityType.ingredient)).value ??
+        const <String, String>{};
 
     // §2.1: the dish's description and preparation are not snapshotted onto the
     // event copy — they are read live from the catalog dish via source_dish_id,
@@ -245,6 +254,9 @@ class EventDishDetailScreen extends ConsumerWidget {
                                   child: _LineRow(
                                     line: line,
                                     servings: dish.servings,
+                                    coverPath: line.ingredientId == null
+                                        ? null
+                                        : ingredientCovers[line.ingredientId],
                                     unit: unitsById[line.unitId],
                                     supplierCategory:
                                         line.supplierCategoryId == null
@@ -310,6 +322,7 @@ class _LineRow extends StatelessWidget {
   const _LineRow({
     required this.line,
     required this.servings,
+    required this.coverPath,
     required this.unit,
     required this.supplierCategory,
     required this.onTap,
@@ -317,6 +330,9 @@ class _LineRow extends StatelessWidget {
 
   final EventDishLine line;
   final int servings;
+
+  /// Cover photo of the line's ingredient (Spec 025 D1), or null when none.
+  final String? coverPath;
   final Unit? unit;
   final SupplierCategory? supplierCategory;
   final VoidCallback onTap;
@@ -359,6 +375,16 @@ class _LineRow extends StatelessWidget {
           ),
           child: Row(
             children: [
+              // Spec 025 D1: ingredient thumbnail when the ingredient has a cover.
+              if (coverPath != null) ...[
+                RowPhotoThumb(
+                  photoRef: (
+                    bucket: PhotoStorage.ingredientBucket,
+                    path: coverPath!,
+                  ),
+                ),
+                const SizedBox(width: 12),
+              ],
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

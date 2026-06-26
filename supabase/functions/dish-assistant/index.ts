@@ -184,6 +184,7 @@ Rules:
   - Cooking actions you perform while cooking — "a rodanxes", "en juliana", "picat", "sofregit", "saltejat", "ratllat al moment", "per a la picada" — are recipe steps: put them in "preparation", NEVER in prep_note (the ingredient is bought whole and cut/cooked by the cook). Examples of the MISTAKE to avoid: ingredient "Ceba" with prep_note "en juliana" (wrong: "en juliana" is a cooking step → preparation); ingredient "Plàtan" with prep_note "a rodanxes" (wrong → preparation).
   - If no genuine supplier instruction applies, leave prep_note null.
 - name = the BASE ingredient only, with NO preparation attached. A preparation word must never leak into the name. Example: "Formatge Gruyère ratllat" is wrong → name "Formatge Gruyère" and prep_note "ratllat".
+- For a NEW ingredient, PROPOSE its dietary attributes (the user can override): "diet" is one of unknown|none|vegetarian|vegan on a single ORDERED axis — "none" = contains meat/fish (not vegetarian), "vegetarian" = vegetarian but not vegan (dairy/egg/honey), "vegan" = vegan; use "unknown" only if you genuinely can't tell. "gluten_free" is unknown|yes|no — "no" = contains gluten (wheat/barley/rye/spelt), "yes" = naturally gluten-free, "unknown" if unsure. Examples: pernil → diet "none"; formatge → "vegetarian"; tomàquet → "vegan"; farina de blat → gluten_free "no"; arròs → "yes".
 - Vague amounts -> a sensible amount; never fail the card over one line.
 - name in all three languages with original_locale marked.
 - preparation: clear CONSECUTIVE NUMBERED STEPS as plain text, e.g. "1. ...\\n2. ...\\n3. ...".
@@ -192,7 +193,7 @@ Rules:
 - photo_query: a short search term in ENGLISH for an illustrative stock photo — the English dish name, or its MAIN INGREDIENT for a regional dish Pexels likely won't index by name. Pexels indexes mainly in English, so NEVER use the Catalan/Spanish name. Examples: "bacallà a la llauna" -> "baked cod"; "fideuà" -> "seafood noodles"; "carbonara" -> "carbonara pasta".
 
 Respond with ONLY a JSON object (no prose, no markdown fences):
-{"name":{"ca":"...","es":"...","en":"..."},"original_locale":"ca|es|en","description":"...","category":"main","base_servings":4,"acquisition_mode":"cooked","preparation":"1. ...\\n2. ...","photo_query":"...","ingredients":[{"existing_id":"<uuid>|null","new":{"name":{"ca":"...","es":"...","en":"..."},"original_locale":"ca|es|en","default_unit_code":"g","supplier_category_id":"<uuid>|null","prep_description":"..."|null}|null,"quantity":400,"unit_code":"g","prep_note":"..."|null}]}`;
+{"name":{"ca":"...","es":"...","en":"..."},"original_locale":"ca|es|en","description":"...","category":"main","base_servings":4,"acquisition_mode":"cooked","preparation":"1. ...\\n2. ...","photo_query":"...","ingredients":[{"existing_id":"<uuid>|null","new":{"name":{"ca":"...","es":"...","en":"..."},"original_locale":"ca|es|en","default_unit_code":"g","supplier_category_id":"<uuid>|null","prep_description":"..."|null,"diet":"unknown|none|vegetarian|vegan","gluten_free":"unknown|yes|no"}|null,"quantity":400,"unit_code":"g","prep_note":"..."|null}]}`;
 }
 
 async function callClaude(
@@ -483,6 +484,13 @@ async function persistDish(
           default_supplier_category_id: catId,
           prep_description: line.new.prep_description ?? null,
           original_locale: loc,
+          // Spec 025 B.2: AI dietary PROPOSAL (user-overridable); default unknown.
+          diet: ["none", "vegetarian", "vegan"].includes(line.new.diet)
+            ? line.new.diet
+            : "unknown",
+          gluten_free: ["yes", "no"].includes(line.new.gluten_free)
+            ? line.new.gluten_free
+            : "unknown",
         })
         .select("id")
         .single();

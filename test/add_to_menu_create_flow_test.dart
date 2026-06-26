@@ -45,12 +45,21 @@ class _FakeEventsRepository extends EventsRepository {
   }
 
   @override
-  Future<void> addDrinkToEvent({
+  Future<String> addDrinkToEvent({
     required String eventId,
     required String drinkId,
   }) async {
     addedDrinks.add((eventId: eventId, drinkId: drinkId));
+    return 'event-drink-1';
   }
+
+  @override
+  Future<EventDrink> fetchEventDrink(String eventDrinkId) async => EventDrink(
+    id: eventDrinkId,
+    name: 'Aigua',
+    quantity: 1,
+    sortOrder: 0,
+  );
 }
 
 /// Stand-in for the editor route: pops back to the caller with [result] (the
@@ -147,8 +156,8 @@ void main() {
   );
 
   testWidgets(
-    'Spec 018 §3.1: creating a drink from the add flow adds it to the event and '
-    'returns to the Menu',
+    'Spec 025 D3: creating a drink from the add flow adds it to the event and '
+    'lands on the per-event quantity editor (parity with dishes)',
     (tester) async {
       const eventId = 'event-1';
       const created = Drink(
@@ -172,6 +181,11 @@ void main() {
           GoRoute(
             path: '/drinks/new',
             builder: (_, _) => const _PopWith<Drink>(created),
+          ),
+          // Spec 025 D3: adding routes through the quantity editor (stubbed).
+          GoRoute(
+            path: '/events/:id/drinks/:edid/edit',
+            builder: (_, _) => const Scaffold(body: Text('QTY')),
           ),
         ],
       );
@@ -198,7 +212,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(fake.addedDrinks, [(eventId: eventId, drinkId: 'drink-new')]);
-      expect(find.text('MENU'), findsOneWidget);
+      // D3: lands on the quantity editor (not straight back to the Menu).
+      expect(find.text('QTY'), findsOneWidget);
     },
   );
 }
