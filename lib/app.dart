@@ -138,6 +138,23 @@ class _SplashOverlay extends StatelessWidget {
               ),
             ),
           ),
+          // Spec 027 §9(a): the brand name stacked above the centred logo. Like
+          // the slogan below, it rides on its own Align with a symmetric offset,
+          // so the logo's Center is untouched and the native → overlay handover
+          // stays seamless. Bold brand green, with the same explicit decoration
+          // pin the slogan needs (Text outside a Material would underline).
+          Align(
+            alignment: const Alignment(0, -0.34),
+            child: Text(
+              l10n.appTitle,
+              textAlign: TextAlign.center,
+              style: AppTypography.display.copyWith(
+                color: const Color(0xFF1F6B52),
+                fontWeight: FontWeight.w700,
+                decoration: TextDecoration.none,
+              ),
+            ),
+          ),
           Align(
             alignment: const Alignment(0, 0.34),
             child: Padding(
