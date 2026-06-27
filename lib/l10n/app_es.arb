@@ -621,5 +621,15 @@
   "dietDerivedNote": "Derivado de los ingredientes",
   "catalogNoMatch": "Ningún plato coincide con los filtros.",
   "addToMenuAction": "Añadir",
-  "addToMenuTitle": "¿Qué quieres añadir?"
+  "addToMenuTitle": "¿Qué quieres añadir?",
+  "splashSlogan": "La vida es reunirse alrededor de una mesa.",
+  "hintsTitle": "Consejos",
+  "hintsMoreAction": "Más…",
+  "hintsDismissAction": "Entendido",
+  "hintsDisableCheckbox": "No mostrar más consejos",
+  "settingsHintsToggleTitle": "Mostrar consejos al abrir",
+  "settingsHintsToggleSubtitle": "Cada vez que abres la app aparece un consejo.",
+  "dietBadgeVegan": "VGN",
+  "dietBadgeVegetarian": "VGT",
+  "dietBadgeGlutenFree": "SG"
 }
