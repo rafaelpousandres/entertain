@@ -621,5 +621,15 @@
   "dietDerivedNote": "Derivat dels ingredients",
   "catalogNoMatch": "Cap plat coincideix amb els filtres.",
   "addToMenuAction": "Afegeix",
-  "addToMenuTitle": "Què vols afegir?"
+  "addToMenuTitle": "Què vols afegir?",
+  "splashSlogan": "La vida és reunir-se al voltant d'una taula.",
+  "hintsTitle": "Pistes",
+  "hintsMoreAction": "Més…",
+  "hintsDismissAction": "Entesos",
+  "hintsDisableCheckbox": "No mostrar més pistes",
+  "settingsHintsToggleTitle": "Mostra pistes en obrir",
+  "settingsHintsToggleSubtitle": "Cada cop que obres l'app apareix una pista.",
+  "dietBadgeVegan": "VGN",
+  "dietBadgeVegetarian": "VGT",
+  "dietBadgeGlutenFree": "SG"
 }

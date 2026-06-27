@@ -17,6 +17,7 @@ import '../../../ui/segmented_choice.dart';
 import '../../catalog/data/catalog_providers.dart';
 import '../../catalog/data/reference_data.dart';
 import '../../events/data/events_providers.dart' show currentGroupIdProvider;
+import '../../hints/data/hints_providers.dart' show hintsEnabledProvider;
 import '../../suggestions/data/suggestions_providers.dart'
     show suggestionsCountProvider;
 import '../data/group_supplier_setting.dart';
@@ -335,6 +336,9 @@ class _GeneralTab extends ConsumerWidget {
         // Privadesa i dades. The onboarding card leads.
         const SizedBox(height: 16),
         const _GettingStartedCard(),
+        // Spec 026 A.2: re-settable "show tips on opening" preference.
+        const SizedBox(height: 16),
+        const _HintsToggleCard(),
         // Spec 021 Part A: the suggestions box, right after "Primers passos".
         const SizedBox(height: 16),
         const _SuggestionsCard(),
@@ -348,6 +352,55 @@ class _GeneralTab extends ConsumerWidget {
         const SizedBox(height: 16),
         const _PrivacyDataCard(),
       ],
+    );
+  }
+}
+
+/// Spec 026 A.2 — re-settable "show tips on opening" toggle (default ON), so a
+/// user who dismissed hints with the on-entry checkbox can turn them back on.
+class _HintsToggleCard extends ConsumerWidget {
+  const _HintsToggleCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
+    final enabled = ref.watch(hintsEnabledProvider).value ?? true;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 8, 12, 8),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l10n.settingsHintsToggleTitle,
+                  style: AppTypography.body,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  l10n.settingsHintsToggleSubtitle,
+                  style: AppTypography.caption.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Switch(
+            value: enabled,
+            onChanged: (value) =>
+                ref.read(hintsEnabledProvider.notifier).set(value),
+            activeThumbColor: AppColors.accent,
+          ),
+        ],
+      ),
     );
   }
 }

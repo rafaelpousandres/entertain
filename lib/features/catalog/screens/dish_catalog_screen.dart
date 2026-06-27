@@ -14,6 +14,7 @@ import '../../photos/widgets/photo_image.dart';
 import '../data/dish.dart';
 import '../data/dish_category.dart';
 import '../data/diet.dart';
+import '../widgets/dietary_badges.dart';
 import '../data/catalog_providers.dart';
 
 /// Dish catalog (Specification 004 screen 1). Lists the group's dishes
@@ -323,23 +324,10 @@ class _DishRow extends StatelessWidget {
   final ({DietLevel diet, TriState gf}) effective;
   final VoidCallback onTap;
 
-  /// Concise positive-attribute subtitle (e.g. "Vegà · Sense gluten"); null when
-  /// the dish has nothing we can vouch for (Spec 025 — unknown is never shown).
-  String? _positives(AppLocalizations l10n) {
-    final parts = <String>[];
-    if (effective.diet == DietLevel.vegan) {
-      parts.add(l10n.filterVegan);
-    } else if (effective.diet == DietLevel.vegetarian) {
-      parts.add(l10n.filterVegetarian);
-    }
-    if (effective.gf == TriState.yes) parts.add(l10n.filterGlutenFree);
-    return parts.isEmpty ? null : parts.join(' · ');
-  }
-
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    final positives = _positives(l10n);
+    final hasBadges =
+        dietaryBadgesFor(effective.diet, effective.gf).isNotEmpty;
     return Material(
       color: AppColors.surface,
       borderRadius: BorderRadius.circular(14),
@@ -375,14 +363,12 @@ class _DishRow extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    if (positives != null)
+                    if (hasBadges)
                       Padding(
-                        padding: const EdgeInsets.only(top: 2),
-                        child: Text(
-                          positives,
-                          style: AppTypography.caption.copyWith(
-                            color: AppColors.accentSecondary,
-                          ),
+                        padding: const EdgeInsets.only(top: 4),
+                        child: DietaryBadges(
+                          diet: effective.diet,
+                          glutenFree: effective.gf,
                         ),
                       ),
                   ],

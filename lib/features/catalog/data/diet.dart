@@ -4,10 +4,7 @@
 /// filter. Mirrors the enum+helpers shape of [dish_category.dart].
 library;
 
-import 'package:flutter/material.dart';
-
 import '../../../l10n/app_localizations.dart';
-import '../../../theme/app_colors.dart';
 import 'dish.dart' show DishAcquisitionMode;
 
 /// Ordered dietary level. The order is meaningful: vegan/vegetarian are levels
@@ -147,10 +144,30 @@ bool dishMatchesAcquisition(
   DishAcquisitionMode? filter,
 ) => filter == null || mode == filter;
 
-/// Accent for an effective dietary badge on a dish row.
-Color dietBadgeColor(DietLevel d) => switch (d) {
-  DietLevel.vegan => AppColors.accentSecondary,
-  DietLevel.vegetarian => AppColors.accentSecondary,
-  DietLevel.none => AppColors.textTertiary,
-  DietLevel.unknown => AppColors.textTertiary,
+// ── Dietary badges (Spec 026 Part C) ────────────────────────────────────────
+
+/// A positive dietary badge shown in the catalog as a compact colour-coded text
+/// pill. Only positive, known classifications produce a badge.
+enum DietBadge { vegan, vegetarian, glutenFree }
+
+/// The badges to show for an (effective) dietary status (Spec 026 C.2): vegan →
+/// [vegan] only (vegan ⇒ vegetarian, the strongest single badge); vegetarian →
+/// [vegetarian]; gluten-free adds its badge; `unknown`/`none` → no badge.
+List<DietBadge> dietaryBadgesFor(DietLevel diet, TriState glutenFree) {
+  final badges = <DietBadge>[];
+  if (diet == DietLevel.vegan) {
+    badges.add(DietBadge.vegan);
+  } else if (diet == DietLevel.vegetarian) {
+    badges.add(DietBadge.vegetarian);
+  }
+  if (glutenFree == TriState.yes) badges.add(DietBadge.glutenFree);
+  return badges;
+}
+
+/// The locale-aware abbreviation shown inside the pill (e.g. ca "VGN/VGT/SG",
+/// en "VGN/VGT/GF"). Lives in the ARB so it follows the app language.
+String dietBadgeAbbrev(AppLocalizations l10n, DietBadge b) => switch (b) {
+  DietBadge.vegan => l10n.dietBadgeVegan,
+  DietBadge.vegetarian => l10n.dietBadgeVegetarian,
+  DietBadge.glutenFree => l10n.dietBadgeGlutenFree,
 };

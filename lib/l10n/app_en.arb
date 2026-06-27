@@ -1090,5 +1090,15 @@
   "dietDerivedNote": "Derived from ingredients",
   "catalogNoMatch": "No dishes match the filters.",
   "addToMenuAction": "Add",
-  "addToMenuTitle": "What do you want to add?"
+  "addToMenuTitle": "What do you want to add?",
+  "splashSlogan": "Life is gathering around a table.",
+  "hintsTitle": "Tips",
+  "hintsMoreAction": "More…",
+  "hintsDismissAction": "Got it",
+  "hintsDisableCheckbox": "Don't show tips anymore",
+  "settingsHintsToggleTitle": "Show tips on opening",
+  "settingsHintsToggleSubtitle": "A tip appears each time you open the app.",
+  "dietBadgeVegan": "VGN",
+  "dietBadgeVegetarian": "VGT",
+  "dietBadgeGlutenFree": "GF"
 }

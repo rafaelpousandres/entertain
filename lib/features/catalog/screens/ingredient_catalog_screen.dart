@@ -13,8 +13,10 @@ import '../../photos/data/photo_storage.dart';
 import '../../photos/widgets/photo_image.dart';
 import '../../shopping/supplier_category_format.dart';
 import '../data/catalog_providers.dart';
+import '../data/diet.dart';
 import '../data/ingredient.dart';
 import '../data/reference_data.dart';
+import '../widgets/dietary_badges.dart';
 
 /// Key for the bucket of ingredients with no supplier category.
 const String _uncategorisedGroupKey = uncategorisedGroupKey;
@@ -294,6 +296,16 @@ class _IngredientRow extends StatelessWidget {
                         style: AppTypography.caption,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                    if (dietaryBadgesFor(
+                      ingredient.diet,
+                      ingredient.glutenFree,
+                    ).isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      DietaryBadges(
+                        diet: ingredient.diet,
+                        glutenFree: ingredient.glutenFree,
                       ),
                     ],
                   ],

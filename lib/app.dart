@@ -5,11 +5,12 @@ import 'l10n/app_localizations.dart';
 import 'router/app_router.dart';
 import 'theme/app_colors.dart';
 import 'theme/app_theme.dart';
+import 'theme/app_typography.dart';
 
 /// How long the brand logo stays visible after the first frame (Spec 015 §3).
 /// The native launch screen shows the same logo before this; the in-app overlay
 /// continues it so the logo is visible for a minimum of ~1s, then fades out.
-const Duration _splashMinVisible = Duration(seconds: 1);
+const Duration _splashMinVisible = Duration(seconds: 2);
 const Duration _splashFade = Duration(milliseconds: 250);
 
 /// Top-level widget. Riverpod's `ProviderScope` is set up in `main.dart` so
@@ -119,17 +120,44 @@ class _SplashOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const ColoredBox(
+    final l10n = AppLocalizations.of(context);
+    // The logo stays at the exact centre to match the native splash (a seamless
+    // handover, see above); Spec 026 Part B floats the localized slogan below it
+    // with an Align, so adding it never shifts the logo's position.
+    return ColoredBox(
       color: AppColors.bg,
-      child: Center(
-        child: ClipOval(
-          child: Image(
-            image: logo,
-            width: _diameter,
-            height: _diameter,
-            fit: BoxFit.contain,
+      child: Stack(
+        children: [
+          const Center(
+            child: ClipOval(
+              child: Image(
+                image: logo,
+                width: _diameter,
+                height: _diameter,
+                fit: BoxFit.contain,
+              ),
+            ),
           ),
-        ),
+          Align(
+            alignment: const Alignment(0, 0.34),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 40),
+              child: Text(
+                l10n.splashSlogan,
+                textAlign: TextAlign.center,
+                style: AppTypography.body.copyWith(
+                  // High-contrast ink on the cream splash (was a muted, italic,
+                  // yellow-underlined style; the underline came from the Text
+                  // sitting outside any Material — pinned off explicitly here).
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w700,
+                  fontStyle: FontStyle.normal,
+                  decoration: TextDecoration.none,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
