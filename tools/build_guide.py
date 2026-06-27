@@ -7,16 +7,14 @@ Design (colours, layout) reproduced from the original v1.0.16 PDF:
   warm grey #6B6256   cream #F0E9D8
 Content updated to v1.0.21 (specs 021-025): AI menu wizard, multilingual
 catalog, dietary attributes + filter, guest list & invitations.
-Keep this in sync with docs/manual/index.md (same content, Catalan).
 
 Reproducible build (run from anywhere — paths resolve relative to the repo):
 
     pip install reportlab pillow
-    python3 tools/build_guide.py
+    python3 tools/build_guide.py        # [logo.png] [output.pdf] optional overrides
 
 By default it reads the repo logo (assets/icon/entertain - icon foreground.png)
-and overwrites the guide at the repo root ("Entertain - Getting started
-guide.pdf"). Optional positional overrides: [logo.png] [output.pdf].
+and overwrites the guide at the repo root ("Entertain - Getting started guide.pdf").
 """
 import os
 import sys
@@ -36,12 +34,14 @@ WHITE  = HexColor("#FFFFFF")
 BODY   = HexColor("#2E2A26")
 
 # Paths default to the repo (this file lives in <repo>/tools/), so the build is
-# reproducible regardless of the current working directory.
-_REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-LOGO = sys.argv[1] if len(sys.argv) > 1 else os.path.join(
-    _REPO, "assets", "icon", "entertain - icon foreground.png")
+# reproducible regardless of the current working directory (mirrors build_manual.py).
+HERE = os.path.dirname(os.path.abspath(__file__))
+REPO = os.path.dirname(HERE)
+DEFAULT_LOGO = os.path.join(REPO, "assets", "icon", "entertain - icon foreground.png")
+LOGO = sys.argv[1] if len(sys.argv) > 1 else (
+    DEFAULT_LOGO if os.path.exists(DEFAULT_LOGO) else os.path.join(HERE, "logo.png"))
 OUT  = sys.argv[2] if len(sys.argv) > 2 else os.path.join(
-    _REPO, "Entertain - Getting started guide.pdf")
+    REPO, "Entertain - Getting started guide.pdf")
 
 VERSION = "v1.0.21"
 
@@ -134,7 +134,8 @@ SECTIONS = [
      "així només has de prémer enviar i esperar que t'ho tinguin a punt."),
 ]
 
-FOOTER = ("Necessites ajuda? A cada pantalla trobaràs la icona ? amb explicacions.   "
+FOOTER = ("Vols tots els detalls? Consulta el Manual d'usuari complet.   "
+          "A cada pantalla trobaràs la icona ? amb explicacions.   "
           "Tens un suggeriment? Fes-nos-el arribar des de Configuració › Suggeriments.   "
           "Fotos d'stock proporcionades per Pexels.")
 
