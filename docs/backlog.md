@@ -12,9 +12,10 @@
 
 ## Índex
 
-> **Cua de specs (planificada):** 025 catàleg ric ✅ · 026 polits + descobribilitat ·
-> 027 full resum (PDF al client) · 028 mode compra al súper · 029 convidats Capa 2
-> (RSVP) · Google Play Billing. (Detall just a sota.)
+> **Cua de specs (planificada):** 025 catàleg ric ✅ · 026 polits + descobribilitat ✅ ·
+> (propera passada de polits: splash + sync hints, §6) · 027 full resum (PDF al
+> client) · 028 mode compra al súper · 029 convidats Capa 2 (RSVP) · Google Play
+> Billing. (Detall just a sota.)
 
 0. **Principis de producte** — AI-native, ecosistema foodappslab
 1. **Catàleg** — filtres ✅ (Spec 025), atributs dietètics plats ✅ (Spec 025), atributs begudes (aparcat)
@@ -26,7 +27,7 @@
 6. **Polits i millores menors**
 7. **Limitacions conegudes**
 8. **Decisions descartades** (per no tornar-hi)
-9. **Higiene de dades i pendents tècnics** — grups buits (tancat); òrfenes →026
+9. **Higiene de dades i pendents tècnics** — grups buits (tancat); òrfenes ✅ (026)
 10. **Fites de llançament** — Closed Testing, versió iOS
 
 ---
@@ -45,23 +46,26 @@ conservadora als plats, filtre), i l'escombra de polits (foto d'ingredient i de
 beguda al menú i als pickers, preomplir bilingüe, quantitat en afegir begudes, botó
 "Afegeix" contextual). Begudes (atributs/filtre propis) segueixen **aparcades** (§1).
 
-### Spec 026 — Polits i descobribilitat — **REDACTADA**
-**Spec escrita** (`entertain - Specification 026 - Polish and discoverability.md`, a
-l'arrel). El bloc més senzill, agrupant millores d'UX i deute petit:
+### ✅ Spec 026 — Polits i descobribilitat — INCORPORADA
+**A `main`, validada al Pixel** (PR #81). El bloc més senzill, agrupant millores
+d'UX i deute petit:
 - **Hints en entrar (pantalla de consells):** en obrir l'app, una pantalla/targeta
   de consell rotativa amb fletxa **"més"**, botó **tancar**, checkbox **"No mostrar
-  més pistes"** + un interruptor a **Configuració** (per defecte **ON**). El **seed
-  definitiu** són **44 hints** ca/es/en, **verificats contra l'inventari real de
-  funcionalitats** (catàleg+dietètic, IA, fotos/Pexels, multilingüe, filtre, events,
-  menú+escala, convidats, compra+proveïdors, UX) — font a
-  `Entertain - Hints (seed).md` (arrel).
-- **Icones dietètiques al catàleg:** espiga barrada per *sense gluten*; un sistema
-  d'icones propi per *vegà*/*vegetarià* (no dependre d'emojis del sistema).
+  més pistes"** + un interruptor a **Configuració** (per defecte **ON**). Contingut
+  **des de la BD** (taules `hints` + `translations`, editables sense rebuild), seed
+  ca/es/en **verificat contra l'inventari real de funcionalitats** — font a
+  `Entertain - Hints (seed).md` (arrel) + generador `tools/gen_hints_seed.py`.
+- **Eslògan multilingüe a la splash:** el lema d'Entertain apareix a la pantalla
+  de presentació en l'idioma de l'app.
+- **Badges dietètics al catàleg:** sistema d'icones propi **VGN/VGT/SG** (vegà /
+  vegetarià / sense gluten), no dependent d'emojis del sistema, reusat a plats i
+  ingredients (`dietary_badges.dart`).
 - **Neteja de `menu_add_target.dart`** — codi mort des de la 025 (botó "Afegeix"
   contextual) + el seu test.
-- **Escombrat de traduccions òrfenes** — files de `translations` sense entitat viva
-  (polimòrfica, sense FK), brossa menor capturada a la 025 (`catalog_repository`).
-- **Quan:** aviat; alt valor d'usabilitat, baix risc.
+- **Trigger de traduccions òrfenes** — neteja automàtica de les files de
+  `translations` que quedaven sense entitat viva (polimòrfica, sense FK), brossa
+  menor capturada a la 025 (`catalog_repository`). Cobreix les entitats de catàleg;
+  **no** el `kind = 'hint'` (els hints es gestionen per migració, vegeu §6).
 
 > **Documentació d'usuari (existent, reproduïble des del repo):**
 > - **Manual d'usuari complet** — `Entertain - User manual.pdf` (12 capítols, català),
@@ -511,6 +515,35 @@ tres eixos; la 019 deixa la costura al missatge de límit assolit.
 
 ## 6. Polits i millores menors
 
+> **Cua per a la propera passada de descobribilitat/polits** (porta migració de
+> BD per (b)): els dos polits següents van junts en una passada posterior a la 026.
+
+### 💡 "Entertain" a la pantalla de splash (nom apilat sobre el logo)
+Afegir el **nom "Entertain"** a la pantalla de presentació: **en bold**, en el
+**verd fosc de marca**, **apilat sobre el logo** — composició **Entertain (dalt) ·
+logo (centre) · eslògan (sota)**. Clau: **no desplaçar el logo del centre** (que
+segueixi exactament on és ara), per **no trencar el traspàs amb la splash nativa**
+(el flaix residual ja resolt, §6 "Parpelleig"). Implementació amb **`Align`** del
+nom i l'eslògan al voltant del logo centrat, no reflowejant la columna.
+- **On va:** client, pantalla de splash/overlay.
+- **Quan:** propera passada de polits; trivial, només UI, sense BD.
+
+### 💡 Sync del contingut dels hints amb el fitxer font (migració de BD)
+El fitxer font `Entertain - Hints (seed).md` **ja està actualitzat** a **40 hints**
+(1 benvinguda + 39 tips); el seed inicial de la 026 en tenia 44. Cal una **migració
+de BD** que **sincronitzi** el contingut viu amb la font:
+- **Eliminar 4 hints** (i les seves files): `menu_add_button`, `hints_toggle`,
+  `event_status`, `photos_pexels`.
+- **Reescriure 4 hints**: `photos_three`, `event_format`, `config_suggestions`,
+  `menu_adhoc` (update del text ca/es/en).
+- **Atenció — esborrar també les traduccions dels retirats**: el trigger de
+  traduccions òrfenes de la 026 **NO cobreix `kind = 'hint'`** (cobreix només les
+  entitats de catàleg). La migració ha d'esborrar **explícitament** les files de
+  `translations` dels 4 hints retirats, a més de les files a `hints`.
+- **On va:** `supabase/migrations/` (nova migració) + regenerar el seed amb
+  `tools/gen_hints_seed.py` si cal contrastar.
+- **Quan:** propera passada de polits; baix risc, però toca dades vives.
+
 ### ✅ La foto auto de l'assistent no apareix com a capçalera de la fitxa
 **Resolt a la Spec 021 (B1):** la inserció de `media` de l'assistent es va alinear
 amb la del selector manual (position 0 + provinença Pexels) perquè la foto auto
@@ -738,10 +771,11 @@ report** de Play per identificar els **2 usuaris/grups** restants que no es van 
 classificar amb certesa (validar que són de proves abans de qualsevol neteja final).
 Lligat amb §10.
 
-### ✅ Translations òrfenes en esborrar — capturat, **→ escombrat a la Spec 026**
+### ✅ Translations òrfenes en esborrar — RESOLT a la Spec 026
 En esborrar un ingredient/plat/beguda, les seves files a `translations` (taula
-polimòrfica, sense FK) queden òrfenes. Brossa menor, anotada al codi
-(`catalog_repository.deleteIngredient`). L'escombrat va a la **Spec 026** (polits).
+polimòrfica, sense FK) quedaven òrfenes. **Resolt a la Spec 026** amb un **trigger**
+de neteja automàtica. Cobreix les entitats de catàleg; **no** el `kind = 'hint'`
+(els hints es sincronitzen per migració — vegeu el polit pendent a §6).
 
 ---
 

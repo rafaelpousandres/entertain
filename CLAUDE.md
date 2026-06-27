@@ -141,6 +141,13 @@ managed on claude.ai). When in doubt, consult them; do not improvise.
 - Repository: `https://github.com/rafaelpousandres/entertain` (private)
 - Development environment: WSL2 (Ubuntu) on Windows; the code lives on the
   Linux filesystem.
+- **Single canonical repo: `~/claude/entertain` (Linux/WSL).** The Windows
+  folder `C:\Users\rafa\Claude\entertain` (`/mnt/c/...`) is **NOT a checkout**:
+  it is only a tray where the browser downloads files generated on claude.ai
+  (aab, md, pdf, png). **Rule:** any file downloaded on Windows that must become
+  part of the repo, copy it into the canonical Linux repo **first**, before any
+  commit. **Windows is never the source of truth.**
+
 ## House rules
 - Specs and project documents live under docs/. Always read the relevant
   spec or document file before working; never work from pasted text.
