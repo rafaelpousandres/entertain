@@ -45,12 +45,16 @@ conservadora als plats, filtre), i l'escombra de polits (foto d'ingredient i de
 beguda al menú i als pickers, preomplir bilingüe, quantitat en afegir begudes, botó
 "Afegeix" contextual). Begudes (atributs/filtre propis) segueixen **aparcades** (§1).
 
-### Spec 026 — Polits i descobribilitat
-El bloc més senzill, agrupant millores d'UX i deute petit:
+### Spec 026 — Polits i descobribilitat — **REDACTADA**
+**Spec escrita** (`entertain - Specification 026 - Polish and discoverability.md`, a
+l'arrel). El bloc més senzill, agrupant millores d'UX i deute petit:
 - **Hints en entrar (pantalla de consells):** en obrir l'app, una pantalla/targeta
   de consell rotativa amb fletxa **"més"**, botó **tancar**, checkbox **"No mostrar
-  més pistes"** + un interruptor a **Configuració** (per defecte **ON**). Conjunt de
-  hints i18n ca/es/en sobre funcionalitats reals (catàleg, IA, filtre, convidats…).
+  més pistes"** + un interruptor a **Configuració** (per defecte **ON**). El **seed
+  definitiu** són **44 hints** ca/es/en, **verificats contra l'inventari real de
+  funcionalitats** (catàleg+dietètic, IA, fotos/Pexels, multilingüe, filtre, events,
+  menú+escala, convidats, compra+proveïdors, UX) — font a
+  `Entertain - Hints (seed).md` (arrel).
 - **Icones dietètiques al catàleg:** espiga barrada per *sense gluten*; un sistema
   d'icones propi per *vegà*/*vegetarià* (no dependre d'emojis del sistema).
 - **Neteja de `menu_add_target.dart`** — codi mort des de la 025 (botó "Afegeix"
@@ -58,6 +62,13 @@ El bloc més senzill, agrupant millores d'UX i deute petit:
 - **Escombrat de traduccions òrfenes** — files de `translations` sense entitat viva
   (polimòrfica, sense FK), brossa menor capturada a la 025 (`catalog_repository`).
 - **Quan:** aviat; alt valor d'usabilitat, baix risc.
+
+> **Documentació d'usuari (existent, reproduïble des del repo):**
+> - **Manual d'usuari complet** — `Entertain - User manual.pdf` (12 capítols, català),
+>   generat amb `python3 tools/build_manual.py`; font web a `docs/manual/index.md`.
+> - **Guia ràpida de primers passos** — `Entertain - Getting started guide.pdf`
+>   (10 seccions), generada amb `python3 tools/build_guide.py`; ara el peu remet al
+>   Manual complet. Tots dos generadors resolen logo i sortida **relatius al repo**.
 
 ### Spec 027 — Full resum de l'esdeveniment (PDF al client)
 Un botó **"Crea full resum"** a la pantalla **Esdeveniment** que genera un **PDF
