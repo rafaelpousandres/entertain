@@ -12,13 +12,13 @@
 
 ## Índex
 
-> **Cua de specs (planificada):** 025 catàleg ric + escombra de polits · 026 mode
-> compra al súper · 027 convidats Capa 2 (RSVP) · Google Play Billing. (Detall
-> just a sota.)
+> **Cua de specs (planificada):** 025 catàleg ric ✅ · 026 polits + descobribilitat ·
+> 027 full resum (PDF al client) · 028 mode compra al súper · 029 convidats Capa 2
+> (RSVP) · Google Play Billing. (Detall just a sota.)
 
 0. **Principis de producte** — AI-native, ecosistema foodappslab
-1. **Catàleg** — filtres ✅→cua, atributs dietètics plats →cua, atributs begudes (aparcat)
-1B. **Convidats i esdeveniment social** — Capa 1 ✅ (Spec 023); Capa 2 RSVP pendent →cua
+1. **Catàleg** — filtres ✅ (Spec 025), atributs dietètics plats ✅ (Spec 025), atributs begudes (aparcat)
+1B. **Convidats i esdeveniment social** — Capa 1 ✅ (Spec 023); Capa 2 RSVP pendent →cua (029)
 2. **Creació assistida (IA)** — assistent de plats ✅, wizard de menú ✅, feedback ✅
 3. **Plataforma i directori** — directori curat geolocalitzat + afiliació (aparcat)
 4. **Administració** — panell d'admin, rols de grup (aparcats)
@@ -26,47 +26,66 @@
 6. **Polits i millores menors**
 7. **Limitacions conegudes**
 8. **Decisions descartades** (per no tornar-hi)
-9. **Higiene de dades i pendents tècnics** — proliferació de grups buits
+9. **Higiene de dades i pendents tècnics** — grups buits (tancat); òrfenes →026
 10. **Fites de llançament** — Closed Testing, versió iOS
 
 ---
 
 ## Cua de specs (planificada)
 
-> Seqüència decidida en el triatge. Els números **025–027 són orientatius**: el
-> número real serà el següent lliure en redactar cada spec. Captura la direcció
-> decidida, no un compromís de dates. El detall de cada idea viu a la seva secció.
+> Seqüència decidida en el triatge, ordenada **simple → complex**. Els números
+> **026–029 són orientatius**: el real serà el següent lliure en redactar cada
+> spec. Captura la direcció, no un compromís de dates. El detall viu a cada secció.
 
-### Spec 025 — Catàleg ric + polits (escombra)
-Bloc per fer que el catàleg "es noti madur", en una spec:
-- **Ingredients multilingües** (§1): model + i18n (ca/es/en) + l'IA omple en crear
-  (020) + **backfill** dels existents. Desbloqueja mostrar en l'idioma de l'usuari
-  i el pont anglès per a millors fotos d'stock.
-- **Atributs dietètics dels plats** (§1): conjunt d'etiquetes (vegà, vegetarià,
-  sense gluten…), manuals als plats (la derivació des dels ingredients, més tard).
-- **Filtre de catàleg** (§1): per mode d'adquisició, proveïdor, categoria i
-  atributs dietètics.
-- **Escombra dels polits oberts** que hi encaixen: **foto d'ingredient al menú**
-  (§6), **preomplir bilingüe** de la cerca d'stock (§6, la part local+anglès que
-  faltava) i **quantitat en afegir begudes** (§6, paritat amb plats).
-- **Begudes (atributs/filtre) NO** hi entren: **aparcades** (§1).
-- **Quan:** següent bloc gran; el catàleg ja és el cor de l'app.
+### ✅ Spec 025 — Catàleg ric + polits — INCORPORADA
+**A `main`, validada al Pixel** (PR #78). Multilingüe (ingredients/plats/begudes
+reusant `translations` + helpers `translate-name`/`backfill-name-i18n`, noms en
+l'idioma de l'app, caixa preservada), dietètic (enum ordenat + tri-estat, derivació
+conservadora als plats, filtre), i l'escombra de polits (foto d'ingredient i de
+beguda al menú i als pickers, preomplir bilingüe, quantitat en afegir begudes, botó
+"Afegeix" contextual). Begudes (atributs/filtre propis) segueixen **aparcades** (§1).
 
-### Spec 026 — Mode compra al súper
-Polir la vista de Compra per a l'ús real al supermercat (§6): diana d'un toc,
+### Spec 026 — Polits i descobribilitat
+El bloc més senzill, agrupant millores d'UX i deute petit:
+- **Hints en entrar (pantalla de consells):** en obrir l'app, una pantalla/targeta
+  de consell rotativa amb fletxa **"més"**, botó **tancar**, checkbox **"No mostrar
+  més pistes"** + un interruptor a **Configuració** (per defecte **ON**). Conjunt de
+  hints i18n ca/es/en sobre funcionalitats reals (catàleg, IA, filtre, convidats…).
+- **Icones dietètiques al catàleg:** espiga barrada per *sense gluten*; un sistema
+  d'icones propi per *vegà*/*vegetarià* (no dependre d'emojis del sistema).
+- **Neteja de `menu_add_target.dart`** — codi mort des de la 025 (botó "Afegeix"
+  contextual) + el seu test.
+- **Escombrat de traduccions òrfenes** — files de `translations` sense entitat viva
+  (polimòrfica, sense FK), brossa menor capturada a la 025 (`catalog_repository`).
+- **Quan:** aviat; alt valor d'usabilitat, baix risc.
+
+### Spec 027 — Full resum de l'esdeveniment (PDF al client)
+Un botó **"Crea full resum"** a la pantalla **Esdeveniment** que genera un **PDF
+al client (Flutter)** —no servidor— amb el logo i l'estil Entertain, en l'idioma de
+l'app, i **compartible amb el share sheet**. Conté: tots els camps de l'esdeveniment,
+els **convidats** (estats + totals), els **plats** amb receptes i ingredients, les
+**begudes**, i la **llista de compra per proveïdor**. És el "dossier" imprimible/
+enviable d'un esdeveniment sencer.
+- **Quan:** després dels polits; aporta molt de valor tangible.
+- **Bloqueja:** triar la llibreria PDF de Flutter (p. ex. `pdf`/`printing`); disseny
+  de plantilla; muntar el document des de les dades ja existents (event, menú,
+  convidats, compra).
+
+### Spec 028 — Mode compra al súper
+Polir la vista de **Compra** per a l'ús real al supermercat (§6): diana d'un toc,
 mode XL, progrés per secció, pantalla desperta. Sense IA ni PDF.
 
-### Spec 027 — Convidats Capa 2 (RSVP per enllaç)
+### Spec 029 — Convidats Capa 2 (RSVP per enllaç)
 La **primera superfície web pública** del projecte: token per convidat, landing
 mínima (Confirmo / No puc), Edge Function `rsvp` (que llavors **sí** necessitarà
 grant `service_role` sobre `event_guests`), l'enllaç dins la invitació, i les
-respostes entrant a l'accordion/totals de la Capa 1. Ja **especificada** a la
-Spec 023 (§Capa 2); pendent de construir. Tractar-ne la seguretat (abast del
-token, capability-scoped) amb cura.
+respostes entrant a l'accordion/totals de la Capa 1. Ja **especificada** a la Spec
+023 (§Capa 2); pendent de construir. La més complexa (seguretat del token,
+capability-scoped; hosting EU; GDPR) → va l'última.
 
 ### Google Play Billing
-El flux de pagament que activa premium (§5). Quan les funcions premium (fotos +
-IA) justifiquin cobrar, i després que hi hagi prou valor premium acumulat.
+El flux de pagament que activa premium (§5). Quan les funcions premium (fotos + IA)
+justifiquin cobrar, i després que hi hagi prou valor premium acumulat.
 
 ---
 
@@ -112,7 +131,7 @@ portes a compartir infraestructura amb futures apps germanes:
 ## 1. Catàleg
 
 ### 💡 Filtres al catàleg
-**→ A la cua: Spec 025** (catàleg ric), junt amb els atributs dietètics.
+**✅ Incorporat a la Spec 025** (filtre dietètic + cuinat/comprat sobre el catàleg de plats).
 
 Poder filtrar el catàleg (començant pels plats) per criteris combinables:
 - **Mode d'adquisició**: només cuinats / només comprats.
@@ -129,7 +148,7 @@ d'ingredients (per proveïdor) i begudes (per proveïdor) per coherència.
   de filtres.
 
 ### 💡 Atributs dietètics als plats (i ingredients)
-**→ A la cua: Spec 025** (catàleg ric), manuals als plats; habiliten el filtre dietètic.
+**✅ Incorporat a la Spec 025** (dietètic a ingredients amb derivació conservadora als plats; manual als plats sense ingredients).
 
 Informació de preferències/restriccions als plats: **vegetarià, vegà, sense
 gluten, sense lactosa, sense fruita seca…** (conjunt d'etiquetes dietètiques).
@@ -174,8 +193,8 @@ alcohol, infantil…) i amb restriccions dels convidats.
   (compartida amb plats/ingredients).
 
 ### 💡 Ingredients multilingües (i18n d'ingredient) — DECIDIT
-**→ A la cua: Spec 025** (catàleg ric): model + i18n + l'IA omple en crear (020) +
-backfill dels existents.
+**✅ Incorporat a la Spec 025**: reusant `translations`, l'IA omple en crear i un
+backfill one-off (`backfill-name-i18n`) per als existents; display en l'idioma de l'app.
 
 **Decidit:** cada ingredient guarda els seus noms en **ca/es/en** (taronja /
 naranja / orange), no només en l'idioma en què es va escriure. Resol un deute
@@ -577,7 +596,7 @@ UI, sense tocar contingut.
 s'observa. Tancat.
 
 ### 💡 Mode compra: vista de Compra usable al supermercat
-**→ A la cua: Spec 026** (mode compra al súper).
+**→ A la cua: Spec 028** (mode compra al súper).
 
 Fer que la pantalla de Compra funcioni bé com a llista de la compra REAL al
 super (dret, en moviment, una mà ocupada, cops d'ull curts). Descarta la idea
@@ -615,7 +634,7 @@ Preguntes obertes a resoldre en el triatge/spec:
   adapta-sola vs mode explícit.
 
 ### 💡 Edició de quantitat en afegir begudes (paritat amb plats)
-**→ A la cua: Spec 025** (escombra de polits).
+**✅ Incorporat a la Spec 025.**
 
 En afegir una beguda al menú d'un event —especialment via "Crea una beguda
 nova"— s'insereix directament al menú amb quantitat 1, sense passar per una
@@ -630,7 +649,7 @@ per-event hauria de valer igual per a begudes.
 - Quan: algun dia; coherència d'UX, no bloqueja.
 
 ### 💡 Foto d'ingredient al menú de l'esdeveniment (paritat amb plats i catàleg)
-**→ A la cua: Spec 025** (escombra de polits).
+**✅ Incorporat a la Spec 025.**
 
 Les files d'ingredient al menú (event_dish_detail_screen, _LineRow) no mostren
 la foto de l'ingredient, mentre que el catàleg i les files de PLAT del menú sí.
@@ -694,26 +713,24 @@ d'ingredient. Per això passa amb TOTS els ingredients.
 
 ## 9. Higiene de dades i pendents tècnics
 
-### 🔍 Proliferació de grups "My group" buits a la BD
-La taula `groups` té **100+ files**, totes **buides** (sense esdeveniments/dades),
-una per usuari Auth diferent — fruit de **reinstal·lacions i proves** durant el
-desenvolupament (cada arrencada anònima provisiona un grup). **No és un bug que
-afecti l'ús normal:** el compte real de Rafael (acaba en `8f70`) té **UN sol grup**
-(`5fe643a0-…`); cadascú només veu el seu via RLS. És **brossa de dades**, no un
-defecte funcional.
+### ✅ Proliferació de grups "My group" buits a la BD — TANCAT
+**Diagnòstic (benigne) + neteja FETA.** La causa era brossa **històrica de
+desenvolupament**: cada arrencada anònima (reinstal·lacions, `flutter run`, canvis
+de signatura) provisiona via trigger un usuari Auth + un grup; en ús normal
+(actualitzar versió, mateix dispositiu) la sessió persisteix i **no** se'n creen de
+nous. No afecta cap usuari real (cadascú veu només el seu grup via RLS). La neteja es
+va fer amb rigor (transacció amb pre-check + post-check, preservant els 5 grups amb
+events): **de 137 grups → 5**.
 
-PENDENT (en aquest ordre):
-1. **Confirmar la causa** amb una investigació **de només lectura** del flux
-   d'arrencada / creació de grup (provisió anònima → quan i com es crea un grup;
-   per què en queden de buits).
-2. **Decidir si cal un fix de codi** (p. ex. no crear el grup fins que hi hagi
-   contingut, o reaprofitar-lo) — o si n'hi ha prou amb netejar.
-3. **Netejar la brossa amb rigor** (com la neteja del Maduixer): identificar els
-   grups buits orfes, verificar que cap té dades, i esborrar-los amb cura
-   (dry-run + recompte abans/després).
-- **Prerequisit abans de Closed Testing** (§10): entrar a testers externs amb la
-  taula neta.
-- **Bloqueja:** investigació de la causa; decisió fix vs només neteja.
+**Pendent menor (no bloquejant ara):** abans de Closed Testing, fer el **Pre-launch
+report** de Play per identificar els **2 usuaris/grups** restants que no es van poder
+classificar amb certesa (validar que són de proves abans de qualsevol neteja final).
+Lligat amb §10.
+
+### ✅ Translations òrfenes en esborrar — capturat, **→ escombrat a la Spec 026**
+En esborrar un ingredient/plat/beguda, les seves files a `translations` (taula
+polimòrfica, sense FK) queden òrfenes. Brossa menor, anotada al codi
+(`catalog_repository.deleteIngredient`). L'escombrat va a la **Spec 026** (polits).
 
 ---
 
