@@ -533,10 +533,15 @@ class CatalogRepository {
     DrinkDraft draft, {
     required String groupId,
     required String localeCode,
+    // Spec 030 §B: optional client-minted id, so a photo added on the create
+    // screen (its `media` rows already key off this id) belongs to the new
+    // drink — completing §B's create-time photo flow for drinks too.
+    String? id,
   }) async {
     final row = await _client
         .from('drinks')
         .insert({
+          'id': ?id,
           ...draft.toRow(),
           'group_id': groupId,
           'original_locale': localeCode,

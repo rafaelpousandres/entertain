@@ -33,3 +33,9 @@ verify_jwt = true
 # the service-role client (event_guests has the SELECT+UPDATE grant).
 [functions.rsvp]
 verify_jwt = false
+
+# Spec 030 §B — sweep abandoned photo-staging blobs. verify_jwt is OFF: it is
+# invoked by pg_cron (no user JWT), and the function gates itself on the
+# service-role key as a shared secret in the Authorization header.
+[functions.sweep-staging]
+verify_jwt = false

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../../l10n/app_localizations.dart';
 import '../../../theme/app_colors.dart';
@@ -99,6 +100,10 @@ class _DrinkFormState extends ConsumerState<_DrinkForm>
   late final TextEditingController _nameController;
   late DrinkDraft _draft;
 
+  // Spec 030 §B: a real id when editing, else a fresh uuid the new drink adopts
+  // on save — so the carousel can attach photos before the row exists.
+  late final String _entityId;
+
   bool _saving = false;
   bool _deleting = false;
   bool _submitted = false;
@@ -137,9 +142,15 @@ class _DrinkFormState extends ConsumerState<_DrinkForm>
       }
     }
     _nameController = TextEditingController(text: _draft.name);
-    if (widget.isEditing) {
-      initPhotoSession(MediaEntityType.drink, widget.drinkId!);
-    }
+    _entityId = widget.drinkId ?? const Uuid().v4();
+    // §2.6 / Spec 030 §B: open a photo session for both modes. In create mode
+    // photos are staged by group and promoted on save (the row does not exist
+    // yet) — completing §B's create-time photo flow for drinks.
+    initPhotoSession(
+      MediaEntityType.drink,
+      _entityId,
+      creating: !widget.isEditing,
+    );
   }
 
   @override
@@ -240,6 +251,8 @@ class _DrinkFormState extends ConsumerState<_DrinkForm>
           _draft,
           groupId: groupId,
           localeCode: localeCode,
+          // §B: insert with the pre-minted id the staged photos promote onto.
+          id: _entityId,
         );
       }
       ref.invalidate(drinksListProvider);
@@ -376,17 +389,19 @@ class _DrinkFormState extends ConsumerState<_DrinkForm>
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
         children: [
-          if (widget.isEditing) ...[
-            PhotoCarouselSection(
-              type: MediaEntityType.drink,
-              entityId: widget.drinkId!,
-              entityName: photoSearchTerm(
-                _nameController.text,
-                widget.initial?.nameEn,
-              ),
+          // Spec 030 §B: the carousel shows when creating too (it binds to the
+          // id minted up front), so a photo can be added at creation time and
+          // persists with the drink on save.
+          PhotoCarouselSection(
+            type: MediaEntityType.drink,
+            entityId: _entityId,
+            creating: !widget.isEditing,
+            entityName: photoSearchTerm(
+              _nameController.text,
+              widget.initial?.nameEn,
             ),
-            const SizedBox(height: 20),
-          ],
+          ),
+          const SizedBox(height: 20),
           FieldLabel(
             label: l10n.drinkNameLabel,
             child: AppTextField(

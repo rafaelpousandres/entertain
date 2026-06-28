@@ -19,6 +19,8 @@ class StockPhotoSearchArgs {
     required this.entityId,
     required this.locale,
     this.initialQuery,
+    this.creating = false,
+    this.groupId,
   });
 
   final MediaEntityType type;
@@ -31,6 +33,14 @@ class StockPhotoSearchArgs {
   /// user doesn't retype it. Local language for now; the English bridge waits
   /// on multilingual ingredient names. Null leaves the field empty.
   final String? initialQuery;
+
+  /// Spec 030 §B: true when adding a photo while CREATING the entity — the
+  /// function stages the photo by [groupId] (the entity row does not exist yet)
+  /// and the result is added to the session's staged list instead of `media`.
+  final bool creating;
+
+  /// The caller's group id, required in create mode for the staging path.
+  final String? groupId;
 }
 
 /// Spec 019 §C.1 — stock-photo search. A search field, a results grid (each
@@ -88,29 +98,43 @@ class _StockPhotoSearchScreenState
     final messenger = ScaffoldMessenger.of(context);
     setState(() => _saving = true);
     try {
-      await ref
+      final result = await ref
           .read(stockPhotoRepositoryProvider)
           .save(
             photo: photo,
             type: widget.args.type,
             entityId: widget.args.entityId,
+            staging: widget.args.creating,
+            groupId: widget.args.groupId,
           );
       if (!mounted) return;
-      // Refresh the carousel, list/menu cover thumbnails, and the quota header.
-      ref.invalidate(
-        entityMediaProvider((
-          type: widget.args.type,
-          entityId: widget.args.entityId,
-        )),
-      );
-      ref.invalidate(entityCoverPathsProvider(widget.args.type));
-      ref.invalidate(stockPhotoQuotaProvider);
-      // §2.6 parity with camera/gallery: a new photo is an unsaved change the
-      // editor can roll back on Discard.
-      ref
+      final session = ref
           .read(photoEditRegistryProvider)
-          .lookup(widget.args.type, widget.args.entityId)
-          ?.markDirty();
+          .lookup(widget.args.type, widget.args.entityId);
+      if (widget.args.creating && result.stagedPath != null) {
+        // Spec 030 §B: the entity does not exist yet — add the staged photo to
+        // the editor's session, carrying Pexels provenance for promotion.
+        session?.addStaged(
+          result.stagedPath!,
+          sourceProvider: 'pexels',
+          sourceAuthor: photo.photographer,
+          sourceUrl: photo.pageUrl,
+          sourceRef: photo.id,
+        );
+      } else {
+        // Refresh the carousel, list/menu cover thumbnails.
+        ref.invalidate(
+          entityMediaProvider((
+            type: widget.args.type,
+            entityId: widget.args.entityId,
+          )),
+        );
+        ref.invalidate(entityCoverPathsProvider(widget.args.type));
+        // §2.6 parity with camera/gallery: a new photo is an unsaved change the
+        // editor can roll back on Discard.
+        session?.markDirty();
+      }
+      ref.invalidate(stockPhotoQuotaProvider);
       context.pop();
     } on QuotaExceededException catch (e) {
       if (!mounted) return;

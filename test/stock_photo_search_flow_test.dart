@@ -49,14 +49,16 @@ class _FakeStockPhotoRepository extends StockPhotoRepository {
   }
 
   @override
-  Future<QuotaStatus> save({
+  Future<StockSaveResult> save({
     required StockPhoto photo,
     required MediaEntityType type,
     required String entityId,
+    bool staging = false,
+    String? groupId,
   }) async {
     saveCalls.add(photo);
     if (throwLimit) throw const QuotaExceededException(used: 10, limit: 10);
-    return const QuotaStatus(used: 3, limit: 10);
+    return const StockSaveResult(quota: QuotaStatus(used: 3, limit: 10));
   }
 }
 

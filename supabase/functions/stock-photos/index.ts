@@ -109,6 +109,10 @@ async function handleSearch(body: any): Promise<Response> {
   return json({ photos });
 }
 
+// Spec 030 §B: a staged save's storage bucket (photos added while creating an
+// entity, before its row exists, are stored here keyed by group).
+const STAGING_BUCKET = "photo-staging";
+
 async function handleSave(
   body: any,
   userClient: ReturnType<typeof createClient>,
@@ -117,8 +121,12 @@ async function handleSave(
   const photo = body.photo;
   const entityType = (body.entity_type ?? "").toString();
   const entityId = (body.entity_id ?? "").toString();
+  // Spec 030 §B: in create mode the entity row does not exist yet, so the photo
+  // is staged by group rather than written onto the entity.
+  const staging = body.staging === true;
+  const reqGroupId = (body.group_id ?? "").toString();
   const entity = ENTITY[entityType];
-  if (!entity || !entityId || !photo?.src) {
+  if (!entity || !photo?.src || (!staging && !entityId)) {
     return json({ error: "bad_request" }, 400);
   }
 
@@ -126,15 +134,29 @@ async function handleSave(
   const { data: userData } = await userClient.auth.getUser();
   if (!userData?.user) return json({ error: "unauthenticated" }, 401);
 
-  // 2. Resolve the target entity's group *under RLS* — if the caller can't see
-  //    it (not a member / wrong group), the lookup returns null → 403.
-  const { data: entityRow } = await userClient
-    .from(entity.table)
-    .select("group_id")
-    .eq("id", entityId)
-    .maybeSingle();
-  if (!entityRow) return json({ error: "forbidden" }, 403);
-  const groupId = (entityRow as { group_id: string }).group_id;
+  // 2. Resolve the owning group *under RLS*. In staging mode the group id is
+  //    given and verified by reading `groups` (its select policy is
+  //    is_group_member(id)); otherwise it is derived from the target entity. A
+  //    non-member sees neither row → 403.
+  let groupId: string;
+  if (staging) {
+    if (!reqGroupId) return json({ error: "bad_request" }, 400);
+    const { data: groupRow } = await userClient
+      .from("groups")
+      .select("id")
+      .eq("id", reqGroupId)
+      .maybeSingle();
+    if (!groupRow) return json({ error: "forbidden" }, 403);
+    groupId = reqGroupId;
+  } else {
+    const { data: entityRow } = await userClient
+      .from(entity.table)
+      .select("group_id")
+      .eq("id", entityId)
+      .maybeSingle();
+    if (!entityRow) return json({ error: "forbidden" }, 403);
+    groupId = (entityRow as { group_id: string }).group_id;
+  }
 
   // 3. Effective limit: entitlement row or the system default.
   const { data: ent, error: entErr } = await serviceClient
@@ -168,12 +190,30 @@ async function handleSave(
     return json({ error: "limit_reached", used: limit, limit }, 402);
   }
 
-  // 5–7. Download → upload → insert media. Refund the slot on any failure so a
-  // failed save consumes no quota.
+  // 5–7. Download → upload → (stage | insert media). Refund the slot on any
+  // failure so a failed save consumes no quota.
   try {
     const imgRes = await fetch(photo.src.full ?? photo.src);
     if (!imgRes.ok) throw new Error("download_failed");
     const bytes = new Uint8Array(await imgRes.arrayBuffer());
+
+    // Spec 030 §B: stage by group; no entity row exists to attach `media` to.
+    // The client adds the staged path to the editor's session (carrying the
+    // Pexels provenance), and promotes it on save.
+    if (staging) {
+      const stagedPath = `${groupId}/${crypto.randomUUID()}.jpg`;
+      const upload = await serviceClient.storage
+        .from(STAGING_BUCKET)
+        .upload(stagedPath, bytes, {
+          contentType: "image/jpeg",
+          upsert: true,
+        });
+      if (upload.error) throw upload.error;
+      return json({
+        staged_path: stagedPath,
+        usage: { used: usedAfter, limit },
+      });
+    }
 
     const path = `${entityId}/${crypto.randomUUID()}.jpg`;
     const upload = await serviceClient.storage

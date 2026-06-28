@@ -53,17 +53,30 @@ class MediaRepository {
 
   /// Inserts a media row after its blob has been uploaded. [position] is
   /// typically the current photo count, so the new photo lands at the end.
+  ///
+  /// Provenance ([sourceProvider] etc.) is normally set only by the
+  /// `stock-photos` Edge Function, but a stock photo staged during entity
+  /// creation (Spec 030 §B) is promoted client-side on save, so its attribution
+  /// is carried through here rather than lost.
   Future<void> insert({
     required MediaEntityType type,
     required String entityId,
     required String path,
     required int position,
+    String? sourceProvider,
+    String? sourceAuthor,
+    String? sourceUrl,
+    String? sourceRef,
   }) async {
     await _client.from('media').insert({
       'entity_type': type.wire,
       'entity_id': entityId,
       'path': path,
       'position': position,
+      'source_provider': ?sourceProvider,
+      'source_author': ?sourceAuthor,
+      'source_url': ?sourceUrl,
+      'source_ref': ?sourceRef,
     });
   }
 
