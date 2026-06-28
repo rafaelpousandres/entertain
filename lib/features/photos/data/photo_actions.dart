@@ -5,6 +5,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../l10n/app_localizations.dart';
+import '../../events/data/events_providers.dart' show currentGroupIdProvider;
 import '../../stock_photos/screens/stock_photo_search_screen.dart';
 import 'media.dart';
 import 'media_providers.dart';
@@ -99,11 +100,21 @@ Future<bool> addEntityPhoto({
 }) async {
   final choice = await showPhotoSourceSheet(context, canRemove: false);
   if (choice == null || !context.mounted) return false;
+  // Spec 030 §B: while the entity is being CREATED its row does not exist yet,
+  // so photos go to the staging bucket (keyed by group) and are tracked on the
+  // session; they are promoted to the entity bucket + `media` on save.
+  final session = _activeSession(ref, type, entityId);
+  final creating = session?.creating ?? false;
   // Spec 019 §C.1: the stock-photo path opens the search screen, which owns the
   // save (via the Edge Function) and the carousel/quota refresh; nothing is
   // added synchronously here.
   if (choice == PhotoSheetChoice.pexels) {
     final locale = _pexelsLocale(Localizations.localeOf(context).languageCode);
+    // In create mode the function stages by group, so it needs the group id.
+    final groupId = creating
+        ? await ref.read(currentGroupIdProvider.future)
+        : null;
+    if (!context.mounted) return false;
     context.push(
       '/stock-photos',
       extra: StockPhotoSearchArgs(
@@ -112,6 +123,8 @@ Future<bool> addEntityPhoto({
         locale: locale,
         // Spec 021 §B6: prefill the search with the entity's name.
         initialQuery: entityName,
+        creating: creating,
+        groupId: groupId,
       ),
     );
     return false;
@@ -119,6 +132,23 @@ Future<bool> addEntityPhoto({
   final source = choice == PhotoSheetChoice.camera
       ? PhotoSource.camera
       : PhotoSource.gallery;
+
+  if (creating) {
+    final groupId = await ref.read(currentGroupIdProvider.future);
+    if (!context.mounted) return false;
+    final stagedPath = '$groupId/${_uuid.v4()}.jpg';
+    final uploaded = await _captureCompressAndUpload(
+      ref: ref,
+      context: context,
+      source: source,
+      bucket: PhotoStorage.stagingBucket,
+      objectPath: stagedPath,
+    );
+    if (uploaded == null) return false;
+    session!.addStaged(stagedPath);
+    return true;
+  }
+
   final path = '$entityId/${_uuid.v4()}.jpg';
   final uploaded = await _captureCompressAndUpload(
     ref: ref,
@@ -143,7 +173,7 @@ Future<bool> addEntityPhoto({
   // A first-ever add changes the cover shown on the list / menu thumbnails.
   ref.invalidate(entityCoverPathsProvider(type));
   // §2.6: a new photo is an unsaved change the editor can roll back on Discard.
-  _activeSession(ref, type, entityId)?.markDirty();
+  session?.markDirty();
   return true;
 }
 
@@ -156,11 +186,35 @@ Future<void> reorderEntityMedia({
   required String entityId,
   required List<Media> ordered,
 }) async {
+  // Spec 030 §B: in create mode the carousel is the session's staged list, not
+  // `media` rows — reorder it in place; the new order is applied at promotion.
+  final session = _activeSession(ref, type, entityId);
+  if (session?.creating ?? false) {
+    session!.reorderStaged(ordered);
+    return;
+  }
   await ref.read(mediaRepositoryProvider).reorder(ordered);
   ref.invalidate(entityMediaProvider((type: type, entityId: entityId)));
   ref.invalidate(entityCoverPathsProvider(type));
   // §2.6: a reorder is an unsaved change the editor can roll back on Discard.
-  _activeSession(ref, type, entityId)?.markDirty();
+  session?.markDirty();
+}
+
+/// Removes a create-mode staged photo (Spec 030 §B): drops it from the session
+/// and best-effort deletes its staging blob (the sweeper catches any leftover).
+Future<void> removeStagedPhoto({
+  required WidgetRef ref,
+  required Media media,
+}) async {
+  final session = _activeSession(ref, media.entityType, media.entityId);
+  session?.removeStaged(media);
+  try {
+    await ref.read(photoStorageProvider).remove(PhotoStorage.stagingBucket, [
+      media.path,
+    ]);
+  } catch (_) {
+    // Non-fatal — abandoned staged blobs are swept later.
+  }
 }
 
 /// Removes one photo: deletes the media row, then the blob (non-fatal on

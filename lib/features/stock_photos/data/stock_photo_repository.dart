@@ -13,6 +13,17 @@ class QuotaExceededException implements Exception {
   final int limit;
 }
 
+/// Result of a stock-photo save: the updated quota, plus — in create-mode
+/// staging (Spec 030 §B) — the path the photo was staged at (the client adds it
+/// to the editor's staged list; the `media` row is written on promotion). In
+/// the normal (entity exists) path [stagedPath] is null: the function already
+/// wrote the `media` row.
+class StockSaveResult {
+  const StockSaveResult({required this.quota, this.stagedPath});
+  final QuotaStatus quota;
+  final String? stagedPath;
+}
+
 /// Spec 019 §B — client side of the `stock-photos` Edge Function. The Pexels
 /// key lives only in the function; the client never sees it. The quota counter
 /// is read directly (RLS allows group members SELECT on `quota_usage` /
@@ -46,10 +57,18 @@ class StockPhotoRepository {
   /// §B.2 — copy the chosen photo onto the entity (server downloads, uploads,
   /// inserts the media row with provenance, and atomically charges quota).
   /// Returns the updated usage; throws [QuotaExceededException] on 402.
-  Future<QuotaStatus> save({
+  ///
+  /// Spec 030 §B: in create mode the entity row does not exist yet, so pass
+  /// [staging] true + the [groupId]. The function then stages the photo by group
+  /// (no `media` row) and returns its [StockSaveResult.stagedPath]. Quota is
+  /// charged at staging — the Pexels download (the actual cost) happens
+  /// regardless of whether the create is later saved or cancelled.
+  Future<StockSaveResult> save({
     required StockPhoto photo,
     required MediaEntityType type,
     required String entityId,
+    bool staging = false,
+    String? groupId,
   }) async {
     try {
       final res = await _client.functions.invoke(
@@ -59,13 +78,18 @@ class StockPhotoRepository {
           'photo': photo.toSavePayload(),
           'entity_type': type.wire,
           'entity_id': entityId,
+          if (staging) 'staging': true,
+          'group_id': ?groupId,
         },
       );
       final data = (res.data as Map).cast<String, dynamic>();
       final usage = (data['usage'] as Map).cast<String, dynamic>();
-      return QuotaStatus(
-        used: (usage['used'] as num).toInt(),
-        limit: (usage['limit'] as num).toInt(),
+      return StockSaveResult(
+        quota: QuotaStatus(
+          used: (usage['used'] as num).toInt(),
+          limit: (usage['limit'] as num).toInt(),
+        ),
+        stagedPath: data['staged_path'] as String?,
       );
     } on FunctionException catch (e) {
       if (e.status == 402) {

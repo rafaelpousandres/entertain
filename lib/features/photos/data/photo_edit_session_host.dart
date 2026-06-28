@@ -17,14 +17,28 @@ mixin PhotoEditSessionHost<T extends ConsumerStatefulWidget>
   PhotoEditRegistry? _photoRegistry;
 
   /// Opens a session for [type]/[entityId] and snapshots its current photos as
-  /// the rollback baseline. Call once from `initState` for an existing entity.
-  void initPhotoSession(MediaEntityType type, String entityId) {
-    final session = PhotoEditSession(type: type, entityId: entityId);
+  /// the rollback baseline. Call once from `initState`. Pass [creating] true on
+  /// a create screen (Spec 030 §B): the entity row does not exist yet, so the
+  /// session tracks staged photos and skips the edit-mode snapshot.
+  void initPhotoSession(
+    MediaEntityType type,
+    String entityId, {
+    bool creating = false,
+  }) {
+    final session = PhotoEditSession(
+      type: type,
+      entityId: entityId,
+      creating: creating,
+    );
     final registry = ref.read(photoEditRegistryProvider);
     _photoSession = session;
     _photoRegistry = registry;
     registry.register(session);
     session.addListener(_onPhotoSessionChanged);
+
+    // Create mode has no pre-edit photos to snapshot — the staged list is the
+    // whole state.
+    if (creating) return;
 
     final target = (type: type, entityId: entityId);
     final existing = ref.read(entityMediaProvider(target)).value;

@@ -7,6 +7,8 @@ import '../../../theme/app_typography.dart';
 import '../data/media.dart';
 import '../data/media_providers.dart';
 import '../data/photo_actions.dart';
+import '../data/photo_edit_session.dart';
+import '../data/photo_storage.dart';
 import '../screens/media_carousel_screen.dart';
 import 'photo_image.dart';
 
@@ -29,6 +31,7 @@ class PhotoCarouselSection extends ConsumerWidget {
     required this.type,
     required this.entityId,
     this.entityName,
+    this.creating = false,
   });
 
   final MediaEntityType type;
@@ -38,14 +41,67 @@ class PhotoCarouselSection extends ConsumerWidget {
   /// Optional — surfaces without a handy name (e.g. events) just omit it.
   final String? entityName;
 
+  /// Spec 030 §B: true on a create screen — the carousel renders the session's
+  /// staged photos (in the staging bucket) instead of the `media` rows of a
+  /// row that does not exist yet.
+  final bool creating;
+
   static const double tile = 80;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
-    final mediaAsync = ref.watch(
-      entityMediaProvider((type: type, entityId: entityId)),
-    );
+
+    final Widget row;
+    if (creating) {
+      // The host editor rebuilds this subtree on every session change (it
+      // listens to the session), so reading the staged list here is live.
+      final session = ref
+          .read(photoEditRegistryProvider)
+          .lookup(type, entityId);
+      row = _PhotoRow(
+        type: type,
+        entityId: entityId,
+        entityName: entityName,
+        photos: session?.pendingStaged ?? const [],
+        bucket: PhotoStorage.stagingBucket,
+        creating: true,
+      );
+    } else {
+      final mediaAsync = ref.watch(
+        entityMediaProvider((type: type, entityId: entityId)),
+      );
+      row = mediaAsync.when(
+        loading: () => const SizedBox(
+          height: tile,
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: SizedBox(
+              width: tile,
+              height: tile,
+              child: Center(
+                child: CircularProgressIndicator(color: AppColors.accent),
+              ),
+            ),
+          ),
+        ),
+        // §6: on error fall back to the empty placeholder (just the add tile).
+        error: (_, _) => _PhotoRow(
+          type: type,
+          entityId: entityId,
+          entityName: entityName,
+          photos: const [],
+          bucket: type.bucket,
+        ),
+        data: (photos) => _PhotoRow(
+          type: type,
+          entityId: entityId,
+          entityName: entityName,
+          photos: photos,
+          bucket: type.bucket,
+        ),
+      );
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -55,35 +111,7 @@ class PhotoCarouselSection extends ConsumerWidget {
           style: AppTypography.label.copyWith(color: AppColors.textSecondary),
         ),
         const SizedBox(height: 8),
-        mediaAsync.when(
-          loading: () => const SizedBox(
-            height: tile,
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: SizedBox(
-                width: tile,
-                height: tile,
-                child: Center(
-                  child: CircularProgressIndicator(color: AppColors.accent),
-                ),
-              ),
-            ),
-          ),
-          // §6: on error fall back to the empty placeholder (just the add tile).
-          error: (_, _) =>
-              _PhotoRow(
-                type: type,
-                entityId: entityId,
-                entityName: entityName,
-                photos: const [],
-              ),
-          data: (photos) => _PhotoRow(
-            type: type,
-            entityId: entityId,
-            entityName: entityName,
-            photos: photos,
-          ),
-        ),
+        row,
       ],
     );
   }
@@ -101,13 +129,23 @@ class _PhotoRow extends ConsumerStatefulWidget {
     required this.type,
     required this.entityId,
     required this.photos,
+    required this.bucket,
     this.entityName,
+    this.creating = false,
   });
 
   final MediaEntityType type;
   final String entityId;
   final String? entityName;
   final List<Media> photos;
+
+  /// Storage bucket the thumbnails are read from: the entity bucket normally,
+  /// the staging bucket in create mode (Spec 030 §B).
+  final String bucket;
+
+  /// Spec 030 §B: create mode — photos are the session's staged list; tap opens
+  /// the staged full-screen viewer and removal drops them from the session.
+  final bool creating;
 
   @override
   ConsumerState<_PhotoRow> createState() => _PhotoRowState();
@@ -195,6 +233,7 @@ class _PhotoRowState extends ConsumerState<_PhotoRow> {
                   widget.entityId,
                   index,
                   entityName: widget.entityName,
+                  creating: widget.creating,
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(12),
@@ -202,7 +241,7 @@ class _PhotoRowState extends ConsumerState<_PhotoRow> {
                     width: PhotoCarouselSection.tile,
                     height: PhotoCarouselSection.tile,
                     child: PhotoBytesImage(
-                      photoRef: (bucket: widget.type.bucket, path: photo.path),
+                      photoRef: (bucket: widget.bucket, path: photo.path),
                     ),
                   ),
                 ),

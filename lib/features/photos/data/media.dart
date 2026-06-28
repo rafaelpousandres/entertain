@@ -76,6 +76,22 @@ class Media {
   final String? sourceUrl;
   final String? sourceRef;
 
+  /// Returns a copy with [position] overridden — used to reindex the staged
+  /// carousel (Spec 030 §B) when a create-mode photo is removed or reordered.
+  Media copyWith({int? position}) {
+    return Media(
+      id: id,
+      entityType: entityType,
+      entityId: entityId,
+      path: path,
+      position: position ?? this.position,
+      sourceProvider: sourceProvider,
+      sourceAuthor: sourceAuthor,
+      sourceUrl: sourceUrl,
+      sourceRef: sourceRef,
+    );
+  }
+
   factory Media.fromRow(Map<String, dynamic> row) {
     return Media(
       id: row['id'] as String,

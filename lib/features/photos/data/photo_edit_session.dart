@@ -1,9 +1,13 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 
 import 'media.dart';
 import 'media_providers.dart';
+import 'media_repository.dart';
 import 'photo_storage.dart';
+
+const _uuid = Uuid();
 
 /// Spec 011 §2.6 — approximate (application-layer) rollback of photo edits.
 ///
@@ -22,11 +26,33 @@ import 'photo_storage.dart';
 /// Scope: best-effort, not transactional. A mid-edit app crash leaves partial
 /// changes (acceptable); a network error during the reverse replay surfaces a
 /// non-fatal warning and leaves the user to resolve it manually.
+///
+/// Spec 030 §B (create mode): when [creating] is true the entity row does not
+/// exist yet, so photos cannot be written to its bucket or to `media` (both RLS
+/// policies require the parent row). Instead they are uploaded to the staging
+/// bucket and tracked in [pendingStaged]; on [commit] — after the editor has
+/// inserted the entity row — each is PROMOTED to the real bucket and a `media`
+/// row is inserted. On [rollback] the staged blobs are dropped. None of the
+/// edit-mode snapshot/replay machinery runs in create mode.
 class PhotoEditSession extends ChangeNotifier {
-  PhotoEditSession({required this.type, required this.entityId});
+  PhotoEditSession({
+    required this.type,
+    required this.entityId,
+    this.creating = false,
+  });
 
   final MediaEntityType type;
   final String entityId;
+
+  /// Whether the editor is CREATING the entity (its row does not exist yet), so
+  /// photos go through the staging path rather than the entity bucket.
+  final bool creating;
+
+  /// Create-mode carousel: photos added before the entity exists, already
+  /// uploaded to the staging bucket (path `{group_id}/{uuid}.jpg`). Synthetic
+  /// [Media] (a local id + the staging path) so the carousel and full-screen
+  /// viewer render and reorder them through the same code paths as real photos.
+  final List<Media> pendingStaged = [];
 
   /// The photos as they were when the editor opened, in carousel order. The
   /// baseline that [rollback] restores to.
@@ -57,10 +83,71 @@ class PhotoEditSession extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// On Save: the current state is confirmed, so purge every buffered blob the
-  /// final state no longer references (deleted or replaced originals, and any
-  /// add-then-delete leftovers). Non-fatal: orphans are swept later.
+  /// Create-mode: append a staged photo whose blob is already in the staging
+  /// bucket at [stagedPath]. Provenance is carried for promoted stock photos
+  /// (Spec 019 §C.2); null for camera/gallery.
+  void addStaged(
+    String stagedPath, {
+    String? sourceProvider,
+    String? sourceAuthor,
+    String? sourceUrl,
+    String? sourceRef,
+  }) {
+    pendingStaged.add(
+      Media(
+        id: _uuid.v4(),
+        entityType: type,
+        entityId: entityId,
+        path: stagedPath,
+        position: pendingStaged.length,
+        sourceProvider: sourceProvider,
+        sourceAuthor: sourceAuthor,
+        sourceUrl: sourceUrl,
+        sourceRef: sourceRef,
+      ),
+    );
+    _dirty = true;
+    notifyListeners();
+  }
+
+  /// Create-mode: drop a staged photo (and reindex the rest). The blob removal
+  /// from the staging bucket is the caller's job (non-fatal; swept otherwise).
+  void removeStaged(Media media) {
+    pendingStaged.removeWhere((m) => m.id == media.id);
+    _reindexStaged();
+    _dirty = true;
+    notifyListeners();
+  }
+
+  /// Create-mode: replace the staged order from a drag-reorder.
+  void reorderStaged(List<Media> ordered) {
+    pendingStaged
+      ..clear()
+      ..addAll(ordered);
+    _reindexStaged();
+    _dirty = true;
+    notifyListeners();
+  }
+
+  void _reindexStaged() {
+    for (var i = 0; i < pendingStaged.length; i++) {
+      if (pendingStaged[i].position != i) {
+        pendingStaged[i] = pendingStaged[i].copyWith(position: i);
+      }
+    }
+  }
+
+  /// On Save: the current state is confirmed. In create mode (Spec 030 §B) the
+  /// entity row now exists (the editor inserted it just before calling this), so
+  /// each staged photo is promoted to the entity bucket and a `media` row is
+  /// inserted, in carousel order. A failure mid-list leaves the entity with
+  /// fewer photos (the staged blob stays for the sweeper) — never the reverse,
+  /// because the row was inserted first.
   Future<void> commit(WidgetRef ref) async {
+    if (creating) {
+      await _promoteStaged(ref);
+      return;
+    }
     if (deferredBlobs.isEmpty) return;
     final repo = ref.read(mediaRepositoryProvider);
     final storage = ref.read(photoStorageProvider);
@@ -78,14 +165,70 @@ class PhotoEditSession extends ChangeNotifier {
     }
   }
 
-  /// On Discard: restore the pre-edit state. Removes photos added during the
-  /// session (row + blob), re-inserts originals that were deleted (their blobs
-  /// were buffered, so they are still in Storage), restores the original order,
-  /// and purges blobs that were added-then-deleted. May throw on a network
-  /// error mid-replay — the caller surfaces the §2.6 non-fatal warning.
+  Future<void> _promoteStaged(WidgetRef ref) async {
+    await promoteStaged(
+      ref.read(photoStorageProvider),
+      ref.read(mediaRepositoryProvider),
+    );
+    ref.invalidate(entityMediaProvider((type: type, entityId: entityId)));
+    ref.invalidate(entityCoverPathsProvider(type));
+  }
+
+  /// Testable core of create-mode promotion (Spec 030 §B): move each staged blob
+  /// into the entity bucket, then insert its `media` row, in carousel order —
+  /// move-then-insert per photo so a failure never leaves a `media` row with no
+  /// blob. Entity-row-first ordering is the caller's responsibility (the editor
+  /// inserts the entity row before [commit]).
+  @visibleForTesting
+  Future<void> promoteStaged(PhotoStorage storage, MediaRepository repo) async {
+    if (pendingStaged.isEmpty) return;
+    for (final m in pendingStaged) {
+      final realPath = '$entityId/${_uuid.v4()}.jpg';
+      await storage.promote(m.path, type.bucket, realPath);
+      await repo.insert(
+        type: type,
+        entityId: entityId,
+        path: realPath,
+        position: m.position,
+        sourceProvider: m.sourceProvider,
+        sourceAuthor: m.sourceAuthor,
+        sourceUrl: m.sourceUrl,
+        sourceRef: m.sourceRef,
+      );
+    }
+    pendingStaged.clear();
+  }
+
+  /// Testable core of create-mode discard (Spec 030 §B): drop every staged blob
+  /// (best-effort; the sweeper catches leftovers) and clear the list.
+  @visibleForTesting
+  Future<void> discardStaged(PhotoStorage storage) async {
+    if (pendingStaged.isEmpty) return;
+    final paths = pendingStaged.map((m) => m.path).toList();
+    pendingStaged.clear();
+    try {
+      await storage.remove(PhotoStorage.stagingBucket, paths);
+    } catch (_) {
+      // Non-fatal — the sweeper purges abandoned staged blobs.
+    }
+  }
+
+  /// On Discard: restore the pre-edit state. In create mode (Spec 030 §B) there
+  /// is no pre-edit state to restore — just drop the staged blobs (best-effort;
+  /// the sweeper catches any that survive). In edit mode: remove photos added
+  /// during the session (row + blob), re-insert originals that were deleted
+  /// (their blobs were buffered, so they are still in Storage), restore the
+  /// original order, and purge blobs that were added-then-deleted. May throw on
+  /// a network error mid-replay — the caller surfaces the §2.6 non-fatal warning.
   Future<void> rollback(WidgetRef ref) async {
     final repo = ref.read(mediaRepositoryProvider);
     final storage = ref.read(photoStorageProvider);
+
+    if (creating) {
+      await discardStaged(storage);
+      return;
+    }
+
     final current = await repo.listForEntity(type, entityId);
     final originalPaths = _original.map((m) => m.path).toSet();
     final currentPaths = current.map((m) => m.path).toSet();

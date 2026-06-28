@@ -148,8 +148,13 @@ class _DishFormState extends ConsumerState<_DishForm>
     // adopt on save — so the carousel can attach photos before the row exists.
     _entityId = widget.dishId ?? const Uuid().v4();
     // §2.6: snapshot the dish's photos so a Discard can roll back photo changes
-    // made during this edit (and remove any added before a create is saved).
-    initPhotoSession(MediaEntityType.dish, _entityId);
+    // made during this edit. Spec 030 §B: in create mode photos are staged by
+    // group and promoted on save (the row does not exist yet).
+    initPhotoSession(
+      MediaEntityType.dish,
+      _entityId,
+      creating: !widget.isEditing,
+    );
   }
 
   @override
@@ -442,6 +447,7 @@ class _DishFormState extends ConsumerState<_DishForm>
           PhotoCarouselSection(
             type: MediaEntityType.dish,
             entityId: _entityId,
+            creating: !widget.isEditing,
             entityName: photoSearchTerm(_nameController.text, _draft.nameEn),
           ),
           const SizedBox(height: 20),

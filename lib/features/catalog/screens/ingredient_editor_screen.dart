@@ -152,8 +152,13 @@ class _IngredientFormState extends ConsumerState<_IngredientForm>
     // adopts on save — so the carousel can attach photos before the row exists.
     _entityId = widget.ingredientId ?? const Uuid().v4();
     // §2.6: snapshot the ingredient's photos so a Discard can roll back photo
-    // changes (and remove any added before a create is saved).
-    initPhotoSession(MediaEntityType.ingredient, _entityId);
+    // changes. Spec 030 §B: in create mode photos are staged by group and
+    // promoted on save (the row does not exist yet).
+    initPhotoSession(
+      MediaEntityType.ingredient,
+      _entityId,
+      creating: !widget.isEditing,
+    );
   }
 
   @override
@@ -420,6 +425,7 @@ class _IngredientFormState extends ConsumerState<_IngredientForm>
           PhotoCarouselSection(
             type: MediaEntityType.ingredient,
             entityId: _entityId,
+            creating: !widget.isEditing,
             // Spec 025 D2: bilingual photo-search prefill (local + English).
             entityName: photoSearchTerm(
               _nameController.text,

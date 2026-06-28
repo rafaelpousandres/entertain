@@ -8,6 +8,8 @@ import '../../../theme/app_typography.dart';
 import '../data/media.dart';
 import '../data/media_providers.dart';
 import '../data/photo_actions.dart';
+import '../data/photo_edit_session.dart';
+import '../data/photo_storage.dart';
 import '../widgets/photo_image.dart';
 import '../widgets/photo_remove_confirm.dart';
 
@@ -23,6 +25,7 @@ class MediaCarouselScreen extends ConsumerStatefulWidget {
     required this.entityId,
     required this.initialIndex,
     this.entityName,
+    this.creating = false,
   });
 
   final MediaEntityType type;
@@ -33,12 +36,17 @@ class MediaCarouselScreen extends ConsumerStatefulWidget {
   /// prefill the query when adding a photo from here.
   final String? entityName;
 
+  /// Spec 030 §B: create mode — the photos are the session's staged list (in
+  /// the staging bucket), and removal drops them from the session.
+  final bool creating;
+
   static Future<void> open(
     BuildContext context,
     MediaEntityType type,
     String entityId,
     int initialIndex, {
     String? entityName,
+    bool creating = false,
   }) {
     return Navigator.of(context).push<void>(
       MaterialPageRoute(
@@ -47,6 +55,7 @@ class MediaCarouselScreen extends ConsumerStatefulWidget {
           entityId: entityId,
           initialIndex: initialIndex,
           entityName: entityName,
+          creating: creating,
         ),
       ),
     );
@@ -78,8 +87,57 @@ class _MediaCarouselScreenState extends ConsumerState<MediaCarouselScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
+    // Spec 030 §B: create mode reads the session's staged list (a ChangeNotifier
+    // this route listens to) rather than the not-yet-existing `media` rows.
+    if (widget.creating) {
+      final session = ref.read(photoEditRegistryProvider).lookup(
+        widget.type,
+        widget.entityId,
+      );
+      if (session == null) return const SizedBox.shrink();
+      return ListenableBuilder(
+        listenable: session,
+        builder: (context, _) => _buildScaffold(
+          context,
+          session.pendingStaged,
+          PhotoStorage.stagingBucket,
+        ),
+      );
+    }
     final photosAsync = ref.watch(entityMediaProvider(_target));
+    return photosAsync.when(
+      loading: () => _loadingScaffold(context),
+      error: (_, _) => _errorScaffold(context),
+      data: (photos) => _buildScaffold(context, photos, widget.type.bucket),
+    );
+  }
+
+  Widget _loadingScaffold(BuildContext context) => Scaffold(
+    backgroundColor: Colors.black,
+    appBar: AppBar(backgroundColor: Colors.black),
+    body: const Center(child: CircularProgressIndicator(color: Colors.white)),
+  );
+
+  Widget _errorScaffold(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(backgroundColor: Colors.black, foregroundColor: Colors.white),
+      body: Center(
+        child: Text(
+          l10n.photoLoadError,
+          style: AppTypography.body.copyWith(color: Colors.white70),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildScaffold(
+    BuildContext context,
+    List<Media> photos,
+    String bucket,
+  ) {
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -104,27 +162,15 @@ class _MediaCarouselScreenState extends ConsumerState<MediaCarouselScreen> {
               entityName: widget.entityName,
             ),
           ),
-          photosAsync.maybeWhen(
-            data: (photos) => IconButton(
-              icon: const Icon(Icons.delete_outline),
-              tooltip: l10n.photoRemovePhoto,
-              onPressed: photos.isEmpty ? null : _removeCurrent,
-            ),
-            orElse: () => const SizedBox(width: 48),
+          IconButton(
+            icon: const Icon(Icons.delete_outline),
+            tooltip: l10n.photoRemovePhoto,
+            onPressed: photos.isEmpty ? null : () => _removeCurrent(photos),
           ),
         ],
       ),
-      body: photosAsync.when(
-        loading: () => const Center(
-          child: CircularProgressIndicator(color: Colors.white),
-        ),
-        error: (_, _) => Center(
-          child: Text(
-            l10n.photoLoadError,
-            style: AppTypography.body.copyWith(color: Colors.white70),
-          ),
-        ),
-        data: (photos) {
+      body: Builder(
+        builder: (context) {
           if (photos.isEmpty) {
             // Carousel emptied (last photo removed) — return once the frame
             // settles.
@@ -144,7 +190,7 @@ class _MediaCarouselScreenState extends ConsumerState<MediaCarouselScreen> {
               final photo = photos[index];
               return PhotoViewGalleryPageOptions.customChild(
                 child: PhotoBytesImage(
-                  photoRef: (bucket: widget.type.bucket, path: photo.path),
+                  photoRef: (bucket: bucket, path: photo.path),
                   fit: BoxFit.contain,
                 ),
                 minScale: PhotoViewComputedScale.contained,
@@ -158,12 +204,18 @@ class _MediaCarouselScreenState extends ConsumerState<MediaCarouselScreen> {
     );
   }
 
-  Future<void> _removeCurrent() async {
-    final photos = ref.read(entityMediaProvider(_target)).value;
-    if (photos == null || photos.isEmpty) return;
+  Future<void> _removeCurrent(List<Media> photos) async {
+    if (photos.isEmpty) return;
     final index = _current.clamp(0, photos.length - 1);
     final confirmed = await showPhotoRemoveConfirm(context);
     if (!confirmed) return;
-    await deleteEntityMedia(ref: ref, media: photos[index]);
+    final media = photos[index];
+    // Spec 030 §B: staged photos are removed from the session; real photos go
+    // through the buffered delete.
+    if (widget.creating) {
+      await removeStagedPhoto(ref: ref, media: media);
+    } else {
+      await deleteEntityMedia(ref: ref, media: media);
+    }
   }
 }

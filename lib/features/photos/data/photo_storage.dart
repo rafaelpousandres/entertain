@@ -24,6 +24,11 @@ class PhotoStorage {
   static const String eventBucket = 'event-photos';
   static const String drinkBucket = 'drink-photos';
 
+  /// Spec 030 §B: holding area for photos added while CREATING a catalog entity,
+  /// before its row (and per-entity Storage policy) exists. Keyed by group
+  /// (`{group_id}/{uuid}.jpg`), promoted to the entity bucket on save.
+  static const String stagingBucket = 'photo-staging';
+
   /// Compresses a picked image file into a JPEG at quality 85 (Spec §2.2.2).
   /// `image_picker` has already bounded the longest side to 1600 px on pick;
   /// the `minWidth`/`minHeight` ceiling here is a backstop (the library never
@@ -58,6 +63,16 @@ class PhotoStorage {
             upsert: true,
           ),
         );
+  }
+
+  /// Promotes a staged photo to its entity bucket once the entity row exists
+  /// (Spec 030 §B): a single server-side cross-bucket move (copy + delete
+  /// source), so the staging blob is gone on success. Throws on failure — the
+  /// caller leaves the staged blob for the sweeper and surfaces the error.
+  Future<void> promote(String stagedPath, String destBucket, String destPath) {
+    return _client.storage
+        .from(stagingBucket)
+        .move(stagedPath, destPath, destinationBucket: destBucket);
   }
 
   /// Downloads the raw bytes of a stored object (RLS-checked).
