@@ -631,5 +631,15 @@
   "settingsHintsToggleSubtitle": "Cada cop que obres l'app apareix una pista.",
   "dietBadgeVegan": "VGN",
   "dietBadgeVegetarian": "VGT",
-  "dietBadgeGlutenFree": "SG"
+  "dietBadgeGlutenFree": "SG",
+  "summaryCreateAction": "Crea full resum",
+  "summaryProgress": "Generant el full resum…",
+  "summaryError": "No s'ha pogut generar el full resum.",
+  "summarySectionGuests": "Convidats",
+  "summarySectionMenu": "Menú",
+  "summarySectionPurchase": "Compra",
+  "summaryDrinksHeading": "Begudes",
+  "summaryTotalLabel": "Total",
+  "summaryNoSupplier": "Sense proveïdor",
+  "summaryFooter": "Fotos d'stock proporcionades per Pexels. · Generat el {date}"
 }

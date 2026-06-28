@@ -34,6 +34,7 @@ import '../data/event_tab_store.dart';
 import '../data/event_status.dart';
 import '../data/events_providers.dart';
 import '../widgets/event_formatters.dart';
+import '../summary/event_summary_service.dart';
 
 /// Event detail screen (Spec 007 §2.1).
 ///
@@ -89,6 +90,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
   bool _saving = false;
   bool _deleting = false;
   bool _duplicating = false;
+  bool _summaryBusy = false;
   String? _titleError;
 
   @override
@@ -740,8 +742,47 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
             onChanged: (_) => setState(() {}),
           ),
         ),
+        // Spec 027 §A — a prominent, discoverable action over the whole event:
+        // build the summary-sheet PDF and present the system share/save sheet.
+        const SizedBox(height: 28),
+        PrimaryButton(
+          label: l10n.summaryCreateAction,
+          icon: Icons.picture_as_pdf_outlined,
+          onPressed: _summaryBusy ? null : () => _createSummary(event),
+        ),
       ],
     );
+  }
+
+  /// Spec 027 §A/§C — build the event summary PDF behind a blocking spinner
+  /// (generation takes a few seconds with many images), then hand it to the
+  /// platform share/save sheet. A failure surfaces a snackbar; the spinner is
+  /// always dismissed.
+  Future<void> _createSummary(Event event) async {
+    final l10n = AppLocalizations.of(context);
+    final locale = Localizations.localeOf(context);
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _summaryBusy = true);
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _SummaryProgressDialog(label: l10n.summaryProgress),
+    );
+    try {
+      await generateAndShareEventSummary(
+        ref,
+        l10n: l10n,
+        locale: locale,
+        eventId: event.id,
+      );
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(l10n.summaryError)));
+    } finally {
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+        setState(() => _summaryBusy = false);
+      }
+    }
   }
 
   Future<void> _pickDate() async {
@@ -1413,6 +1454,41 @@ class _LoadError extends StatelessWidget {
                 style: AppTypography.button.copyWith(color: AppColors.accent),
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Spec 027 §C — a small blocking dialog shown while the summary PDF builds, so
+/// the user gets immediate feedback during the (few-second) image fetch +
+/// generation and can't trigger it twice.
+class _SummaryProgressDialog extends StatelessWidget {
+  const _SummaryProgressDialog({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: AppColors.surface,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.5,
+                color: AppColors.accent,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Flexible(child: Text(label, style: AppTypography.body)),
           ],
         ),
       ),
