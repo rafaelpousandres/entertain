@@ -111,13 +111,26 @@ Hi van plegats, validats junts en el mateix AAB, els **dos polits carregats de l
 Polir la vista de **Compra** per a l'ús real al supermercat (§6): diana d'un toc,
 mode XL, progrés per secció, pantalla desperta. Sense IA ni PDF.
 
-### Spec 029 — Convidats Capa 2 (RSVP per enllaç)
-La **primera superfície web pública** del projecte: token per convidat, landing
-mínima (Confirmo / No puc), Edge Function `rsvp` (que llavors **sí** necessitarà
-grant `service_role` sobre `event_guests`), l'enllaç dins la invitació, i les
-respostes entrant a l'accordion/totals de la Capa 1. Ja **especificada** a la Spec
-023 (§Capa 2); pendent de construir. La més complexa (seguretat del token,
-capability-scoped; hosting EU; GDPR) → va l'última.
+### ✅ Spec 029 — Convidats Capa 2 (gestió MANUAL) — INCORPORADA · ⏸️ RSVP web APARCAT
+
+**Enviada com a gestió manual**, no com a web pública. Motiu: al domini per defecte
+`*.supabase.co/functions/v1`, Supabase **reescriu les respostes `text/html` de GET a
+`text/plain` (+ nosniff)** (anti-phishing), així que la pàgina es veu com a codi cru
+al navegador. **Servir HTML demana domini propi** (Supabase **Pro** + add-on, ~10 $/mes)
+i hem decidit **no passar a Pro ara**. Per tant:
+
+- L'amfitrió fixa **a mà** les restriccions dietètiques a la fitxa del convidat (selector
+  excloent Cap/Vegetarià/Vegà + casella Sense gluten), desat per esdeveniment.
+- Pills **VGN/VGT/SG** (només positives) a la llista de Convidats.
+- La invitació demana **respondre al missatge** (sense enllaç). Estat del convidat manual
+  com a la Capa 1.
+
+**⏸️ RSVP web — APARCAT fins a Pro.** Es reactiva quan Entertain passi a **Pro + domini
+propi** (~10 $/mes). El codi queda **al repo, llest per reactivar**: l'Edge Function `rsvp`
+(sense ús), la columna `event_guests.rsvp_token` + la migració `20260702000000` (token +
+`diet_*` + grant `service_role`), i el helper Dart `rsvpUrl` (+ test). Per reactivar:
+configurar el domini propi, tornar a posar l'enllaç a la invitació, i deixar que el convidat
+ompli ell mateix l'estat + les restriccions.
 
 ### Google Play Billing
 El flux de pagament que activa premium (§5). Quan les funcions premium (fotos + IA)
@@ -276,7 +289,8 @@ Disseny:
 
 ## 1B. Convidats i esdeveniment social
 
-### ✅ Llista de convidats + invitacions (Capa 1) · ⏳ RSVP per enllaç (Capa 2, pendent)
+### ✅ Llista de convidats + invitacions (Capa 1) · ✅ Capa 2 manual (Spec 029) · ⏸️ RSVP web a Pro
+
 **Capa 1 incorporada a la Spec 023** (NOMÉS Capa 1): llista de convidats + estats
 manuals {pendent / confirmat / excusat} + text d'invitació enviat pel canal propi
 (WhatsApp/SMS/email), reutilitzant els patrons de **contactes de proveïdor**
@@ -284,9 +298,11 @@ manuals {pendent / confirmat / excusat} + text d'invitació enviat pel canal pro
 confirmats→comensals es va deixar **fora** per decisió (la llista és independent;
 només un avís informatiu de sobre-aforament).
 
-**Capa 2 (RSVP per enllaç) queda ESPECIFICADA i PENDENT** — token per convidat +
-landing pública + Edge Function `rsvp`; és la primera superfície web pública del
-projecte. Planificada a la cua (orientativament **Spec 027**).
+**Capa 2 incorporada a la Spec 029 com a gestió MANUAL** — l'amfitrió fixa a mà les
+restriccions dietètiques (selector excloent + Sense gluten, pills VGN/VGT/SG) i l'estat;
+la invitació demana respondre al missatge. El **RSVP web públic** (token + landing + Edge
+Function `rsvp`) queda **APARCAT fins a Pro** (cal domini propi; codi llest al repo). Vegeu
+l'entrada a §"Cua de specs".
 
 Afegir als esdeveniments una **llista de convidats**, amb la possibilitat
 d'**enviar invitacions** per **text (SMS/WhatsApp)** o **email**, i fer **control

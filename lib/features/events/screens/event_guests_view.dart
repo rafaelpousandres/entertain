@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_typography.dart';
+import '../../catalog/data/diet.dart';
+import '../../catalog/widgets/diet_pill.dart';
 import '../../../ui/secondary_button.dart';
 import '../../../ui/section_header.dart';
 import '../../../ui/single_choice_sheet.dart';
@@ -85,6 +87,14 @@ class _EventGuestsViewState extends ConsumerState<EventGuestsView> {
     final body = (event.invitationText?.trim().isNotEmpty ?? false)
         ? event.invitationText!.trim()
         : composeInvitationPrefill(l10n, locale, event);
+    // Spec 029 (manual scope) — RSVP is managed by the host by hand: the guest
+    // replies to the message, no public link. Wrap the body with a personalised
+    // greeting + closing. (The public RSVP link is parked until Pro.)
+    final fullBody = assembleInvitationMessage(
+      greeting: l10n.invitationGreeting(guest.name),
+      body: body,
+      thanks: l10n.invitationThanks,
+    );
     final subject = l10n.invitationSubject(event.title);
     final textChannel =
         ref.read(groupTextMessageChannelProvider).value ??
@@ -98,7 +108,7 @@ class _EventGuestsViewState extends ConsumerState<EventGuestsView> {
             : MessageChannel.whatsapp,
         address: chosen == InviteChannel.email ? guest.email : guest.phone,
         subject: subject,
-        body: body,
+        body: fullBody,
         textChannel: textChannel,
       );
       if (!mounted) return;
@@ -320,19 +330,65 @@ class _GuestRow extends StatelessWidget {
                         ),
                       ),
                     ),
+                  // Spec 029 §C2 — the restrictions the guest self-reported on
+                  // the RSVP page. Positive-only pills (vegan ⇒ VGN); a guest who
+                  // reported nothing shows nothing (not "unknown").
+                  if (guest.hasDietaryFlags)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: _GuestDietPills(guest: guest),
+                    ),
                 ],
               ),
             ),
             if (guest.canInvite)
               IconButton(
+                // Spec 029 fix — same green as the suppliers' send action
+                // (SecondaryButton uses accentSecondary): it's the same "send a
+                // message" gesture, so it shouldn't read as a destructive red.
                 icon: const Icon(Icons.send_outlined, size: 20),
-                color: AppColors.accent,
+                color: AppColors.accentSecondary,
                 tooltip: l10n.guestInviteAction,
                 onPressed: sending ? null : onInvite,
               ),
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Spec 029 §C2 — compact positive-only dietary pills for a guest's
+/// self-reported restrictions, in the same VGN/VGT/SG visual as the catalog
+/// badges. Vegan implies vegetarian, so a vegan guest shows VGN only. Never the
+/// extended "?"/grey states — those mean "unclassified", not "didn't report".
+class _GuestDietPills extends StatelessWidget {
+  const _GuestDietPills({required this.guest});
+
+  final EventGuest guest;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    // Positive-only: vegan implies vegetarian (one diet badge), plus gluten-free.
+    final badges = <DietBadge>[
+      if (guest.dietVegan)
+        DietBadge.vegan
+      else if (guest.dietVegetarian)
+        DietBadge.vegetarian,
+      if (guest.dietGlutenFree) DietBadge.glutenFree,
+    ];
+    return Wrap(
+      spacing: 4,
+      runSpacing: 4,
+      children: [
+        for (final b in badges)
+          DietPill(
+            label: dietBadgeAbbrev(l10n, b),
+            bg: dietBadgeStyle(b).bg,
+            fg: dietBadgeStyle(b).fg,
+          ),
+      ],
     );
   }
 }

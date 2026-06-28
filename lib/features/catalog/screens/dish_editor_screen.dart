@@ -27,6 +27,8 @@ import '../data/dish.dart';
 import '../data/dish_category.dart';
 import '../data/ingredient.dart';
 import '../data/reference_data.dart';
+import '../widgets/diet_choice.dart';
+import '../widgets/dietary_badges.dart';
 import 'ingredient_line_editor_screen.dart';
 
 /// Create / edit a catalog dish and its recipe lines (Specification 004
@@ -608,41 +610,38 @@ class _DishFormState extends ConsumerState<_DishForm>
           ),
           const SizedBox(height: 8),
           if (!_draft.isBought && _draft.lines.isNotEmpty) ...[
+            // Derived from the ingredients (read-only) — SHOW badges.
             Text(l10n.dietDerivedNote, style: AppTypography.caption),
             const SizedBox(height: 6),
-            Text(
-              '${dietLevelLabel(l10n, deriveDishDiet([for (final l in _draft.lines) l.ingredientDiet]))}'
-              ' · '
-              '${glutenFreeLabel(l10n, deriveDishGlutenFree([for (final l in _draft.lines) l.ingredientGlutenFree]))}',
-              style: AppTypography.body,
+            DietaryBadges(
+              diet: deriveDishDiet([
+                for (final l in _draft.lines) l.ingredientDiet,
+              ]),
+              glutenFree: deriveDishGlutenFree([
+                for (final l in _draft.lines) l.ingredientGlutenFree,
+              ]),
             ),
           ] else ...[
+            // Bought, or cooked with no lines — MANUAL: same choose-pills as the
+            // ingredient editor (single-select, multi-state).
             Text(l10n.dietLabel, style: AppTypography.caption),
             const SizedBox(height: 6),
-            SegmentedChoice<DietLevel>(
+            DietLevelChoice(
               value: _draft.diet,
               onChanged: (v) => setState(() {
                 _draft.diet = v;
                 _dirty = true;
               }),
-              options: [
-                for (final d in dietLevelOrder)
-                  SegmentedChoiceOption(d, dietLevelLabel(l10n, d)),
-              ],
             ),
             const SizedBox(height: 14),
             Text(l10n.glutenAxisLabel, style: AppTypography.caption),
             const SizedBox(height: 6),
-            SegmentedChoice<TriState>(
+            GlutenStateChoice(
               value: _draft.glutenFree,
               onChanged: (v) => setState(() {
                 _draft.glutenFree = v;
                 _dirty = true;
               }),
-              options: [
-                for (final g in triStateOrder)
-                  SegmentedChoiceOption(g, glutenFreeLabel(l10n, g)),
-              ],
             ),
           ],
         ],

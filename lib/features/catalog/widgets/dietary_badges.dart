@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../l10n/app_localizations.dart';
-import '../../../theme/app_typography.dart';
 import '../data/diet.dart';
+import 'diet_pill.dart';
 
 /// Spec 026 Part C, extended in Spec 030 §C — compact, colour-coded TEXT pills
 /// for a dietary status (the food-industry pattern: no drawn icon, just letters
@@ -28,27 +28,6 @@ class DietaryBadges extends StatelessWidget {
   final TriState glutenFree;
   final double spacing;
 
-  // Entertain green / orange (Spec 026 Part C) + grey negative & black "?"
-  // (Spec 030 §C). Greys are warm to sit with the cream palette.
-  static const Color _veganBg = Color(0xFF1F6B52);
-  static const Color _vegetarianBg = Color(0xFFCFE7DD);
-  static const Color _vegetarianFg = Color(0xFF1F6B52);
-  static const Color _glutenBg = Color(0xFFD6603A);
-  static const Color _negativeBg = Color(0xFFE3DED4);
-  static const Color _negativeFg = Color(0xFF6E6256);
-  static const Color _unknownBg = Color(0xFF000000);
-
-  ({Color bg, Color fg}) _style(DietBadge b) => switch (b) {
-    DietBadge.vegan => (bg: _veganBg, fg: Colors.white),
-    DietBadge.vegetarian => (bg: _vegetarianBg, fg: _vegetarianFg),
-    DietBadge.glutenFree => (bg: _glutenBg, fg: Colors.white),
-    DietBadge.dietNegative || DietBadge.glutenNegative => (
-      bg: _negativeBg,
-      fg: _negativeFg,
-    ),
-    DietBadge.unknown => (bg: _unknownBg, fg: Colors.white),
-  };
-
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -60,36 +39,12 @@ class DietaryBadges extends StatelessWidget {
       runSpacing: spacing,
       children: [
         for (final b in badges)
-          _Pill(label: dietBadgeAbbrev(l10n, b), style: _style(b)),
+          DietPill(
+            label: dietBadgeAbbrev(l10n, b),
+            bg: dietBadgeStyle(b).bg,
+            fg: dietBadgeStyle(b).fg,
+          ),
       ],
-    );
-  }
-}
-
-class _Pill extends StatelessWidget {
-  const _Pill({required this.label, required this.style});
-
-  final String label;
-  final ({Color bg, Color fg}) style;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-      decoration: BoxDecoration(
-        color: style.bg,
-        borderRadius: BorderRadius.circular(9),
-      ),
-      child: Text(
-        label,
-        style: AppTypography.caption.copyWith(
-          color: style.fg,
-          fontWeight: FontWeight.w700,
-          fontSize: 11,
-          letterSpacing: 0.3,
-          height: 1.1,
-        ),
-      ),
     );
   }
 }

@@ -661,6 +661,9 @@ class EventsRepository {
     String? phone,
     String? email,
     GuestState state = GuestState.pendent,
+    bool dietVegetarian = false,
+    bool dietVegan = false,
+    bool dietGlutenFree = false,
   }) async {
     final groupId = await currentGroupId();
     await _client.from('event_guests').insert({
@@ -670,16 +673,23 @@ class EventsRepository {
       'phone': phone,
       'email': email,
       'state': state.wire,
+      'diet_vegetarian': dietVegetarian,
+      'diet_vegan': dietVegan,
+      'diet_gluten_free': dietGlutenFree,
     });
   }
 
-  /// Edits a guest's fields + state from the editor (§1.4).
+  /// Edits a guest's fields + state + dietary restrictions from the editor
+  /// (§1.4; Spec 029 manual scope — the host sets the diet by hand).
   Future<void> updateEventGuest(
     String guestId, {
     required String name,
     String? phone,
     String? email,
     required GuestState state,
+    required bool dietVegetarian,
+    required bool dietVegan,
+    required bool dietGlutenFree,
   }) async {
     await _client
         .from('event_guests')
@@ -688,6 +698,9 @@ class EventsRepository {
           'phone': phone,
           'email': email,
           'state': state.wire,
+          'diet_vegetarian': dietVegetarian,
+          'diet_vegan': dietVegan,
+          'diet_gluten_free': dietGlutenFree,
         })
         .eq('id', guestId);
   }

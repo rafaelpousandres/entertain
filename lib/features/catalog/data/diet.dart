@@ -199,6 +199,24 @@ List<DietBadge> dietaryBadgesFor(DietLevel diet, TriState glutenFree) {
   return [dietBadge ?? DietBadge.unknown, glutenBadge ?? DietBadge.unknown];
 }
 
+/// The badge whose colour represents a SINGLE diet level on a choose-pill —
+/// every state maps (unknown → "?", none → grey negative, veg/vegan → green), so
+/// the colour a user picks matches the badge later shown. (Distinct from
+/// [dietaryBadgesFor], which collapses the two axes for the read-only display.)
+DietBadge dietLevelBadge(DietLevel d) => switch (d) {
+  DietLevel.unknown => DietBadge.unknown,
+  DietLevel.none => DietBadge.dietNegative,
+  DietLevel.vegetarian => DietBadge.vegetarian,
+  DietLevel.vegan => DietBadge.vegan,
+};
+
+/// The badge whose colour represents a single gluten state on a choose-pill.
+DietBadge glutenStateBadge(TriState g) => switch (g) {
+  TriState.unknown => DietBadge.unknown,
+  TriState.yes => DietBadge.glutenFree,
+  TriState.no => DietBadge.glutenNegative,
+};
+
 /// The abbreviation shown inside the pill: the positive and negative states of
 /// an axis share a letter (the colour distinguishes them), and "?" is literal.
 /// VGN/VGT/SG are locale-aware (ARB), so they follow the app language.
