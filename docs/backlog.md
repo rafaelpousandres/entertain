@@ -13,9 +13,8 @@
 ## Índex
 
 > **Cua de specs (planificada):** 025 catàleg ric ✅ · 026 polits + descobribilitat ✅ ·
-> (propera passada de polits: splash + sync hints, §6) · 027 full resum (PDF al
-> client) · 028 mode compra al súper · 029 convidats Capa 2 (RSVP) · Google Play
-> Billing. (Detall just a sota.)
+> 027 full resum (PDF al client) + splash + sync hints ✅ · 028 mode compra al súper ·
+> 029 convidats Capa 2 (RSVP) · Google Play Billing. (Detall just a sota.)
 
 0. **Principis de producte** — AI-native, ecosistema foodappslab
 1. **Catàleg** — filtres ✅ (Spec 025), atributs dietètics plats ✅ (Spec 025), atributs begudes (aparcat)
@@ -74,17 +73,28 @@ d'UX i deute petit:
 >   (10 seccions), generada amb `python3 tools/build_guide.py`; ara el peu remet al
 >   Manual complet. Tots dos generadors resolen logo i sortida **relatius al repo**.
 
-### Spec 027 — Full resum de l'esdeveniment (PDF al client)
-Un botó **"Crea full resum"** a la pantalla **Esdeveniment** que genera un **PDF
-al client (Flutter)** —no servidor— amb el logo i l'estil Entertain, en l'idioma de
-l'app, i **compartible amb el share sheet**. Conté: tots els camps de l'esdeveniment,
-els **convidats** (estats + totals), els **plats** amb receptes i ingredients, les
-**begudes**, i la **llista de compra per proveïdor**. És el "dossier" imprimible/
-enviable d'un esdeveniment sencer.
-- **Quan:** després dels polits; aporta molt de valor tangible.
-- **Bloqueja:** triar la llibreria PDF de Flutter (p. ex. `pdf`/`printing`); disseny
-  de plantilla; muntar el document des de les dades ja existents (event, menú,
-  convidats, compra).
+### ✅ Spec 027 — Full resum de l'esdeveniment (PDF) — INCORPORADA
+**A `main`, validada al Pixel** (versió 1.0.23+30). Un botó **"Crea full resum"** a
+la pantalla **Esdeveniment** genera un **PDF al client (Flutter, `pdf`+`printing`)**
+—no servidor— amb el logo i l'estil Entertain, en l'idioma de l'app, i **compartible
+amb el share sheet**. Conté: dades de l'esdeveniment + foto, **convidats** (estats +
+totals + avís de sobrecapacitat), **plats** (badges dietètics, ingredients amb
+quantitats escalades, recepta en viu; plats comprats amb proveïdor), **begudes**,
+**totals de menú** i **llista de compra per proveïdor**. Llegeix les **mateixes dades
+resoltes** que les pantalles (sense divergència); fotos reduïdes a ≤1000px des de la
+cache de sessió per rendiment (§C). Codi a `lib/features/events/summary/`
+(`EventSummaryPdfBuilder` pur + servei + helper de downscale).
+
+Hi van plegats, validats junts en el mateix AAB, els **dos polits carregats de la
+026** (§6):
+- **§9(a) "Entertain" a la splash** — nom apilat sobre el logo amb `Align`; el logo
+  queda exactament al centre (traspàs net amb la splash nativa intacte).
+- **§9(b) Sync de hints (BD)** — migració `20260630000000_hints_sync.sql` (44 → 40):
+  esborra els 4 keys retirats **i les seves traduccions** (cap trigger cobreix
+  `kind='hint'`), reescriu els 4 canviats; idempotent, regenerable amb
+  `tools/gen_hints_sync.py`. Aplicada i verificada a la BD viva.
+
+**Cua de polits (format del PDF, no urgents):** vegeu §6.
 
 ### Spec 028 — Mode compra al súper
 Polir la vista de **Compra** per a l'ús real al supermercat (§6): diana d'un toc,
@@ -515,34 +525,32 @@ tres eixos; la 019 deixa la costura al missatge de límit assolit.
 
 ## 6. Polits i millores menors
 
-> **Cua per a la propera passada de descobribilitat/polits** (porta migració de
-> BD per (b)): els dos polits següents van junts en una passada posterior a la 026.
+### ✅ "Entertain" a la pantalla de splash (nom apilat sobre el logo)
+**Incorporat a la Spec 027 (§9a), a `main`, validat al Pixel.** Nom **"Entertain"**
+en bold i verd de marca, apilat sobre el logo amb un `Align` propi; el logo queda
+exactament al centre, sense reflowejar la columna, així el traspàs amb la splash
+nativa segueix net.
 
-### 💡 "Entertain" a la pantalla de splash (nom apilat sobre el logo)
-Afegir el **nom "Entertain"** a la pantalla de presentació: **en bold**, en el
-**verd fosc de marca**, **apilat sobre el logo** — composició **Entertain (dalt) ·
-logo (centre) · eslògan (sota)**. Clau: **no desplaçar el logo del centre** (que
-segueixi exactament on és ara), per **no trencar el traspàs amb la splash nativa**
-(el flaix residual ja resolt, §6 "Parpelleig"). Implementació amb **`Align`** del
-nom i l'eslògan al voltant del logo centrat, no reflowejant la columna.
-- **On va:** client, pantalla de splash/overlay.
-- **Quan:** propera passada de polits; trivial, només UI, sense BD.
+### ✅ Sync del contingut dels hints amb el fitxer font (migració de BD)
+**Incorporat a la Spec 027 (§9b), aplicat i verificat a la BD viva** (44 → 40).
+Migració `20260630000000_hints_sync.sql`: esborra els 4 keys retirats
+(`menu_add_button`, `hints_toggle`, `event_status`, `photos_pexels`) **i les seves
+traduccions explícitament** (el trigger d'òrfenes de la 026 no cobreix `kind='hint'`),
+i reescriu els 4 canviats (`photos_three`, `event_format`, `config_suggestions`,
+`menu_adhoc`). Idempotent (`is distinct from`), regenerable amb `tools/gen_hints_sync.py`.
 
-### 💡 Sync del contingut dels hints amb el fitxer font (migració de BD)
-El fitxer font `Entertain - Hints (seed).md` **ja està actualitzat** a **40 hints**
-(1 benvinguda + 39 tips); el seed inicial de la 026 en tenia 44. Cal una **migració
-de BD** que **sincronitzi** el contingut viu amb la font:
-- **Eliminar 4 hints** (i les seves files): `menu_add_button`, `hints_toggle`,
-  `event_status`, `photos_pexels`.
-- **Reescriure 4 hints**: `photos_three`, `event_format`, `config_suggestions`,
-  `menu_adhoc` (update del text ca/es/en).
-- **Atenció — esborrar també les traduccions dels retirats**: el trigger de
-  traduccions òrfenes de la 026 **NO cobreix `kind = 'hint'`** (cobreix només les
-  entitats de catàleg). La migració ha d'esborrar **explícitament** les files de
-  `translations` dels 4 hints retirats, a més de les files a `hints`.
-- **On va:** `supabase/migrations/` (nova migració) + regenerar el seed amb
-  `tools/gen_hints_seed.py` si cal contrastar.
-- **Quan:** propera passada de polits; baix risc, però toca dades vives.
+### 💡 Retocs de format del full resum (PDF, Spec 027)
+Dos ajustos menors de maquetació detectats validant exemples reals al Pixel (no
+urgents, només presentació del PDF):
+- **(a) Interlineat dels passos de recepta**: quan els passos d'una preparació van
+  en línies separades, l'espai entre línies queda **massa ample** — **comprimir-lo**
+  perquè la recepta es llegeixi més compacta.
+- **(b) Aire abans de la primera capçalera de proveïdor a "Compra"**: afegir **una
+  mica més de separació** entre el títol de secció **"Compra"** i la primera
+  capçalera de proveïdor.
+- **On va:** client, `event_summary_pdf_builder.dart` (espaiats de `_dishBlock` i de
+  la secció Compra).
+- **Quan:** propera passada de polits; trivial, només UI del PDF, sense BD.
 
 ### ✅ La foto auto de l'assistent no apareix com a capçalera de la fitxa
 **Resolt a la Spec 021 (B1):** la inserció de `media` de l'assistent es va alinear
