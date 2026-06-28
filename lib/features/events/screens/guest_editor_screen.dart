@@ -13,6 +13,8 @@ import '../../../ui/segmented_choice.dart';
 import '../../../ui/single_choice_sheet.dart';
 import '../../../util/contact_picker.dart';
 import '../../../util/email_validator.dart';
+import '../../catalog/data/diet.dart';
+import '../../catalog/widgets/diet_choice.dart';
 import '../../shopping/widgets/phone_field.dart';
 import '../data/event_guest.dart';
 import '../data/events_providers.dart';
@@ -46,6 +48,9 @@ class _GuestEditorScreenState extends ConsumerState<GuestEditorScreen> {
 
   String _phoneDialCode = defaultPhoneDialCode();
   GuestState _state = GuestState.pendent;
+  bool _vegetarian = false;
+  bool _vegan = false;
+  bool _glutenFree = false;
   bool _saving = false;
   bool _deleting = false;
   bool _dirty = false;
@@ -66,6 +71,9 @@ class _GuestEditorScreenState extends ConsumerState<GuestEditorScreen> {
       _phoneController.text = phone.local;
       _emailController.text = g.email ?? '';
       _state = g.state;
+      _vegetarian = g.dietVegetarian;
+      _vegan = g.dietVegan;
+      _glutenFree = g.dietGlutenFree;
     }
   }
 
@@ -118,6 +126,9 @@ class _GuestEditorScreenState extends ConsumerState<GuestEditorScreen> {
           phone: phoneValue,
           email: emailValue,
           state: _state,
+          dietVegetarian: _vegetarian,
+          dietVegan: _vegan,
+          dietGlutenFree: _glutenFree,
         );
       } else {
         await repo.addEventGuest(
@@ -126,6 +137,9 @@ class _GuestEditorScreenState extends ConsumerState<GuestEditorScreen> {
           phone: phoneValue,
           email: emailValue,
           state: _state,
+          dietVegetarian: _vegetarian,
+          dietVegan: _vegan,
+          dietGlutenFree: _glutenFree,
         );
       }
       ref.invalidate(eventGuestsProvider(widget.eventId));
@@ -356,6 +370,53 @@ class _GuestEditorScreenState extends ConsumerState<GuestEditorScreen> {
             options: [
               for (final s in guestStateOrder)
                 SegmentedChoiceOption(s, guestStateLabel(l10n, s)),
+            ],
+          ),
+          const SizedBox(height: 24),
+          // Spec 029 (manual scope) — the host sets the guest's restrictions with
+          // the same VGT/VGN/SG pills the catalog uses, here pressable: tap to
+          // toggle (on = badge colour, off = dimmed). No restriction = none
+          // selected (the old "Cap" is gone). Vegetarian and vegan are mutually
+          // exclusive — selecting one clears the other; gluten-free is independent.
+          // No "unknown" state (unlike ingredients).
+          Text(
+            l10n.guestDietSectionLabel,
+            style: AppTypography.label.copyWith(color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              DietChoicePill(
+                label: l10n.dietLevelVegetarian,
+                badge: DietBadge.vegetarian,
+                selected: _vegetarian,
+                onTap: () => setState(() {
+                  _vegetarian = !_vegetarian;
+                  if (_vegetarian) _vegan = false; // veg ⊥ vegan
+                  _dirty = true;
+                }),
+              ),
+              DietChoicePill(
+                label: l10n.dietLevelVegan,
+                badge: DietBadge.vegan,
+                selected: _vegan,
+                onTap: () => setState(() {
+                  _vegan = !_vegan;
+                  if (_vegan) _vegetarian = false; // veg ⊥ vegan
+                  _dirty = true;
+                }),
+              ),
+              DietChoicePill(
+                label: l10n.guestGlutenFreeLabel,
+                badge: DietBadge.glutenFree,
+                selected: _glutenFree,
+                onTap: () => setState(() {
+                  _glutenFree = !_glutenFree;
+                  _dirty = true;
+                }),
+              ),
             ],
           ),
           const SizedBox(height: 24),

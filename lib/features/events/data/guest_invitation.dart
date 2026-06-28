@@ -47,35 +47,71 @@ Map<GuestState, List<EventGuest>> groupGuestsByState(List<EventGuest> guests) {
   return byState;
 }
 
-/// §1.6 — the invitation body prefilled from the event (name, date, place).
-/// Only the parts the event actually has are included; reused as the editable
+/// §1.6 / Spec 029 — the editable invitation *body* prefilled from the event
+/// (title, date+time, place) plus the confirm question. Reused as the editable
 /// default and as the fallback body when the host hasn't customised the text.
+/// The per-guest greeting, the RSVP link and the closing thanks are NOT here —
+/// they wrap the body per guest in [assembleInvitationMessage] at send time.
 String composeInvitationPrefill(
   AppLocalizations l10n,
   Locale locale,
   Event event,
 ) {
-  final lines = <String>[
-    l10n.invitationGreeting,
-    l10n.invitationInviteLine(event.title),
-  ];
+  // The when/where block, kept apart so a blank line can sit above it (and so it
+  // collapses cleanly when the event has neither a date nor a place).
+  final details = <String>[];
   final date = event.eventDate;
   if (date != null) {
     var when = formatLongDate(date, locale);
     final time = event.eventTime;
     if (time != null) {
       final dt = DateTime(2000, 1, 1, time.hour, time.minute);
-      when = '$when · ${DateFormat.Hm(locale.toLanguageTag()).format(dt)}';
+      final hm = DateFormat.Hm(locale.toLanguageTag()).format(dt);
+      when = l10n.invitationWhenWithTime(when, hm);
     }
-    lines.add(l10n.invitationWhenLine(when));
+    details.add(l10n.invitationWhenLine(when));
   }
   final place = event.locationName?.trim();
   if (place != null && place.isNotEmpty) {
-    lines.add(l10n.invitationWhereLine(place));
+    details.add(l10n.invitationWhereLine(place));
   }
-  lines.add(l10n.invitationCloseLine);
+  final lines = <String>[invitationInviteLine(l10n, event)];
+  if (details.isNotEmpty) {
+    lines
+      ..add('') // blank line: the invite opening ↕ the when/where block
+      ..addAll(details);
+  }
+  lines
+    ..add('') // blank line: details ↕ the confirm question
+    ..add(l10n.invitationCloseLine);
   return lines.join('\n');
 }
+
+/// Spec 029 (manual scope) — the invite opening, adapted to the event type:
+/// "al sopar/al dinar {títol}" for dinner/lunch, and a plain "{títol}" for other
+/// events (no meal word). The grammar (article/contraction) lives in the ARB so
+/// each language reads naturally.
+String invitationInviteLine(AppLocalizations l10n, Event event) =>
+    switch (event.type) {
+      EventType.lunch => l10n.invitationInviteLineLunch(event.title),
+      EventType.dinner => l10n.invitationInviteLineDinner(event.title),
+      EventType.other => l10n.invitationInviteLineOther(event.title),
+    };
+
+/// Spec 029 — the full message sent to one guest: a personalised greeting, the
+/// invitation [body] (the prefill or the host's custom text) and the closing
+/// thanks, each block separated by a blank line. Pure so it's unit-tested.
+/// (The public RSVP link is parked until Pro, so no link block here.)
+String assembleInvitationMessage({
+  required String greeting,
+  required String body,
+  required String thanks,
+}) => [greeting, '', body, '', thanks].join('\n');
+
+/// Spec 029 (manual scope) — the host sets a guest's restrictions as three
+/// independent booleans (vegetarian, vegan, gluten-free) directly on
+/// [EventGuest]. Vegetarian/vegan are mutually exclusive, enforced in the editor
+/// UI; the Convidats pills read the booleans straight. No "level" enum is needed.
 
 /// The default form fields from a picked device contact (§1.2): the display
 /// name plus the first phone/email. The editor refines multi-value contacts via
@@ -89,4 +125,18 @@ String composeInvitationPrefill(
     phone: firstOrNull(contact.phones),
     email: firstOrNull(contact.emails),
   );
+}
+
+/// Spec 029 — the public RSVP URL for a guest, or null when there's no token or
+/// no configured Supabase base URL. PARKED until Entertain goes Pro: serving the
+/// HTML page needs a custom domain, so the invitation no longer embeds this link
+/// (RSVP is managed manually for now). Kept + unit-tested so the link format is
+/// ready to wire back in. The page reads its language from `lang`.
+String? rsvpUrl({
+  required String baseUrl,
+  required String? token,
+  required String langCode,
+}) {
+  if (baseUrl.isEmpty || token == null || token.isEmpty) return null;
+  return '$baseUrl/functions/v1/rsvp?token=$token&lang=$langCode';
 }

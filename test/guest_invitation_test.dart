@@ -15,11 +15,12 @@ Event _event({
   TimeOfDay? time,
   String? place,
   int guestCount = 8,
+  EventType type = EventType.dinner,
 }) => Event(
   id: 'e1',
   groupId: 'g1',
   title: title,
-  type: EventType.dinner,
+  type: type,
   format: EventFormat.seated,
   guestCount: guestCount,
   createdAt: DateTime(2026, 1, 1),
@@ -59,7 +60,10 @@ void main() {
       expect(text, contains('Mas Pous'));
       // when line carries the date + the time.
       expect(text, contains('21:00'));
-      expect(text, contains(l10n.invitationGreeting));
+      // the body ends with the confirm question; the greeting is NOT here (it's
+      // added per guest in assembleInvitationMessage).
+      expect(text, contains(l10n.invitationCloseLine));
+      expect(text.contains(l10n.invitationGreeting('X')), isFalse);
     });
 
     test('omits the when/where lines when the event has no date/place', () {
@@ -68,6 +72,38 @@ void main() {
       // No "When:" / "Where:" prefixes appear (their lines are skipped).
       expect(text.contains('When:'), isFalse);
       expect(text.contains('Where:'), isFalse);
+    });
+  });
+
+  test('invitationInviteLine adapts the opening to the event type', () {
+    expect(
+      invitationInviteLine(l10n, _event(type: EventType.lunch)),
+      contains('lunch'),
+    );
+    expect(
+      invitationInviteLine(l10n, _event(type: EventType.dinner)),
+      contains('dinner'),
+    );
+    // "other" has no meal word, just the title.
+    final other = invitationInviteLine(l10n, _event(type: EventType.other));
+    expect(other, contains('Sopar de Sant Joan'));
+    expect(other.contains('dinner'), isFalse);
+    expect(other.contains('lunch'), isFalse);
+  });
+
+  group('assembleInvitationMessage', () {
+    test('greeting, body and thanks, blank-line separated (no link)', () {
+      final msg = assembleInvitationMessage(
+        greeting: 'Hola, Anna.',
+        body: 'Et volem convidar al sopar X.',
+        thanks: 'Fins aviat!',
+      );
+      expect(
+        msg,
+        'Hola, Anna.\n\n'
+        'Et volem convidar al sopar X.\n\n'
+        'Fins aviat!',
+      );
     });
   });
 

@@ -8,7 +8,6 @@ import '../../../theme/app_colors.dart';
 import '../../../theme/app_typography.dart';
 import '../../../ui/app_form_field.dart';
 import '../../../ui/edit_scaffold.dart';
-import '../../../ui/segmented_choice.dart';
 import '../../../ui/single_choice_sheet.dart';
 import '../../events/data/events_providers.dart' show currentGroupIdProvider;
 import '../../photos/data/media.dart';
@@ -18,9 +17,9 @@ import '../../photos/data/photo_storage.dart';
 import '../../photos/widgets/photo_carousel_section.dart';
 import '../data/catalog_naming.dart';
 import '../data/catalog_providers.dart';
-import '../data/diet.dart';
 import '../data/ingredient.dart';
 import '../data/reference_data.dart';
+import '../widgets/diet_choice.dart';
 import '../widgets/unit_ordering.dart';
 
 /// Create / edit form for a catalog ingredient (Specification 004 screen 4).
@@ -481,30 +480,22 @@ class _IngredientFormState extends ConsumerState<_IngredientForm>
           const SizedBox(height: 8),
           Text(l10n.dietLabel, style: AppTypography.caption),
           const SizedBox(height: 6),
-          SegmentedChoice<DietLevel>(
+          DietLevelChoice(
             value: _draft.diet,
             onChanged: (v) => setState(() {
               _draft.diet = v;
               _dirty = true;
             }),
-            options: [
-              for (final d in dietLevelOrder)
-                SegmentedChoiceOption(d, dietLevelLabel(l10n, d)),
-            ],
           ),
           const SizedBox(height: 14),
           Text(l10n.glutenAxisLabel, style: AppTypography.caption),
           const SizedBox(height: 6),
-          SegmentedChoice<TriState>(
+          GlutenStateChoice(
             value: _draft.glutenFree,
             onChanged: (v) => setState(() {
               _draft.glutenFree = v;
               _dirty = true;
             }),
-            options: [
-              for (final g in triStateOrder)
-                SegmentedChoiceOption(g, glutenFreeLabel(l10n, g)),
-            ],
           ),
           const SizedBox(height: 16),
           FieldLabel(

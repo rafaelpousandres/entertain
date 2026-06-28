@@ -26,3 +26,10 @@ verify_jwt = true
 # by the operator; it reuses PEXELS_API_KEY for the photo fallback.
 [functions.dish-assistant]
 verify_jwt = true
+
+# Spec 029 — the PUBLIC RSVP page (guests Layer 2). verify_jwt is OFF: invited
+# guests open the link logged-out, with no Supabase key. Auth is the unguessable
+# per-guest token in the URL; the function reads/writes ONLY that token's row via
+# the service-role client (event_guests has the SELECT+UPDATE grant).
+[functions.rsvp]
+verify_jwt = false

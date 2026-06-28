@@ -34,7 +34,17 @@ EventGuest _guest(String name, GuestState state) =>
 
 class _FakeEvents extends EventsRepository {
   _FakeEvents() : super(_dummyClient());
-  final List<({String name, String? phone, String? email, GuestState state})>
+  final List<
+    ({
+      String name,
+      String? phone,
+      String? email,
+      GuestState state,
+      bool dietVegetarian,
+      bool dietVegan,
+      bool dietGlutenFree,
+    })
+  >
   added = [];
 
   @override
@@ -44,8 +54,19 @@ class _FakeEvents extends EventsRepository {
     String? phone,
     String? email,
     GuestState state = GuestState.pendent,
+    bool dietVegetarian = false,
+    bool dietVegan = false,
+    bool dietGlutenFree = false,
   }) async {
-    added.add((name: name, phone: phone, email: email, state: state));
+    added.add((
+      name: name,
+      phone: phone,
+      email: email,
+      state: state,
+      dietVegetarian: dietVegetarian,
+      dietVegan: dietVegan,
+      dietGlutenFree: dietGlutenFree,
+    ));
   }
 }
 
