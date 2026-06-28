@@ -16,6 +16,17 @@
 > 027 full resum (PDF al client) + splash + sync hints ✅ · 028 mode compra al súper ·
 > 029 convidats Capa 2 (RSVP) · Google Play Billing. (Detall just a sota.)
 
+> **Estratègia de tancament de scope.** L'abast de funcionalitats **es tanca
+> conscientment a la Spec 029**. Les specs **028** (compra en persona) i **029**
+> (RSVP web) estan **especificades i a la cua d'implementació**. Després de la 029,
+> **NO s'afegeixen més funcionalitats** (seria *gold plating*).
+>
+> **Seqüència de llançament:** Closed Testing (recollir feedback real) → **iOS** →
+> **premium/pagament** (només quan una funció ho justifiqui, segons feedback).
+>
+> **Pendents menors abans de Closed Testing:** pre-launch report del Play Console
+> (identificar 2 usuaris) + neteja dels grups del robo-test.
+
 0. **Principis de producte** — AI-native, ecosistema foodappslab
 1. **Catàleg** — filtres ✅ (Spec 025), atributs dietètics plats ✅ (Spec 025), atributs begudes (aparcat)
 1B. **Convidats i esdeveniment social** — Capa 1 ✅ (Spec 023); Capa 2 RSVP pendent →cua (029)
