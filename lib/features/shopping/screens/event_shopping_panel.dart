@@ -33,6 +33,44 @@ import '../shopping_line_format.dart';
 import '../../../util/text_case.dart';
 import '../supplier_category_format.dart';
 
+/// Spec 028 §C — the three cover maps (entity id → object path) the shopping
+/// rows need: ingredient lines resolve by `ingredientId`, while purchase lines
+/// (bought dishes / drinks) resolve by their catalog `sourceCatalogId`.
+typedef _CoverMaps = ({
+  Map<String, String> ingredient,
+  Map<String, String> dish,
+  Map<String, String> drink,
+});
+
+/// The cover photo for a shopping line, as a (bucket, path) ref — or null when
+/// the item has no photo (no thumbnail, no placeholder). Routes by line kind.
+({String bucket, String path})? _lineCoverRef(
+  AggregatedShoppingLine line,
+  _CoverMaps covers,
+) {
+  final (Map<String, String> map, MediaEntityType type, String? id) =
+      switch (line.kind) {
+    ShoppingLineKind.ingredient => (
+        covers.ingredient,
+        MediaEntityType.ingredient,
+        line.ingredientId,
+      ),
+    ShoppingLineKind.preparedDish => (
+        covers.dish,
+        MediaEntityType.dish,
+        line.sourceCatalogId,
+      ),
+    ShoppingLineKind.drink => (
+        covers.drink,
+        MediaEntityType.drink,
+        line.sourceCatalogId,
+      ),
+  };
+  if (id == null) return null;
+  final path = map[id];
+  return path == null ? null : (bucket: type.bucket, path: path);
+}
+
 /// Event shopping panel (Specification 005 §2.3 + 007 §3.4): the event's
 /// ingredient lines grouped by effective supplier category, each line carrying
 /// a state (Spec 007 §3.1). A summary header at the top shows the global state
@@ -353,11 +391,19 @@ class _EventShoppingPanelState extends ConsumerState<EventShoppingPanel> {
     final mode =
         _mode ?? ref.watch(shoppingModeProvider).value ?? ShoppingMode.comandes;
     final inPerson = mode == ShoppingMode.enPersona;
-    // Spec 028 §C: ingredient cover thumbnails on rows (both modes). Resolved
-    // by the line's ingredientId; purchase lines / photoless items show none.
-    final ingredientCovers =
-        ref.watch(entityCoverPathsProvider(MediaEntityType.ingredient)).value ??
-            const <String, String>{};
+    // Spec 028 §C: cover thumbnails on rows (both modes) — ingredients by their
+    // id, bought dishes / drinks by their catalog source id; photoless items
+    // show none.
+    const emptyCovers = <String, String>{};
+    final _CoverMaps covers = (
+      ingredient:
+          ref.watch(entityCoverPathsProvider(MediaEntityType.ingredient)).value ??
+              emptyCovers,
+      dish: ref.watch(entityCoverPathsProvider(MediaEntityType.dish)).value ??
+          emptyCovers,
+      drink: ref.watch(entityCoverPathsProvider(MediaEntityType.drink)).value ??
+          emptyCovers,
+    );
 
     // Spec 011 §2.11: split the event's lines into managed (dish-derived) and
     // extras (the phantom-dish piggyback items). Only managed lines aggregate,
@@ -416,7 +462,7 @@ class _EventShoppingPanelState extends ConsumerState<EventShoppingPanel> {
                   extras: extrasByCat[categoryId] ?? const [],
                   displayOf: displayOf,
                   unitsById: unitsById,
-                  ingredientCovers: ingredientCovers,
+                  covers: covers,
                   inPerson: inPerson,
                   expanded: _openSection == categoryId,
                   onToggleExpanded: () => _toggleSection(categoryId),
@@ -436,7 +482,7 @@ class _EventShoppingPanelState extends ConsumerState<EventShoppingPanel> {
                   lines: uncategorised,
                   displayOf: displayOf,
                   unitsById: unitsById,
-                  ingredientCovers: ingredientCovers,
+                  covers: covers,
                   inPerson: inPerson,
                   expanded: _openSection == _uncategorisedKey,
                   onToggleExpanded: () => _toggleSection(_uncategorisedKey),
@@ -672,7 +718,7 @@ class _CategorySection extends StatelessWidget {
     required this.extras,
     required this.displayOf,
     required this.unitsById,
-    required this.ingredientCovers,
+    required this.covers,
     required this.inPerson,
     required this.expanded,
     required this.onToggleExpanded,
@@ -695,8 +741,8 @@ class _CategorySection extends StatelessWidget {
   final DisplayState Function(AggregatedShoppingLine) displayOf;
   final Map<String, Unit> unitsById;
 
-  /// Spec 028 §C — ingredient id → cover object path, for the row thumbnails.
-  final Map<String, String> ingredientCovers;
+  /// Spec 028 §C — the cover maps for the row thumbnails (ingredient/dish/drink).
+  final _CoverMaps covers;
 
   /// Spec 028 — In-person checklist variant: hides the ordering controls and
   /// renders each row as a checkbox.
@@ -771,7 +817,7 @@ class _CategorySection extends StatelessWidget {
             lines: lines,
             displayOf: displayOf,
             unitsById: unitsById,
-            ingredientCovers: ingredientCovers,
+            covers: covers,
             isPantry: isPantry,
             inPerson: inPerson,
             onChangeState: onChangeState,
@@ -784,7 +830,7 @@ class _CategorySection extends StatelessWidget {
             _ExtraGroup(
               extras: extras,
               unitsById: unitsById,
-              ingredientCovers: ingredientCovers,
+              ingredientCovers: covers.ingredient,
               onEditExtra: onEditExtra,
               onDeleteExtra: onDeleteExtra,
             ),
@@ -829,7 +875,7 @@ class _UncategorisedSection extends StatelessWidget {
     required this.lines,
     required this.displayOf,
     required this.unitsById,
-    required this.ingredientCovers,
+    required this.covers,
     required this.inPerson,
     required this.expanded,
     required this.onToggleExpanded,
@@ -841,7 +887,7 @@ class _UncategorisedSection extends StatelessWidget {
   final List<AggregatedShoppingLine> lines;
   final DisplayState Function(AggregatedShoppingLine) displayOf;
   final Map<String, Unit> unitsById;
-  final Map<String, String> ingredientCovers;
+  final _CoverMaps covers;
   final bool inPerson;
   final bool expanded;
   final VoidCallback onToggleExpanded;
@@ -889,7 +935,7 @@ class _UncategorisedSection extends StatelessWidget {
             lines: lines,
             displayOf: displayOf,
             unitsById: unitsById,
-            ingredientCovers: ingredientCovers,
+            covers: covers,
             isPantry: false,
             inPerson: inPerson,
             onChangeState: onChangeState,
@@ -918,7 +964,7 @@ class _StateGroups extends StatelessWidget {
     required this.lines,
     required this.displayOf,
     required this.unitsById,
-    required this.ingredientCovers,
+    required this.covers,
     required this.isPantry,
     required this.inPerson,
     required this.onChangeState,
@@ -928,7 +974,7 @@ class _StateGroups extends StatelessWidget {
   final List<AggregatedShoppingLine> lines;
   final DisplayState Function(AggregatedShoppingLine) displayOf;
   final Map<String, Unit> unitsById;
-  final Map<String, String> ingredientCovers;
+  final _CoverMaps covers;
   final bool isPantry;
   final bool inPerson;
   final void Function(AggregatedShoppingLine line, {required bool isPantry})
@@ -975,9 +1021,7 @@ class _StateGroups extends StatelessWidget {
                   line: line,
                   displayState: state,
                   unit: unitsById[line.unitId],
-                  coverPath: line.ingredientId == null
-                      ? null
-                      : ingredientCovers[line.ingredientId],
+                  coverRef: _lineCoverRef(line, covers),
                   inPerson: inPerson,
                   onTap: () => onChangeState(line, isPantry: isPantry),
                   onToggleChecked: () =>
@@ -1074,7 +1118,7 @@ class _LineRow extends StatelessWidget {
     required this.line,
     required this.displayState,
     required this.unit,
-    required this.coverPath,
+    required this.coverRef,
     required this.inPerson,
     required this.onTap,
     required this.onToggleChecked,
@@ -1084,8 +1128,8 @@ class _LineRow extends StatelessWidget {
   final DisplayState displayState;
   final Unit? unit;
 
-  /// Spec 028 §C — the ingredient cover object path, or null (no thumbnail).
-  final String? coverPath;
+  /// Spec 028 §C — the cover photo (bucket + path), or null (no thumbnail).
+  final ({String bucket, String path})? coverRef;
 
   /// Spec 028 — checklist variant: a checkbox replaces the state indicator.
   final bool inPerson;
@@ -1128,16 +1172,10 @@ class _LineRow extends StatelessWidget {
           ),
           child: Row(
             children: [
-              // Spec 028 §C: the ingredient cover thumbnail (both modes); absent
-              // when the item has no photo.
-              if (coverPath != null) ...[
-                RowPhotoThumb(
-                  photoRef: (
-                    bucket: MediaEntityType.ingredient.bucket,
-                    path: coverPath!,
-                  ),
-                  size: 34,
-                ),
+              // Spec 028 §C: the cover thumbnail (both modes) — ingredient,
+              // bought dish or drink; absent when the item has no photo.
+              if (coverRef != null) ...[
+                RowPhotoThumb(photoRef: coverRef!, size: 34),
                 const SizedBox(width: 10),
               ],
               Expanded(

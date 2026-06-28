@@ -30,6 +30,7 @@ ShoppingLine boughtDishShoppingLine({
   required int servings,
   required double? servingsPerUnit,
   required IngredientState state,
+  String? sourceCatalogId,
 }) {
   return ShoppingLine(
     id: id,
@@ -37,6 +38,7 @@ ShoppingLine boughtDishShoppingLine({
     quantity: boughtDishUnits(servings, servingsPerUnit).toDouble(),
     kind: ShoppingLineKind.preparedDish,
     supplierCategoryId: supplierCategoryId,
+    sourceCatalogId: sourceCatalogId,
     state: state,
   );
 }
@@ -51,6 +53,7 @@ ShoppingLine drinkShoppingLine({
   required int quantity,
   required String denomination,
   required IngredientState state,
+  String? sourceCatalogId,
 }) {
   return ShoppingLine(
     id: id,
@@ -59,6 +62,7 @@ ShoppingLine drinkShoppingLine({
     kind: ShoppingLineKind.drink,
     denomination: denomination,
     supplierCategoryId: supplierCategoryId,
+    sourceCatalogId: sourceCatalogId,
     state: state,
   );
 }
