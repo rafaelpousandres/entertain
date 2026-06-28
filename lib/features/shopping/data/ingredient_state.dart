@@ -27,6 +27,25 @@ enum IngredientState {
   }
 }
 
+/// Spec 028 §B — whether a line reads as **checked** in the in-person checklist:
+/// the user has it (received or already at home). Everything else (to-order,
+/// ordered, missing) is unchecked — you don't have it yet.
+bool isCheckedShoppingState(IngredientState state) =>
+    state == IngredientState.received || state == IngredientState.atHome;
+
+/// Spec 028 §B — the state a checklist tap moves a line to: checking sets
+/// `received` (`at_home` for the pantry's binary model); unchecking sets
+/// `to_order` (`missing` for the pantry). Reuses the existing state machine.
+IngredientState toggledShoppingState(
+  IngredientState current, {
+  required bool isPantry,
+}) {
+  if (isCheckedShoppingState(current)) {
+    return isPantry ? IngredientState.missing : IngredientState.toOrder;
+  }
+  return isPantry ? IngredientState.atHome : IngredientState.received;
+}
+
 /// Presentation-only state shown in the shopping panel (Spec 007 Fixes round 2
 /// §2.2). It is the five persisted [IngredientState] values plus the derived
 /// **delayed** ("Retrassat") overlay: a line that is still `ordered` past its

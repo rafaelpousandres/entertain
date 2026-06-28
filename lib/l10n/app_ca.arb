@@ -641,5 +641,9 @@
   "summaryDrinksHeading": "Begudes",
   "summaryTotalLabel": "Total",
   "summaryNoSupplier": "Sense proveïdor",
-  "summaryFooter": "Fotos d'stock proporcionades per Pexels. · Generat el {date}"
+  "summaryFooter": "Fotos d'stock proporcionades per Pexels. · Generat el {date}",
+  "shoppingModeComandes": "Comandes",
+  "shoppingModeEnPersona": "En persona",
+  "settingsShoppingModeTitle": "Vista de compra per defecte",
+  "settingsShoppingModeSubtitle": "Quina vista obre la pestanya Compra."
 }

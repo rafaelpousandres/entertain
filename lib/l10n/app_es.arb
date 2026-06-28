@@ -641,5 +641,9 @@
   "summaryDrinksHeading": "Bebidas",
   "summaryTotalLabel": "Total",
   "summaryNoSupplier": "Sin proveedor",
-  "summaryFooter": "Fotos de stock proporcionadas por Pexels. · Generado el {date}"
+  "summaryFooter": "Fotos de stock proporcionadas por Pexels. · Generado el {date}",
+  "shoppingModeComandes": "Pedidos",
+  "shoppingModeEnPersona": "En persona",
+  "settingsShoppingModeTitle": "Vista de compra por defecto",
+  "settingsShoppingModeSubtitle": "Qué vista abre la pestaña Compra."
 }

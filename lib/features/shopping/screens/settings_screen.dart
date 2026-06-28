@@ -23,6 +23,7 @@ import '../../suggestions/data/suggestions_providers.dart'
 import '../data/group_supplier_setting.dart';
 import '../data/supplier_resolution.dart';
 import '../data/message_channel.dart';
+import '../data/shopping_mode.dart';
 import '../data/shopping_providers.dart';
 import '../supplier_category_format.dart';
 
@@ -339,6 +340,9 @@ class _GeneralTab extends ConsumerWidget {
         // Spec 026 A.2: re-settable "show tips on opening" preference.
         const SizedBox(height: 16),
         const _HintsToggleCard(),
+        // Spec 028 §A: default sub-mode the Compra tab opens in.
+        const SizedBox(height: 16),
+        const _ShoppingModeCard(),
         // Spec 021 Part A: the suggestions box, right after "Primers passos".
         const SizedBox(height: 16),
         const _SuggestionsCard(),
@@ -398,6 +402,57 @@ class _HintsToggleCard extends ConsumerWidget {
             onChanged: (value) =>
                 ref.read(hintsEnabledProvider.notifier).set(value),
             activeThumbColor: AppColors.accent,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Spec 028 §A — the default sub-mode the Compra tab opens in (Comandes / En
+/// persona). A device-local preference; the tabs in the Compra screen still let
+/// the user switch freely within a session.
+class _ShoppingModeCard extends ConsumerWidget {
+  const _ShoppingModeCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
+    final mode =
+        ref.watch(shoppingModeProvider).value ?? ShoppingMode.comandes;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(l10n.settingsShoppingModeTitle, style: AppTypography.body),
+          const SizedBox(height: 2),
+          Text(
+            l10n.settingsShoppingModeSubtitle,
+            style: AppTypography.caption.copyWith(
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 12),
+          SegmentedChoice<ShoppingMode>(
+            value: mode,
+            onChanged: (m) => ref.read(shoppingModeProvider.notifier).set(m),
+            options: [
+              SegmentedChoiceOption(
+                ShoppingMode.comandes,
+                l10n.shoppingModeComandes,
+              ),
+              SegmentedChoiceOption(
+                ShoppingMode.enPersona,
+                l10n.shoppingModeEnPersona,
+              ),
+            ],
           ),
         ],
       ),
