@@ -631,5 +631,15 @@
   "settingsHintsToggleSubtitle": "Cada vez que abres la app aparece un consejo.",
   "dietBadgeVegan": "VGN",
   "dietBadgeVegetarian": "VGT",
-  "dietBadgeGlutenFree": "SG"
+  "dietBadgeGlutenFree": "SG",
+  "summaryCreateAction": "Crea hoja resumen",
+  "summaryProgress": "Generando la hoja resumen…",
+  "summaryError": "No se ha podido generar la hoja resumen.",
+  "summarySectionGuests": "Invitados",
+  "summarySectionMenu": "Menú",
+  "summarySectionPurchase": "Compra",
+  "summaryDrinksHeading": "Bebidas",
+  "summaryTotalLabel": "Total",
+  "summaryNoSupplier": "Sin proveedor",
+  "summaryFooter": "Fotos de stock proporcionadas por Pexels. · Generado el {date}"
 }

@@ -1100,5 +1100,31 @@
   "settingsHintsToggleSubtitle": "A tip appears each time you open the app.",
   "dietBadgeVegan": "VGN",
   "dietBadgeVegetarian": "VGT",
-  "dietBadgeGlutenFree": "GF"
+  "dietBadgeGlutenFree": "GF",
+  "summaryCreateAction": "Create summary",
+  "@summaryCreateAction": {},
+  "summaryProgress": "Creating the summary…",
+  "@summaryProgress": {},
+  "summaryError": "Couldn't create the summary.",
+  "@summaryError": {},
+  "summarySectionGuests": "Guests",
+  "@summarySectionGuests": {},
+  "summarySectionMenu": "Menu",
+  "@summarySectionMenu": {},
+  "summarySectionPurchase": "Shopping",
+  "@summarySectionPurchase": {},
+  "summaryDrinksHeading": "Drinks",
+  "@summaryDrinksHeading": {},
+  "summaryTotalLabel": "Total",
+  "@summaryTotalLabel": {},
+  "summaryNoSupplier": "No supplier",
+  "@summaryNoSupplier": {},
+  "summaryFooter": "Stock photos provided by Pexels. · Generated on {date}",
+  "@summaryFooter": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  }
 }
