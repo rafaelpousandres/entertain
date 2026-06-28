@@ -812,6 +812,23 @@ polimòrfica, sense FK) quedaven òrfenes. **Resolt a la Spec 026** amb un **tri
 de neteja automàtica. Cobreix les entitats de catàleg; **no** el `kind = 'hint'`
 (els hints es sincronitzen per migració — vegeu el polit pendent a §6).
 
+### 🔜 Activar cron sweeper de `photo-staging` (abans de Closed Testing)
+El fix de foto-en-creació (Spec 030 §B) puja a un bucket `photo-staging` i promou
+les fotos a l'entitat en desar; una creació cancel·lada/morta deixa blobs orfes.
+La funció `sweep-staging` (ja desplegada) els neteja després de 24 h, però **el
+cron que la dispara encara no està activat**. La migració
+`20260703000100_sweep_staging_cron.sql` ja és a `main` **sense `db push`**, a
+punt. Per activar-lo (ABANS del Closed Testing / trànsit real):
+- `db push` de `20260703000100` (mostrar el SQL abans).
+- Crear 2 secrets a **Supabase Vault**: `project_url`
+  (`https://hwpcevsheahfrrovgloi.supabase.co`) i `service_role_key` (la service
+  role key del projecte — entrar-la al dashboard, mai al codi).
+- Possible habilitació de `pg_cron`/`pg_net` al Dashboard si el `db push` peta per
+  privilegis del rol de migració.
+
+Encaixa a la **tongada d'infraestructura del llançament (pas a Pro)**. Sense ell la
+brossa de staging no es neteja sola — **irrellevant fins que hi hagi usuaris reals**.
+
 ---
 
 ## 10. Fites de llançament (camí cap a producció)
