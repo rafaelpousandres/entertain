@@ -112,13 +112,22 @@ void main() {
     });
   });
 
-  group('dietary badges (Spec 026)', () {
+  group('dietary badges (Spec 026 + 030 §C)', () {
     test('builder badge abbreviations match the catalog mapping', () {
-      // vegan → VGN only (vegan ⇒ vegetarian); gluten-free adds SG.
+      // vegan → VGN (vegan ⇒ vegetarian); gluten-free adds SG.
       final badges = dietaryBadgesFor(DietLevel.vegan, TriState.yes);
       expect(badges, [DietBadge.vegan, DietBadge.glutenFree]);
       expect(badges.map(labels.badgeAbbrev).toList(), ['VGN', 'SG']);
       expect(labels.badgeAbbrev(DietBadge.vegetarian), 'VGT');
+    });
+
+    test('extended states map to letters (negatives share, "?" literal)', () {
+      expect(labels.badgeAbbrev(DietBadge.dietNegative), 'VGT');
+      expect(labels.badgeAbbrev(DietBadge.glutenNegative), 'SG');
+      expect(labels.badgeAbbrev(DietBadge.unknown), '?');
+      // An unclassified dish carries a single "?".
+      expect(dietaryBadgesFor(DietLevel.unknown, TriState.unknown),
+          [DietBadge.unknown]);
     });
   });
 
@@ -138,6 +147,17 @@ void main() {
         AppLocalizationsEn().summaryFooter('28 June'),
         'Stock photos provided by Pexels. · Generated on 28 June',
       );
+    });
+  });
+
+  group('file name (§D.5)', () {
+    test('preserves the event name spaces and capitals', () {
+      expect(eventSummaryFileBase('Dinar Maduixer 260614'), 'Dinar Maduixer 260614');
+    });
+
+    test('replaces filesystem-forbidden chars and collapses whitespace', () {
+      expect(eventSummaryFileBase('  Sopar: A/B  *  '), 'Sopar A B');
+      expect(eventSummaryFileBase('   '), 'resum');
     });
   });
 

@@ -12,6 +12,20 @@ import 'dart:typed_data';
 
 import '../../catalog/data/diet.dart' show DietBadge;
 
+/// Spec 030 §D.5 — the summary file is named after the event, **preserving its
+/// spaces and capitals** (e.g. "Dinar Maduixer 260614"). Only filesystem-
+/// forbidden chars (and control chars) become a space; whitespace runs collapse.
+/// Falls back to a generic name when nothing usable remains. Pure, so it's
+/// unit-tested without the share sheet.
+String eventSummaryFileBase(String title) {
+  final cleaned = title
+      .trim()
+      .replaceAll(RegExp(r'[\\/:*?"<>|\x00-\x1f]'), ' ')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
+  return cleaned.isEmpty ? 'resum' : cleaned;
+}
+
 /// One label/value row in the cover's key-data block (e.g. "Data" / "diumenge,
 /// 14 de juny"). Only present fields are added, so the cover never shows an
 /// empty line (Spec 027 §E common sense).
@@ -185,7 +199,8 @@ class EventSummaryLabels {
 
   String badgeAbbrev(DietBadge b) => switch (b) {
     DietBadge.vegan => badgeVegan,
-    DietBadge.vegetarian => badgeVegetarian,
-    DietBadge.glutenFree => badgeGlutenFree,
+    DietBadge.vegetarian || DietBadge.dietNegative => badgeVegetarian,
+    DietBadge.glutenFree || DietBadge.glutenNegative => badgeGlutenFree,
+    DietBadge.unknown => '?',
   };
 }

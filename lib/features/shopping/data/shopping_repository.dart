@@ -45,7 +45,7 @@ class ShoppingRepository {
         .from('event_dishes')
         .select(
           'id, dish_name, supplier_category_id, servings_per_unit, '
-          'servings, state',
+          'servings, state, source_dish_id',
         )
         .eq('event_id', eventId)
         .eq('is_extras', false)
@@ -53,7 +53,7 @@ class ShoppingRepository {
     final drinks = await _client
         .from('event_drinks')
         .select('id, drink_name, supplier_category_id, denomination, '
-            'quantity, state')
+            'quantity, state, source_drink_id')
         .eq('event_id', eventId);
 
     final purchaseLines = [
@@ -65,6 +65,8 @@ class ShoppingRepository {
           servings: (r['servings'] as num?)?.toInt() ?? 0,
           servingsPerUnit: (r['servings_per_unit'] as num?)?.toDouble(),
           state: IngredientState.parse(r['state'] as String?),
+          // Spec 028 §C: catalog dish id, for the row's cover photo.
+          sourceCatalogId: r['source_dish_id'] as String?,
         ),
       for (final r in drinks as List)
         drinkShoppingLine(
@@ -74,6 +76,8 @@ class ShoppingRepository {
           quantity: (r['quantity'] as num?)?.toInt() ?? 1,
           denomination: r['denomination'] as String? ?? 'bottle',
           state: IngredientState.parse(r['state'] as String?),
+          // Spec 028 §C: catalog drink id, for the row's cover photo.
+          sourceCatalogId: r['source_drink_id'] as String?,
         ),
     ];
 

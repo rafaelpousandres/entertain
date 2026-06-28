@@ -33,10 +33,31 @@ const String pantryCategoryCode = 'pantry';
 
 bool isPantryCategory(String code) => code == pantryCategoryCode;
 
-/// System codes of the two categories seeded for Spec 014 — sensible (editable)
-/// defaults for bought dishes and drinks (Spec 016 §2.2 / §3.2).
+/// Spec 030 §A — the canonical order for a supplier-category list: real
+/// suppliers in their normal (localized-name) order, with the **pantry/Rebost
+/// pinned to the end**. The pantry is "what you already have at home", not a
+/// real place to buy at, so it belongs last in every supplier-ordered list — a
+/// newly added supplier must never push it into the alphabetical middle. Shared
+/// so the catalog list, the pickers and the shopping/settings screens all agree.
+int compareSupplierCategoriesPantryLast(
+  SupplierCategory a,
+  SupplierCategory b,
+) {
+  final aPantry = isPantryCategory(a.code);
+  final bPantry = isPantryCategory(b.code);
+  if (aPantry != bPantry) return aPantry ? 1 : -1;
+  return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+}
+
+/// System code of the "Plats preparats" category seeded for Spec 014 — the
+/// sensible (editable) default supplier for bought dishes (Spec 016 §2.2).
 const String preparedDishesCategoryCode = 'prepared';
-const String beveragesCategoryCode = 'beverages';
+
+/// System code of the "Supermercat" category (seeded in
+/// `20260525000900_system_content.sql`). Spec 030 §E makes it the default
+/// supplier for new drinks, replacing the deprecated "Begudes" category — drinks
+/// are a product type, not a place you buy at.
+const String supermarketCategoryCode = 'supermarket';
 
 /// Group key for catalog/shopping items with no supplier category.
 const String uncategorisedGroupKey = '__uncategorised__';

@@ -1,5 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../shopping/supplier_category_format.dart'
+    show compareSupplierCategoriesPantryLast;
 import 'catalog_naming.dart';
 import 'diet.dart';
 import 'dish.dart';
@@ -71,7 +73,10 @@ class CatalogRepository {
         isSystem: isSystem,
         groupId: groupId,
       );
-    }).toList();
+    }).toList()
+      // Spec 030 §A: canonical order (pantry last) so every consumer that uses
+      // this list as-is — pickers, dropdowns — shows Rebost at the end.
+      ..sort(compareSupplierCategoriesPantryLast);
   }
 
   /// Creates a user supplier category for the group (Spec 007 §2.3). The name
@@ -250,10 +255,13 @@ class CatalogRepository {
     IngredientDraft draft, {
     required String groupId,
     required String localeCode,
+    // Spec 030 §B: optional client-minted id (see createDish).
+    String? id,
   }) async {
     final row = await _client
         .from('ingredients')
         .insert({
+          'id': ?id,
           ...draft.toRow(),
           'group_id': groupId,
           'original_locale': localeCode,
@@ -377,10 +385,14 @@ class CatalogRepository {
     DishDraft draft, {
     required String groupId,
     required String localeCode,
+    // Spec 030 §B: optional client-minted id, so a photo added on the create
+    // screen (its `media` rows already key off this id) belongs to the new dish.
+    String? id,
   }) async {
     final row = await _client
         .from('dishes')
         .insert({
+          'id': ?id,
           ...draft.toRow(),
           'group_id': groupId,
           'original_locale': localeCode,

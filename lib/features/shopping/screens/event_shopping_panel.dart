@@ -8,7 +8,12 @@ import '../../../theme/app_colors.dart';
 import '../../../theme/app_typography.dart';
 import '../../../ui/secondary_button.dart';
 import '../../../ui/section_header.dart';
+import '../../../ui/segmented_choice.dart';
 import '../../catalog/data/catalog_providers.dart';
+import '../../photos/data/media.dart';
+import '../../photos/data/media_providers.dart';
+import '../../photos/widgets/photo_image.dart';
+import '../data/shopping_mode.dart';
 import '../../catalog/data/dish.dart'
     show formatQuantity, quantityDecimalSeparator;
 import '../../catalog/data/reference_data.dart';
@@ -27,6 +32,44 @@ import '../ingredient_state_format.dart';
 import '../shopping_line_format.dart';
 import '../../../util/text_case.dart';
 import '../supplier_category_format.dart';
+
+/// Spec 028 §C — the three cover maps (entity id → object path) the shopping
+/// rows need: ingredient lines resolve by `ingredientId`, while purchase lines
+/// (bought dishes / drinks) resolve by their catalog `sourceCatalogId`.
+typedef _CoverMaps = ({
+  Map<String, String> ingredient,
+  Map<String, String> dish,
+  Map<String, String> drink,
+});
+
+/// The cover photo for a shopping line, as a (bucket, path) ref — or null when
+/// the item has no photo (no thumbnail, no placeholder). Routes by line kind.
+({String bucket, String path})? _lineCoverRef(
+  AggregatedShoppingLine line,
+  _CoverMaps covers,
+) {
+  final (Map<String, String> map, MediaEntityType type, String? id) =
+      switch (line.kind) {
+    ShoppingLineKind.ingredient => (
+        covers.ingredient,
+        MediaEntityType.ingredient,
+        line.ingredientId,
+      ),
+    ShoppingLineKind.preparedDish => (
+        covers.dish,
+        MediaEntityType.dish,
+        line.sourceCatalogId,
+      ),
+    ShoppingLineKind.drink => (
+        covers.drink,
+        MediaEntityType.drink,
+        line.sourceCatalogId,
+      ),
+  };
+  if (id == null) return null;
+  final path = map[id];
+  return path == null ? null : (bucket: type.bucket, path: path);
+}
 
 /// Event shopping panel (Specification 005 §2.3 + 007 §3.4): the event's
 /// ingredient lines grouped by effective supplier category, each line carrying
@@ -58,6 +101,11 @@ class _EventShoppingPanelState extends ConsumerState<EventShoppingPanel> {
   /// Reserved key for the consultive "no category" section's expand state; it
   /// cannot collide with a real category id (a uuid).
   static const String _uncategorisedKey = '__uncategorised__';
+
+  /// Spec 028: the sub-mode selected for this session (bottom tabs). Null until
+  /// the user toggles — the initial mode follows the persisted default
+  /// (Configuració), so opening the tab honours the setting.
+  ShoppingMode? _mode;
 
   /// §2.8: opens [key]'s section and closes every other one (only one open at a
   /// time); tapping the already-open section collapses it.
@@ -177,6 +225,20 @@ class _EventShoppingPanelState extends ConsumerState<EventShoppingPanel> {
     await ref
         .read(shoppingRepositoryProvider)
         .updateLineStates(line.refs, picked);
+    ref.invalidate(eventShoppingProvider(widget.eventId));
+    _refreshEventStatus();
+  }
+
+  /// Spec 028 — In-person checklist toggle. Checked ⇔ received/at-home; tapping
+  /// to check sets `received` (`at_home` for the pantry's binary model), tapping
+  /// to uncheck sets `to_order` (`missing` for the pantry). Reuses the exact
+  /// same state-update path as the ordering screen (no new persistence).
+  Future<void> _toggleChecked(
+    AggregatedShoppingLine line, {
+    required bool isPantry,
+  }) async {
+    final next = toggledShoppingState(line.state, isPantry: isPantry);
+    await ref.read(shoppingRepositoryProvider).updateLineStates(line.refs, next);
     ref.invalidate(eventShoppingProvider(widget.eventId));
     _refreshEventStatus();
   }
@@ -324,6 +386,25 @@ class _EventShoppingPanelState extends ConsumerState<EventShoppingPanel> {
     final categoriesById = {for (final c in categoriesAsync.value!) c.id: c};
     final unitsById = {for (final u in unitsAsync.value!) u.id: u};
 
+    // Spec 028: the active sub-mode — the user's session pick, else the
+    // persisted default (Configuració), else Comandes. The bottom tabs toggle it.
+    final mode =
+        _mode ?? ref.watch(shoppingModeProvider).value ?? ShoppingMode.comandes;
+    final inPerson = mode == ShoppingMode.enPersona;
+    // Spec 028 §C: cover thumbnails on rows (both modes) — ingredients by their
+    // id, bought dishes / drinks by their catalog source id; photoless items
+    // show none.
+    const emptyCovers = <String, String>{};
+    final _CoverMaps covers = (
+      ingredient:
+          ref.watch(entityCoverPathsProvider(MediaEntityType.ingredient)).value ??
+              emptyCovers,
+      dish: ref.watch(entityCoverPathsProvider(MediaEntityType.dish)).value ??
+          emptyCovers,
+      drink: ref.watch(entityCoverPathsProvider(MediaEntityType.drink)).value ??
+          emptyCovers,
+    );
+
     // Spec 011 §2.11: split the event's lines into managed (dish-derived) and
     // extras (the phantom-dish piggyback items). Only managed lines aggregate,
     // feed the summary, the status counters and the state machine; extras render
@@ -358,9 +439,8 @@ class _EventShoppingPanelState extends ConsumerState<EventShoppingPanel> {
         if (line.supplierCategoryId == null) line,
     ];
 
-    if (linesByCat.isEmpty && uncategorised.isEmpty && extrasByCat.isEmpty) {
-      return _PanelEmpty(text: l10n.shoppingEmptyBody);
-    }
+    final bool empty =
+        linesByCat.isEmpty && uncategorised.isEmpty && extrasByCat.isEmpty;
 
     // §2.11: a supplier section appears if it has managed lines OR only extras.
     final ordered = _orderedCategoryIds({
@@ -368,39 +448,59 @@ class _EventShoppingPanelState extends ConsumerState<EventShoppingPanel> {
       ...extrasByCat.keys,
     }, categoriesById);
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+    final Widget content = empty
+        ? _PanelEmpty(text: l10n.shoppingEmptyBody)
+        : ListView(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+            children: [
+              _SummaryHeader(lines: aggregated, displayOf: displayOf),
+              const SizedBox(height: 16),
+              for (final categoryId in ordered)
+                _CategorySection(
+                  category: categoriesById[categoryId],
+                  lines: linesByCat[categoryId] ?? const [],
+                  extras: extrasByCat[categoryId] ?? const [],
+                  displayOf: displayOf,
+                  unitsById: unitsById,
+                  covers: covers,
+                  inPerson: inPerson,
+                  expanded: _openSection == categoryId,
+                  onToggleExpanded: () => _toggleSection(categoryId),
+                  onSend: () => context.push(
+                    '/events/${widget.eventId}/orders/$categoryId',
+                  ),
+                  onChangeState: _changeState,
+                  onToggleChecked: _toggleChecked,
+                  onMarkAllReceived: _markAllReceived,
+                  onUseAsShoppingList: _useAsShoppingList,
+                  onAddExtra: () => _addExtra(categoryId),
+                  onEditExtra: _editExtra,
+                  onDeleteExtra: _deleteExtra,
+                ),
+              if (uncategorised.isNotEmpty)
+                _UncategorisedSection(
+                  lines: uncategorised,
+                  displayOf: displayOf,
+                  unitsById: unitsById,
+                  covers: covers,
+                  inPerson: inPerson,
+                  expanded: _openSection == _uncategorisedKey,
+                  onToggleExpanded: () => _toggleSection(_uncategorisedKey),
+                  onChangeState: _changeState,
+                  onToggleChecked: _toggleChecked,
+                  onMarkAllReceived: _markAllReceived,
+                ),
+            ],
+          );
+
+    // Spec 028 §A: bottom tabs toggle the sub-mode for the session.
+    return Column(
       children: [
-        _SummaryHeader(lines: aggregated, displayOf: displayOf),
-        const SizedBox(height: 16),
-        for (final categoryId in ordered)
-          _CategorySection(
-            category: categoriesById[categoryId],
-            lines: linesByCat[categoryId] ?? const [],
-            extras: extrasByCat[categoryId] ?? const [],
-            displayOf: displayOf,
-            unitsById: unitsById,
-            expanded: _openSection == categoryId,
-            onToggleExpanded: () => _toggleSection(categoryId),
-            onSend: () =>
-                context.push('/events/${widget.eventId}/orders/$categoryId'),
-            onChangeState: _changeState,
-            onMarkAllReceived: _markAllReceived,
-            onUseAsShoppingList: _useAsShoppingList,
-            onAddExtra: () => _addExtra(categoryId),
-            onEditExtra: _editExtra,
-            onDeleteExtra: _deleteExtra,
-          ),
-        if (uncategorised.isNotEmpty)
-          _UncategorisedSection(
-            lines: uncategorised,
-            displayOf: displayOf,
-            unitsById: unitsById,
-            expanded: _openSection == _uncategorisedKey,
-            onToggleExpanded: () => _toggleSection(_uncategorisedKey),
-            onChangeState: _changeState,
-            onMarkAllReceived: _markAllReceived,
-          ),
+        Expanded(child: content),
+        _ModeToggleBar(
+          mode: mode,
+          onChanged: (m) => setState(() => _mode = m),
+        ),
       ],
     );
   }
@@ -618,10 +718,13 @@ class _CategorySection extends StatelessWidget {
     required this.extras,
     required this.displayOf,
     required this.unitsById,
+    required this.covers,
+    required this.inPerson,
     required this.expanded,
     required this.onToggleExpanded,
     required this.onSend,
     required this.onChangeState,
+    required this.onToggleChecked,
     required this.onMarkAllReceived,
     required this.onUseAsShoppingList,
     required this.onAddExtra,
@@ -637,11 +740,20 @@ class _CategorySection extends StatelessWidget {
   final List<ShoppingLine> extras;
   final DisplayState Function(AggregatedShoppingLine) displayOf;
   final Map<String, Unit> unitsById;
+
+  /// Spec 028 §C — the cover maps for the row thumbnails (ingredient/dish/drink).
+  final _CoverMaps covers;
+
+  /// Spec 028 — In-person checklist variant: hides the ordering controls and
+  /// renders each row as a checkbox.
+  final bool inPerson;
   final bool expanded;
   final VoidCallback onToggleExpanded;
   final VoidCallback onSend;
   final void Function(AggregatedShoppingLine line, {required bool isPantry})
   onChangeState;
+  final void Function(AggregatedShoppingLine line, {required bool isPantry})
+  onToggleChecked;
   final void Function(List<ShoppingLineRef> orderedRefs) onMarkAllReceived;
   final void Function(
     List<AggregatedShoppingLine> toOrderLines,
@@ -705,42 +817,48 @@ class _CategorySection extends StatelessWidget {
             lines: lines,
             displayOf: displayOf,
             unitsById: unitsById,
+            covers: covers,
             isPantry: isPantry,
+            inPerson: inPerson,
             onChangeState: onChangeState,
+            onToggleChecked: onToggleChecked,
           ),
-          // §2.11.c: the extras render as their own group — an "Extra" header in
-          // the same style as the state sub-groups (Per demanar / Rebut …),
-          // followed by the extra rows — placed after the managed ingredients
-          // and BEFORE the section's action buttons.
-          if (!isPantry && extras.isNotEmpty)
+          // §2.11.c: the extras render as their own group — placed after the
+          // managed ingredients and before the action buttons. Spec 028: extras
+          // (no state, managed from Comandes) are omitted in the checklist.
+          if (!inPerson && !isPantry && extras.isNotEmpty)
             _ExtraGroup(
               extras: extras,
               unitsById: unitsById,
+              ingredientCovers: covers.ingredient,
               onEditExtra: onEditExtra,
               onDeleteExtra: onDeleteExtra,
             ),
           const SizedBox(height: 4),
-          _SectionFooter(
-            // §2.11.a/c: "+ Add extra" is the first action button (right under
-            // the Extra group), equispaced with the rest. Not on the consultive
-            // pantry section.
-            showAddExtra: !isPantry,
-            // Pantry / Rebost is consultive: no send, no shop-list action, and
-            // no bulk "mark all as received" — its binary model has no
-            // `ordered` state (Fixes §2.4).
-            //
-            // §A: send / use-as-list stay active while there is anything to
-            // order — managed `to_order` lines OR extras — so a section whose
-            // managed items are all received can still send its extras.
-            showSend: !isPantry && (toOrder > 0 || extras.isNotEmpty),
-            showUseAsList: !isPantry && (toOrder > 0 || extras.isNotEmpty),
-            showMarkReceived: !isPantry && orderedCount > 0,
-            onAddExtra: onAddExtra,
-            onSend: onSend,
-            onMarkAllReceived: () => onMarkAllReceived(orderedIds),
-            onUseAsList: () =>
-                onUseAsShoppingList(toOrderLines, extras, unitsById),
-          ),
+          // Spec 028 §B: In-person mode strips the ordering controls — no
+          // add-extra, send, mark-all, or use-as-list. Just walk and tick.
+          if (!inPerson)
+            _SectionFooter(
+              // §2.11.a/c: "+ Add extra" is the first action button (right under
+              // the Extra group), equispaced with the rest. Not on the
+              // consultive pantry section.
+              showAddExtra: !isPantry,
+              // Pantry / Rebost is consultive: no send, no shop-list action, and
+              // no bulk "mark all as received" — its binary model has no
+              // `ordered` state (Fixes §2.4).
+              //
+              // §A: send / use-as-list stay active while there is anything to
+              // order — managed `to_order` lines OR extras — so a section whose
+              // managed items are all received can still send its extras.
+              showSend: !isPantry && (toOrder > 0 || extras.isNotEmpty),
+              showUseAsList: !isPantry && (toOrder > 0 || extras.isNotEmpty),
+              showMarkReceived: !isPantry && orderedCount > 0,
+              onAddExtra: onAddExtra,
+              onSend: onSend,
+              onMarkAllReceived: () => onMarkAllReceived(orderedIds),
+              onUseAsList: () =>
+                  onUseAsShoppingList(toOrderLines, extras, unitsById),
+            ),
           const SizedBox(height: 12),
         ],
       ],
@@ -757,19 +875,26 @@ class _UncategorisedSection extends StatelessWidget {
     required this.lines,
     required this.displayOf,
     required this.unitsById,
+    required this.covers,
+    required this.inPerson,
     required this.expanded,
     required this.onToggleExpanded,
     required this.onChangeState,
+    required this.onToggleChecked,
     required this.onMarkAllReceived,
   });
 
   final List<AggregatedShoppingLine> lines;
   final DisplayState Function(AggregatedShoppingLine) displayOf;
   final Map<String, Unit> unitsById;
+  final _CoverMaps covers;
+  final bool inPerson;
   final bool expanded;
   final VoidCallback onToggleExpanded;
   final void Function(AggregatedShoppingLine line, {required bool isPantry})
   onChangeState;
+  final void Function(AggregatedShoppingLine line, {required bool isPantry})
+  onToggleChecked;
   final void Function(List<ShoppingLineRef> orderedRefs) onMarkAllReceived;
 
   @override
@@ -810,10 +935,13 @@ class _UncategorisedSection extends StatelessWidget {
             lines: lines,
             displayOf: displayOf,
             unitsById: unitsById,
+            covers: covers,
             isPantry: false,
+            inPerson: inPerson,
             onChangeState: onChangeState,
+            onToggleChecked: onToggleChecked,
           ),
-          if (orderedCount > 0) ...[
+          if (!inPerson && orderedCount > 0) ...[
             const SizedBox(height: 4),
             SecondaryButton(
               label: l10n.shoppingMarkAllReceivedAction,
@@ -836,16 +964,23 @@ class _StateGroups extends StatelessWidget {
     required this.lines,
     required this.displayOf,
     required this.unitsById,
+    required this.covers,
     required this.isPantry,
+    required this.inPerson,
     required this.onChangeState,
+    required this.onToggleChecked,
   });
 
   final List<AggregatedShoppingLine> lines;
   final DisplayState Function(AggregatedShoppingLine) displayOf;
   final Map<String, Unit> unitsById;
+  final _CoverMaps covers;
   final bool isPantry;
+  final bool inPerson;
   final void Function(AggregatedShoppingLine line, {required bool isPantry})
   onChangeState;
+  final void Function(AggregatedShoppingLine line, {required bool isPantry})
+  onToggleChecked;
 
   @override
   Widget build(BuildContext context) {
@@ -886,7 +1021,11 @@ class _StateGroups extends StatelessWidget {
                   line: line,
                   displayState: state,
                   unit: unitsById[line.unitId],
+                  coverRef: _lineCoverRef(line, covers),
+                  inPerson: inPerson,
                   onTap: () => onChangeState(line, isPantry: isPantry),
+                  onToggleChecked: () =>
+                      onToggleChecked(line, isPantry: isPantry),
                 ),
               ),
           ],
@@ -979,13 +1118,23 @@ class _LineRow extends StatelessWidget {
     required this.line,
     required this.displayState,
     required this.unit,
+    required this.coverRef,
+    required this.inPerson,
     required this.onTap,
+    required this.onToggleChecked,
   });
 
   final AggregatedShoppingLine line;
   final DisplayState displayState;
   final Unit? unit;
+
+  /// Spec 028 §C — the cover photo (bucket + path), or null (no thumbnail).
+  final ({String bucket, String path})? coverRef;
+
+  /// Spec 028 — checklist variant: a checkbox replaces the state indicator.
+  final bool inPerson;
   final VoidCallback onTap;
+  final VoidCallback onToggleChecked;
 
   @override
   Widget build(BuildContext context) {
@@ -1008,12 +1157,13 @@ class _LineRow extends StatelessWidget {
       omitGenericUnit: false,
     );
     final measure = unitName == null ? qty : '$qty $unitName';
+    final checked = isCheckedShoppingState(line.state);
     return Material(
       color: AppColors.surface,
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
-        onTap: onTap,
+        onTap: inPerson ? onToggleChecked : onTap,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
@@ -1022,6 +1172,12 @@ class _LineRow extends StatelessWidget {
           ),
           child: Row(
             children: [
+              // Spec 028 §C: the cover thumbnail (both modes) — ingredient,
+              // bought dish or drink; absent when the item has no photo.
+              if (coverRef != null) ...[
+                RowPhotoThumb(photoRef: coverRef!, size: 34),
+                const SizedBox(width: 10),
+              ],
               Expanded(
                 child: Text(
                   // Spec 016 §5.2: purchase-line names (drinks / prepared dishes)
@@ -1042,14 +1198,24 @@ class _LineRow extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 10),
-              _Dot(color: displayStateColor(displayState)),
-              const SizedBox(width: 6),
-              Text(
-                displayStateLabel(l10n, displayState).toLowerCase(),
-                style: AppTypography.caption.copyWith(
-                  color: displayStateColor(displayState),
+              // Spec 028 §B: a checkbox in person mode; the state dot+label in
+              // ordering mode.
+              if (inPerson)
+                Icon(
+                  checked ? Icons.check_box : Icons.check_box_outline_blank,
+                  color: checked ? AppColors.success : AppColors.textTertiary,
+                  size: 24,
+                )
+              else ...[
+                _Dot(color: displayStateColor(displayState)),
+                const SizedBox(width: 6),
+                Text(
+                  displayStateLabel(l10n, displayState).toLowerCase(),
+                  style: AppTypography.caption.copyWith(
+                    color: displayStateColor(displayState),
+                  ),
                 ),
-              ),
+              ],
             ],
           ),
         ),
@@ -1065,12 +1231,14 @@ class _ExtraGroup extends StatelessWidget {
   const _ExtraGroup({
     required this.extras,
     required this.unitsById,
+    required this.ingredientCovers,
     required this.onEditExtra,
     required this.onDeleteExtra,
   });
 
   final List<ShoppingLine> extras;
   final Map<String, Unit> unitsById;
+  final Map<String, String> ingredientCovers;
   final void Function(ShoppingLine extra) onEditExtra;
   final void Function(ShoppingLine extra) onDeleteExtra;
 
@@ -1102,6 +1270,9 @@ class _ExtraGroup extends StatelessWidget {
             child: _ExtraRow(
               extra: extra,
               unit: unitsById[extra.unitId],
+              coverPath: extra.ingredientId == null
+                  ? null
+                  : ingredientCovers[extra.ingredientId],
               onTap: () => onEditExtra(extra),
               onDelete: () => onDeleteExtra(extra),
             ),
@@ -1118,12 +1289,14 @@ class _ExtraRow extends StatelessWidget {
   const _ExtraRow({
     required this.extra,
     required this.unit,
+    required this.coverPath,
     required this.onTap,
     required this.onDelete,
   });
 
   final ShoppingLine extra;
   final Unit? unit;
+  final String? coverPath;
   final VoidCallback onTap;
   final VoidCallback onDelete;
 
@@ -1151,6 +1324,17 @@ class _ExtraRow extends StatelessWidget {
           ),
           child: Row(
             children: [
+              // Spec 028 §C: cover thumbnail for extras too, when present.
+              if (coverPath != null) ...[
+                RowPhotoThumb(
+                  photoRef: (
+                    bucket: MediaEntityType.ingredient.bucket,
+                    path: coverPath!,
+                  ),
+                  size: 34,
+                ),
+                const SizedBox(width: 10),
+              ],
               Expanded(
                 child: Text(
                   extra.ingredientName,
@@ -1313,6 +1497,42 @@ class _PanelMessage extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Spec 028 §A — the bottom tabs that toggle the Compra sub-mode (Comandes / En
+/// persona) for the session. The persisted default (Configuració) decides which
+/// one is shown first; this just flips the in-session flag.
+class _ModeToggleBar extends StatelessWidget {
+  const _ModeToggleBar({required this.mode, required this.onChanged});
+
+  final ShoppingMode mode;
+  final ValueChanged<ShoppingMode> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+      decoration: const BoxDecoration(
+        color: AppColors.bg,
+        border: Border(top: BorderSide(color: AppColors.border)),
+      ),
+      child: SegmentedChoice<ShoppingMode>(
+        value: mode,
+        onChanged: onChanged,
+        options: [
+          SegmentedChoiceOption(
+            ShoppingMode.comandes,
+            l10n.shoppingModeComandes,
+          ),
+          SegmentedChoiceOption(
+            ShoppingMode.enPersona,
+            l10n.shoppingModeEnPersona,
+          ),
+        ],
       ),
     );
   }

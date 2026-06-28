@@ -349,16 +349,8 @@ Future<void> generateAndShareEventSummary(
     fonts: fonts,
   );
 
-  await Printing.sharePdf(bytes: bytes, filename: '${_filenameSlug(event.title)}.pdf');
-}
-
-/// A filesystem-safe slug for the shared file name (the event title, collapsed
-/// to ASCII-ish word runs); falls back to a generic name when empty.
-String _filenameSlug(String title) {
-  final slug = title
-      .trim()
-      .toLowerCase()
-      .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
-      .replaceAll(RegExp(r'^-+|-+$'), '');
-  return slug.isEmpty ? 'resum' : slug;
+  await Printing.sharePdf(
+    bytes: bytes,
+    filename: '${eventSummaryFileBase(event.title)}.pdf',
+  );
 }

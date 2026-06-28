@@ -122,14 +122,14 @@ class _DrinkFormState extends ConsumerState<_DrinkForm>
         ? DrinkDraft.fromDrink(widget.initial!)
         : DrinkDraft.empty();
     // §4b: a brand-new drink preselects the catalog's open accordion category
-    // when one was passed; otherwise (Spec 016 §3.2) the system "Begudes"
-    // category. Both are editable defaults.
+    // when one was passed; otherwise (Spec 030 §E) the system "Supermercat"
+    // category — "Begudes" as a supplier is deprecated. Both are editable.
     if (!widget.isEditing && _draft.supplierCategoryId == null) {
       if (widget.initialSupplierCategoryId != null) {
         _draft.supplierCategoryId = widget.initialSupplierCategoryId;
       } else {
         for (final c in widget.categories) {
-          if (c.code == beveragesCategoryCode) {
+          if (c.code == supermarketCategoryCode) {
             _draft.supplierCategoryId = c.id;
             break;
           }

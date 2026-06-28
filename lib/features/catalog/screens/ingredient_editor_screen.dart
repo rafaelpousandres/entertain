@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../../l10n/app_localizations.dart';
 import '../../../theme/app_colors.dart';
@@ -112,6 +113,11 @@ class _IngredientFormState extends ConsumerState<_IngredientForm>
   late final TextEditingController _prepController;
   late IngredientDraft _draft;
 
+  // Spec 030 §B: the ingredient's stable id for the photo carousel — a real id
+  // when editing, else a uuid minted up front so a photo can be added on the
+  // create screen and the row is inserted with the same id on save.
+  late final String _entityId;
+
   bool _saving = false;
   bool _deleting = false;
   bool _submitted = false;
@@ -143,11 +149,12 @@ class _IngredientFormState extends ConsumerState<_IngredientForm>
     }
     _nameController = TextEditingController(text: _draft.name);
     _prepController = TextEditingController(text: _draft.prepDescription ?? '');
+    // Spec 030 §B: real id when editing, else a fresh uuid the new ingredient
+    // adopts on save — so the carousel can attach photos before the row exists.
+    _entityId = widget.ingredientId ?? const Uuid().v4();
     // §2.6: snapshot the ingredient's photos so a Discard can roll back photo
-    // changes made during this edit (photos exist only once the ingredient does).
-    if (widget.isEditing) {
-      initPhotoSession(MediaEntityType.ingredient, widget.ingredientId!);
-    }
+    // changes (and remove any added before a create is saved).
+    initPhotoSession(MediaEntityType.ingredient, _entityId);
   }
 
   @override
@@ -261,6 +268,8 @@ class _IngredientFormState extends ConsumerState<_IngredientForm>
           _draft,
           groupId: groupId,
           localeCode: localeCode,
+          // §B: insert with the pre-minted id the photos already point to.
+          id: _entityId,
         );
       }
       ref.invalidate(ingredientsListProvider);
@@ -405,22 +414,20 @@ class _IngredientFormState extends ConsumerState<_IngredientForm>
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
         children: [
-          // Spec 010 §2.3: the ingredient's photo carousel sits at the top,
-          // above the name field. Available once the ingredient exists (a new
-          // one gets its photos after the first save), so it is shown only when
-          // editing.
-          if (widget.isEditing) ...[
-            PhotoCarouselSection(
-              type: MediaEntityType.ingredient,
-              entityId: widget.ingredientId!,
-              // Spec 025 D2: bilingual photo-search prefill (local + English).
-              entityName: photoSearchTerm(
-                _nameController.text,
-                widget.initial?.nameEn,
-              ),
+          // Spec 010 §2.3 / Spec 030 §B: the ingredient's photo carousel sits at
+          // the top, above the name field — shown when creating too (it binds to
+          // the id minted up front), so a photo can be added at creation time
+          // and persists with the ingredient on save.
+          PhotoCarouselSection(
+            type: MediaEntityType.ingredient,
+            entityId: _entityId,
+            // Spec 025 D2: bilingual photo-search prefill (local + English).
+            entityName: photoSearchTerm(
+              _nameController.text,
+              widget.initial?.nameEn,
             ),
-            const SizedBox(height: 20),
-          ],
+          ),
+          const SizedBox(height: 20),
           FieldLabel(
             label: l10n.ingredientNameLabel,
             child: AppTextField(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../../l10n/app_localizations.dart';
 import '../../../theme/app_colors.dart';
@@ -106,6 +107,12 @@ class _DishFormState extends ConsumerState<_DishForm>
   // place, so we snapshot the original to know whether to re-translate, §A.2).
   late final String _originalName;
 
+  // Spec 030 §B: the dish's stable id, used as the photo carousel's entity id so
+  // a photo can be added on the CREATE screen too. Editing reuses the real id;
+  // creating mints a client-side uuid up front and the row is inserted with it
+  // on save, so the photos picked before saving already belong to the new dish.
+  late final String _entityId;
+
   bool _saving = false;
   bool _deleting = false;
   bool _submitted = false;
@@ -135,11 +142,12 @@ class _DishFormState extends ConsumerState<_DishForm>
     _preparationController = TextEditingController(
       text: _draft.preparation ?? '',
     );
+    // Spec 030 §B: a real id when editing, else a fresh uuid the new dish will
+    // adopt on save — so the carousel can attach photos before the row exists.
+    _entityId = widget.dishId ?? const Uuid().v4();
     // §2.6: snapshot the dish's photos so a Discard can roll back photo changes
-    // made during this edit (photos exist only once the dish does).
-    if (widget.isEditing) {
-      initPhotoSession(MediaEntityType.dish, widget.dishId!);
-    }
+    // made during this edit (and remove any added before a create is saved).
+    initPhotoSession(MediaEntityType.dish, _entityId);
   }
 
   @override
@@ -251,6 +259,8 @@ class _DishFormState extends ConsumerState<_DishForm>
           _draft,
           groupId: groupId,
           localeCode: localeCode,
+          // §B: insert with the pre-minted id the photos already point to.
+          id: _entityId,
         );
       }
       ref.invalidate(dishesListProvider);
@@ -423,17 +433,16 @@ class _DishFormState extends ConsumerState<_DishForm>
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
         children: [
-          // Spec 010 §2.3: the dish's photo carousel sits at the top, above the
-          // name field. Available once the dish exists (a new dish gets its
-          // photos after the first save), so it is shown only when editing.
-          if (widget.isEditing) ...[
-            PhotoCarouselSection(
-              type: MediaEntityType.dish,
-              entityId: widget.dishId!,
-              entityName: photoSearchTerm(_nameController.text, _draft.nameEn),
-            ),
-            const SizedBox(height: 20),
-          ],
+          // Spec 010 §2.3 / Spec 030 §B: the dish's photo carousel sits at the
+          // top, above the name field — shown when creating too (it binds to the
+          // dish's id, minted up front for a new dish), so a photo can be added
+          // at creation time and persists with the dish on save.
+          PhotoCarouselSection(
+            type: MediaEntityType.dish,
+            entityId: _entityId,
+            entityName: photoSearchTerm(_nameController.text, _draft.nameEn),
+          ),
+          const SizedBox(height: 20),
           FieldLabel(
             label: l10n.dishNameLabel,
             child: AppTextField(

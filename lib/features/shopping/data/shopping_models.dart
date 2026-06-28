@@ -39,6 +39,7 @@ class ShoppingLine {
     this.kind = ShoppingLineKind.ingredient,
     this.denomination,
     this.ingredientId,
+    this.sourceCatalogId,
     this.prepNote,
     this.supplierCategoryId,
     this.isExtra = false,
@@ -48,6 +49,13 @@ class ShoppingLine {
   /// `event_dishes` / `event_drinks` id for a purchase line.
   final String id;
   final String? ingredientId;
+
+  /// Spec 028 §C — for a purchase line, the CATALOG dish/drink id this line came
+  /// from (`source_dish_id` / `source_drink_id`), used to resolve the row's
+  /// cover photo (covers are keyed by catalog id). Null for ingredient lines
+  /// (which resolve their cover via [ingredientId]) and when the source was
+  /// deleted.
+  final String? sourceCatalogId;
   final String ingredientName;
   final double quantity;
 
