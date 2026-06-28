@@ -144,30 +144,67 @@ bool dishMatchesAcquisition(
   DishAcquisitionMode? filter,
 ) => filter == null || mode == filter;
 
-// ── Dietary badges (Spec 026 Part C) ────────────────────────────────────────
+// ── Dietary badges (Spec 026 Part C, extended in Spec 030 §C) ────────────────
 
-/// A positive dietary badge shown in the catalog as a compact colour-coded text
-/// pill. Only positive, known classifications produce a badge.
-enum DietBadge { vegan, vegetarian, glutenFree }
+/// A dietary badge shown as a compact colour-coded text pill. Spec 030 §C
+/// extends the original positive-only set to express ALL three states per axis,
+/// so an unclassified aspect is visible at a glance (the black "?") and the user
+/// can complete it. Background colour encodes the state; the letter colour is
+/// chosen per badge for legibility (set in the widget / PDF, not here).
+enum DietBadge {
+  /// Diet axis, positive: "VGN", dark-green bg / white text.
+  vegan,
 
-/// The badges to show for an (effective) dietary status (Spec 026 C.2): vegan →
-/// [vegan] only (vegan ⇒ vegetarian, the strongest single badge); vegetarian →
-/// [vegetarian]; gluten-free adds its badge; `unknown`/`none` → no badge.
-List<DietBadge> dietaryBadgesFor(DietLevel diet, TriState glutenFree) {
-  final badges = <DietBadge>[];
-  if (diet == DietLevel.vegan) {
-    badges.add(DietBadge.vegan);
-  } else if (diet == DietLevel.vegetarian) {
-    badges.add(DietBadge.vegetarian);
-  }
-  if (glutenFree == TriState.yes) badges.add(DietBadge.glutenFree);
-  return badges;
+  /// Diet axis, positive: "VGT", light-green bg / dark-green text.
+  vegetarian,
+
+  /// Diet axis, known-negative (not vegetarian/vegan): "VGT", grey.
+  dietNegative,
+
+  /// Gluten axis, positive (gluten-free): "SG", orange bg / white text.
+  glutenFree,
+
+  /// Gluten axis, known-negative (contains gluten): "SG", grey.
+  glutenNegative,
+
+  /// Transversal: at least one axis is unknown → a single "?", black bg / white.
+  unknown,
 }
 
-/// The locale-aware abbreviation shown inside the pill (e.g. ca "VGN/VGT/SG",
-/// en "VGN/VGT/GF"). Lives in the ARB so it follows the app language.
+/// The badges for an (effective) dietary status (Spec 030 §C): two axes, **at
+/// most one badge each → max 2 badges**. Each known axis shows its badge
+/// (positive colour or grey negative); each unknown axis is replaced by the
+/// transversal **"?"**, which appears **once** even when both axes are unknown.
+///
+/// Exact combinatorics: both unknown → `["?"]`; diet known + gluten unknown →
+/// `[diet, "?"]`; diet unknown + gluten known → `["?", gluten]`; both known →
+/// `[diet, gluten]`. Vegan still emits a single diet badge (vegan ⇒ vegetarian).
+List<DietBadge> dietaryBadgesFor(DietLevel diet, TriState glutenFree) {
+  final DietBadge? dietBadge = switch (diet) {
+    DietLevel.vegan => DietBadge.vegan,
+    DietLevel.vegetarian => DietBadge.vegetarian,
+    DietLevel.none => DietBadge.dietNegative,
+    DietLevel.unknown => null,
+  };
+  final DietBadge? glutenBadge = switch (glutenFree) {
+    TriState.yes => DietBadge.glutenFree,
+    TriState.no => DietBadge.glutenNegative,
+    TriState.unknown => null,
+  };
+  // Both axes unknown → one transversal "?" (not two).
+  if (dietBadge == null && glutenBadge == null) {
+    return const [DietBadge.unknown];
+  }
+  // One badge per axis, in order; an unknown axis shows the "?".
+  return [dietBadge ?? DietBadge.unknown, glutenBadge ?? DietBadge.unknown];
+}
+
+/// The abbreviation shown inside the pill: the positive and negative states of
+/// an axis share a letter (the colour distinguishes them), and "?" is literal.
+/// VGN/VGT/SG are locale-aware (ARB), so they follow the app language.
 String dietBadgeAbbrev(AppLocalizations l10n, DietBadge b) => switch (b) {
   DietBadge.vegan => l10n.dietBadgeVegan,
-  DietBadge.vegetarian => l10n.dietBadgeVegetarian,
-  DietBadge.glutenFree => l10n.dietBadgeGlutenFree,
+  DietBadge.vegetarian || DietBadge.dietNegative => l10n.dietBadgeVegetarian,
+  DietBadge.glutenFree || DietBadge.glutenNegative => l10n.dietBadgeGlutenFree,
+  DietBadge.unknown => '?',
 };

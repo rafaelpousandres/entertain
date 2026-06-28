@@ -42,6 +42,10 @@ class _Palette {
   static final vegetarianBg = PdfColor.fromInt(0xFFCFE7DD);
   static final vegetarianFg = PdfColor.fromInt(0xFF1F6B52);
   static final glutenBg = PdfColor.fromInt(0xFFD6603A);
+  // Spec 030 §C — grey negative + black unknown "?".
+  static final negativeBg = PdfColor.fromInt(0xFFE3DED4);
+  static final negativeFg = PdfColor.fromInt(0xFF6E6256);
+  static final unknownBg = PdfColor.fromInt(0xFF000000);
 }
 
 /// Builds the summary PDF and returns its bytes.
@@ -111,17 +115,20 @@ Future<Uint8List> buildEventSummaryPdf({
           ),
           pw.SizedBox(height: 12),
         ],
+        // Spec 030 §D.4: a clean two-column data block — a fixed label gutter,
+        // values aligned to a common left edge, even row spacing.
         for (final f in data.headerFields)
           pw.Padding(
-            padding: const pw.EdgeInsets.only(bottom: 3),
+            padding: const pw.EdgeInsets.only(bottom: 4),
             child: pw.Row(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
                 pw.SizedBox(
-                  width: 90,
+                  width: 64,
                   child: pw.Text(f.label, style: body(color: _Palette.inkSoft)),
                 ),
-                pw.Expanded(child: pw.Text(f.value, style: body())),
+                pw.SizedBox(width: 8),
+                pw.Expanded(child: pw.Text(f.value, style: body(bold: true))),
               ],
             ),
           ),
@@ -183,6 +190,9 @@ Future<Uint8List> buildEventSummaryPdf({
   // ── Compra ────────────────────────────────────────────────────────────────
   if (data.hasShopping) {
     widgets.add(_sectionHeader(labels.sectionPurchase, titleStyle));
+    // Spec 030 §D.3: a bit more air between the "Compra" title and its first
+    // supplier header.
+    widgets.add(pw.SizedBox(height: 4));
     for (final group in data.suppliers) {
       widgets.add(
         pw.Padding(
@@ -290,7 +300,10 @@ pw.Widget _dishBlock(
                   pw.SizedBox(width: 5),
                 ] else
                   pw.Text('•  ', style: body()),
-                pw.Expanded(child: pw.Text(ing.text, style: body())),
+                // Spec 030 §D.2: keep the badges right after the name+qty (a
+                // Flexible text, not Expanded) so the row reads as one unit
+                // instead of name … big gap … badges at the far edge.
+                pw.Flexible(child: pw.Text(ing.text, style: body())),
                 if (ing.badges.isNotEmpty) ...[
                   pw.SizedBox(width: 6),
                   _badges(ing.badges, labels, boldFont),
@@ -302,8 +315,14 @@ pw.Widget _dishBlock(
       if (dish.preparation != null && dish.preparation!.trim().isNotEmpty) ...[
         pw.SizedBox(height: 6),
         pw.Text(labels.preparationHeading, style: body(bold: true)),
-        pw.SizedBox(height: 2),
-        pw.Text(dish.preparation!.trim(), style: body()),
+        pw.SizedBox(height: 3),
+        // Spec 030 §D.1: one tight line per step — drops the blank-line gaps
+        // that stretched recipes (e.g. the rice) over far more space than needed.
+        for (final step in _recipeSteps(dish.preparation!))
+          pw.Padding(
+            padding: const pw.EdgeInsets.only(bottom: 1.5),
+            child: pw.Text(step, style: body()),
+          ),
       ],
     ],
   );
@@ -394,14 +413,25 @@ pw.Widget _badges(
   ],
 );
 
+/// Spec 030 §D.1 — split a recipe into its non-empty steps (trimmed), dropping
+/// blank lines so the PDF can render a tight, uniform step list.
+List<String> _recipeSteps(String preparation) => [
+  for (final line in preparation.split('\n'))
+    if (line.trim().isNotEmpty) line.trim(),
+];
+
 PdfColor _badgeBg(DietBadge b) => switch (b) {
   DietBadge.vegan => _Palette.veganBg,
   DietBadge.vegetarian => _Palette.vegetarianBg,
   DietBadge.glutenFree => _Palette.glutenBg,
+  DietBadge.dietNegative || DietBadge.glutenNegative => _Palette.negativeBg,
+  DietBadge.unknown => _Palette.unknownBg,
 };
 
 PdfColor _badgeFg(DietBadge b) => switch (b) {
   DietBadge.vegan => PdfColors.white,
   DietBadge.vegetarian => _Palette.vegetarianFg,
   DietBadge.glutenFree => PdfColors.white,
+  DietBadge.dietNegative || DietBadge.glutenNegative => _Palette.negativeFg,
+  DietBadge.unknown => PdfColors.white,
 };
