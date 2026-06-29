@@ -81,7 +81,7 @@ not pull scope forward from future phases.
   dynamic (real performance). Part of "do it right, no shortcuts".
 
 > **Full conventions:** `rafaelpousandres/apps-and-webs-docs` ›
-> `Convencions de desenvolupament.md` (v0.6). This `CLAUDE.md` is an operational
+> `Convencions de desenvolupament.md` (v0.7). This `CLAUDE.md` is an operational
 > extract adapted to `entertain`; do not duplicate the canonical document here.
 
 ---
@@ -173,7 +173,7 @@ managed on claude.ai). When in doubt, consult them; do not improvise.
 - **Development plan** — vision, phases, and scope of each phase.
 - **Data model** — full schema for the complete vision.
 - **Design system** — colors, typography, components, UI patterns.
-- **Development conventions** — canonical reusable document (v0.6),
+- **Development conventions** — canonical reusable document (v0.7),
     `rafaelpousandres/apps-and-webs-docs` › `Convencions de desenvolupament.md`;
     this `CLAUDE.md` is an operational extract of it adapted to `entertain`.
 - **Specifications** — the concrete brief for each feature or phase.
@@ -198,6 +198,17 @@ managed on claude.ai). When in doubt, consult them; do not improvise.
   spec or document file before working; never work from pasted text.
 - One feature branch + PR per spec, phase, or docs pass; commit the spec
   together with the code that implements it.
+- claude.ai → repo file bridge (§2.5 v0.7). Documents authored on claude.ai are
+  downloaded to `C:\Users\rafa\Claude\<folder>\` (WSL:
+  `/mnt/c/Users/rafa/Claude/<folder>/`), where `<folder>` is `entertain`,
+  `talaia`, or `helm` per project, and `docs` for documents bound for the shared
+  `apps-and-webs-docs` repo. To incorporate a file, claude.ai hands Claude Code
+  only the final objective (which file, its destination in the repo, the commit
+  message); Claude Code then runs the whole docs/ pass alone — branch off
+  up-to-date `main`, copy preserving the EXACT name (spaces and accents
+  included), commit, push, open the PR, wait for CI, squash-merge if green — and
+  reports. No manual git from the user. If CI goes red or anything unexpected
+  happens, Claude Code stops and reports without merging.
 - Work through the whole objective and report at the end; the user is a light
   bridge, not a step-by-step operator. Pause only at explicit stop points: a new
   product/design/scope decision, or before an irreversible data operation.
