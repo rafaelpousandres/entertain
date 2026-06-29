@@ -81,7 +81,7 @@ not pull scope forward from future phases.
   dynamic (real performance). Part of "do it right, no shortcuts".
 
 > **Full conventions:** `rafaelpousandres/apps-and-webs-docs` ›
-> `Convencions de desenvolupament.md` (v0.7). This `CLAUDE.md` is an operational
+> `Convencions de desenvolupament.md` (v0.8). This `CLAUDE.md` is an operational
 > extract adapted to `entertain`; do not duplicate the canonical document here.
 
 ---
@@ -107,6 +107,15 @@ document.
   so the next gap surfaces loudly. (This pattern bit us four times in one
   session: media, translations, quota_entitlements/quota_usage, units/
   supplier_categories.)
+- **Lesson transfer: complete or not done.** When a reusable integration or
+  architecture lesson is captured on one project, in the SAME pass (not
+  "later"): (1) write it to the cross-project lessons document
+  (`herencia-talaia.md`, in the `apps-and-webs-docs` repo); (2) propagate and
+  apply it to the other projects on the same stack hit by the same problem; and
+  (3) if the lesson implies a verifiable invariant, turn it into an executable
+  check (a test or a fail-closed assertion), not a note. A lesson that lives
+  only as prose is not learned. A known, un-propagated lesson is a known hole
+  left open across the rest of the projects.
 - **Data in the EU.** The backend (Supabase) is in an EU region. GDPR-conscious
   design: data minimization, privacy policy, store-required disclosures.
 - **Internationalization from day one.** Every user-visible string goes through
@@ -173,7 +182,7 @@ managed on claude.ai). When in doubt, consult them; do not improvise.
 - **Development plan** — vision, phases, and scope of each phase.
 - **Data model** — full schema for the complete vision.
 - **Design system** — colors, typography, components, UI patterns.
-- **Development conventions** — canonical reusable document (v0.7),
+- **Development conventions** — canonical reusable document (v0.8),
     `rafaelpousandres/apps-and-webs-docs` › `Convencions de desenvolupament.md`;
     this `CLAUDE.md` is an operational extract of it adapted to `entertain`.
 - **Specifications** — the concrete brief for each feature or phase.
