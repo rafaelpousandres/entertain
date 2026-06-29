@@ -42,6 +42,50 @@ not pull scope forward from future phases.
 
 ---
 
+## Working method with Claude Code (v0.6)
+
+- **Broad prompts, not atomic instructions.** You receive complete objectives
+  with their acceptance criteria and do all the low-level work yourself
+  (diagnosis, checks, edits, tests, build) without going step by step. At the
+  end you **report in detail** what you did and what you decided.
+- **The user is a light bridge.** He relays the prompt in and your **final
+  report** back — not intermediate terminal output. Minimize the number of
+  cycles and hand-run commands.
+- **Technical decisions → Claude Code; product decisions → claude.ai.** Resolve
+  every technical question (how to implement, which structure, which migration,
+  which pattern) yourself. Only escalate product, design, or scope decisions —
+  and even minor ones you may settle, leaving a record.
+- **Ask in plain text.** When you need to ask or present options, write them as
+  text in your reply (with pros/cons and a recommendation), never as interactive
+  selectors, so the user can copy them.
+- **Explicit stop points.** Stop when (a) a new product/design/scope decision
+  appears, or (b) before an irreversible data operation (see below). To review a
+  plan before building, the prompt must explicitly say so — plan mode alone is
+  not enough.
+- **Permission allowlist.** Permissions follow an allowlist (`settings.json`):
+  **allow** reads, code edits, and routine commands (read-only git, commit, PR,
+  build, test); **ask** for destructive or publishing operations (Supabase
+  migration push / `db push`, Edge Function deploy, `git push`, `reset --hard`);
+  **deny** for the irreversible (`rm -rf`, reading secrets, `push --force`).
+  Security rules (ask/deny) live at user level (`~/.claude/settings.json`); the
+  stack tools live at project level.
+- **Migrations: the user confirms the "what and where", not the SQL.** You
+  validate each migration's technical correctness yourself. Before pushing a
+  migration, **explain in words** what it does (what it creates/alters/drops, on
+  which database, whether it touches existing data or only structure) and stop
+  for the user to confirm. The user decides by the explained consequence, not by
+  reading the SQL — critical wherever there is real production data.
+- **Query audit before production.** Before each step to production — and
+  whenever you notice slowness or touch critical queries — audit the queries:
+  static (code review: N+1, heavy selects, missing indexes) and, if needed,
+  dynamic (real performance). Part of "do it right, no shortcuts".
+
+> **Full conventions:** `rafaelpousandres/apps-and-webs-docs` ›
+> `Convencions de desenvolupament.md` (v0.6). This `CLAUDE.md` is an operational
+> extract adapted to `entertain`; do not duplicate the canonical document here.
+
+---
+
 ## Non-negotiable rules
 
 These rules cannot be relaxed without first updating the canonical conventions
@@ -129,8 +173,9 @@ managed on claude.ai). When in doubt, consult them; do not improvise.
 - **Development plan** — vision, phases, and scope of each phase.
 - **Data model** — full schema for the complete vision.
 - **Design system** — colors, typography, components, UI patterns.
-- **Development conventions** — canonical reusable document (v0.2); this
-    `CLAUDE.md` is an operational extract of it adapted to `entertain`.
+- **Development conventions** — canonical reusable document (v0.6),
+    `rafaelpousandres/apps-and-webs-docs` › `Convencions de desenvolupament.md`;
+    this `CLAUDE.md` is an operational extract of it adapted to `entertain`.
 - **Specifications** — the concrete brief for each feature or phase.
 
 ---
@@ -153,7 +198,9 @@ managed on claude.ai). When in doubt, consult them; do not improvise.
   spec or document file before working; never work from pasted text.
 - One feature branch + PR per spec, phase, or docs pass; commit the spec
   together with the code that implements it.
-- Pause for the user's validation of each increment before committing.
+- Work through the whole objective and report at the end; the user is a light
+  bridge, not a step-by-step operator. Pause only at explicit stop points: a new
+  product/design/scope decision, or before an irreversible data operation.
 - Explain changes and plans in plain language; the user supervises
   architecture and product, not code lines.
 - Never put keys or secrets in code, specs, or commits; environment and
