@@ -172,6 +172,22 @@ document.
 Android first, iOS later (iOS is a later phase). Play Store tracks: internal
 testing → closed testing → production.
 
+**Release AAB output convention (permanent rule).** After every
+`flutter build appbundle --release` (always with
+`--dart-define-from-file="$HOME/.config/entertain/local.json"`), do not leave the
+artifact at the default build path. **Copy** the generated
+`build/app/outputs/bundle/release/app-release.aab` to the Windows tray with a
+**versioned name**:
+
+- Location: `/mnt/c/Users/rafa/Claude/entertain/` (the Windows tray —
+  `C:\Users\rafa\Claude\entertain\`).
+- Name: `entertain-<version>+<versionCode>.aab` — i.e. `<build-name>+<build-number>`
+  from `pubspec.yaml` (e.g. `entertain-1.0.27+39.aab`).
+
+The AAB is a build **output** handed to the user for upload to the Play Console;
+this does not make Windows a source of truth (the canonical repo stays on Linux).
+Report the final tray path + version + versionCode after each build.
+
 ---
 
 ## Project documents
