@@ -159,44 +159,57 @@ enum DietBadge {
   vegetarian,
 
   /// Diet axis, known-negative (not vegetarian/vegan): "VGT", grey.
+  ///
+  /// Spec 031 §A: no longer **emitted** for the show side — a known-negative
+  /// axis now renders as absence (no pill). Kept so the widget/PDF colour
+  /// switches and the abbreviation mapping stay total; inert otherwise.
   dietNegative,
 
   /// Gluten axis, positive (gluten-free): "SG", orange bg / white text.
   glutenFree,
 
   /// Gluten axis, known-negative (contains gluten): "SG", grey.
+  ///
+  /// Spec 031 §A: inert — see [DietBadge.dietNegative]. Not emitted; the
+  /// known-negative gluten axis renders as absence.
   glutenNegative,
 
   /// Transversal: at least one axis is unknown → a single "?", black bg / white.
   unknown,
 }
 
-/// The badges for an (effective) dietary status (Spec 030 §C): two axes, **at
-/// most one badge each → max 2 badges**. Each known axis shows its badge
-/// (positive colour or grey negative); each unknown axis is replaced by the
-/// transversal **"?"**, which appears **once** even when both axes are unknown.
+/// The badges for an (effective) dietary status — two axes (diet, gluten), **at
+/// most one badge each → max 2 badges**. Spec 031 §A revises the 030 §C rule per
+/// axis: a known **positive** shows its pill; an **unknown** axis shows the
+/// transversal **"?"**; a known **negative** shows **nothing** (the grey negative
+/// pills read ambiguously, so absence now means "not it"). The single "?" is kept
+/// for the both-unknown case.
 ///
-/// Exact combinatorics: both unknown → `["?"]`; diet known + gluten unknown →
-/// `[diet, "?"]`; diet unknown + gluten known → `["?", gluten]`; both known →
-/// `[diet, gluten]`. Vegan still emits a single diet badge (vegan ⇒ vegetarian).
+/// Resulting combinations: `?` · `?+SG` · `VGT+?` · `VGN+?` · `VGN+SG` ·
+/// `VGT+SG` · `VGN` · `VGT` · `SG` · `[]` (known-negative on both axes → empty).
+/// Vegan emits a single diet badge (vegan ⇒ vegetarian).
 List<DietBadge> dietaryBadgesFor(DietLevel diet, TriState glutenFree) {
-  final DietBadge? dietBadge = switch (diet) {
+  final DietBadge? dietPos = switch (diet) {
     DietLevel.vegan => DietBadge.vegan,
     DietLevel.vegetarian => DietBadge.vegetarian,
-    DietLevel.none => DietBadge.dietNegative,
-    DietLevel.unknown => null,
+    // Known-negative and unknown contribute no positive pill (Spec 031 §A).
+    DietLevel.none || DietLevel.unknown => null,
   };
-  final DietBadge? glutenBadge = switch (glutenFree) {
-    TriState.yes => DietBadge.glutenFree,
-    TriState.no => DietBadge.glutenNegative,
-    TriState.unknown => null,
-  };
+  final DietBadge? glutenPos = glutenFree == TriState.yes
+      ? DietBadge.glutenFree
+      : null;
+  final bool dietUnknown = diet == DietLevel.unknown;
+  final bool glutenUnknown = glutenFree == TriState.unknown;
   // Both axes unknown → one transversal "?" (not two).
-  if (dietBadge == null && glutenBadge == null) {
-    return const [DietBadge.unknown];
-  }
-  // One badge per axis, in order; an unknown axis shows the "?".
-  return [dietBadge ?? DietBadge.unknown, glutenBadge ?? DietBadge.unknown];
+  if (dietUnknown && glutenUnknown) return const [DietBadge.unknown];
+  // Per axis: positive pill, else "?" if unknown, else nothing (known-negative).
+  return [
+    if (dietPos != null) dietPos else if (dietUnknown) DietBadge.unknown,
+    if (glutenPos != null)
+      glutenPos
+    else if (glutenUnknown)
+      DietBadge.unknown,
+  ];
 }
 
 /// The badge whose colour represents a SINGLE diet level on a choose-pill —

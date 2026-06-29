@@ -448,7 +448,9 @@ class _DishFormState extends ConsumerState<_DishForm>
             type: MediaEntityType.dish,
             entityId: _entityId,
             creating: !widget.isEditing,
-            entityName: photoSearchTerm(_nameController.text, _draft.nameEn),
+            // Spec 031 §B: resolve the prefill live at tap time (full name).
+            searchTerm: () =>
+                photoSearchTerm(_nameController.text.trim(), _draft.nameEn),
           ),
           const SizedBox(height: 20),
           FieldLabel(

@@ -385,8 +385,9 @@ class _GuestEditorScreenState extends ConsumerState<GuestEditorScreen> {
           ),
           const SizedBox(height: 8),
           Wrap(
-            spacing: 8,
-            runSpacing: 8,
+            // Spec 031 §C: chips scaled to ~60%; tighten the gaps to match.
+            spacing: 5,
+            runSpacing: 5,
             children: [
               DietChoicePill(
                 label: l10n.dietLevelVegetarian,

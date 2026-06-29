@@ -426,9 +426,11 @@ class _IngredientFormState extends ConsumerState<_IngredientForm>
             type: MediaEntityType.ingredient,
             entityId: _entityId,
             creating: !widget.isEditing,
-            // Spec 025 D2: bilingual photo-search prefill (local + English).
-            entityName: photoSearchTerm(
-              _nameController.text,
+            // Spec 025 D2 + 031 §B: bilingual photo-search prefill (local +
+            // English) resolved live at tap time, so it's the full current name
+            // (English bridge once the row is saved / on edit).
+            searchTerm: () => photoSearchTerm(
+              _nameController.text.trim(),
               widget.initial?.nameEn,
             ),
           ),

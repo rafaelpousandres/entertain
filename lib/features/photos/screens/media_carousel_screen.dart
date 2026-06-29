@@ -24,7 +24,7 @@ class MediaCarouselScreen extends ConsumerStatefulWidget {
     required this.type,
     required this.entityId,
     required this.initialIndex,
-    this.entityName,
+    this.searchTerm,
     this.creating = false,
   });
 
@@ -32,9 +32,9 @@ class MediaCarouselScreen extends ConsumerStatefulWidget {
   final String entityId;
   final int initialIndex;
 
-  /// Spec 021 §B6: the entity's name, threaded to the stock-photo search to
-  /// prefill the query when adding a photo from here.
-  final String? entityName;
+  /// Spec 021 §B6 / Spec 031 §B: builds the stock-photo search prefill at the
+  /// moment of adding a photo from here, so it reflects the live entity name.
+  final ValueGetter<String?>? searchTerm;
 
   /// Spec 030 §B: create mode — the photos are the session's staged list (in
   /// the staging bucket), and removal drops them from the session.
@@ -45,7 +45,7 @@ class MediaCarouselScreen extends ConsumerStatefulWidget {
     MediaEntityType type,
     String entityId,
     int initialIndex, {
-    String? entityName,
+    ValueGetter<String?>? searchTerm,
     bool creating = false,
   }) {
     return Navigator.of(context).push<void>(
@@ -54,7 +54,7 @@ class MediaCarouselScreen extends ConsumerStatefulWidget {
           type: type,
           entityId: entityId,
           initialIndex: initialIndex,
-          entityName: entityName,
+          searchTerm: searchTerm,
           creating: creating,
         ),
       ),
@@ -159,7 +159,8 @@ class _MediaCarouselScreenState extends ConsumerState<MediaCarouselScreen> {
               context: context,
               type: widget.type,
               entityId: widget.entityId,
-              entityName: widget.entityName,
+              // Spec 031 §B: resolve the live name at tap time.
+              entityName: widget.searchTerm?.call(),
             ),
           ),
           IconButton(
