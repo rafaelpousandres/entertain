@@ -32,14 +32,16 @@ class DietChoicePill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final style = dietBadgeStyle(badge);
+    // Spec 031 §C: scaled to ~60% (padding/icon/spacing/radius/font) so the
+    // full-word chips fit on one line; colour + checkmark stay legible.
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(12),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
         decoration: BoxDecoration(
           color: selected ? style.bg : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: selected ? style.bg : AppColors.border,
           ),
@@ -48,12 +50,13 @@ class DietChoicePill extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (selected) ...[
-              Icon(Icons.check, size: 16, color: style.fg),
-              const SizedBox(width: 6),
+              Icon(Icons.check, size: 10, color: style.fg),
+              const SizedBox(width: 4),
             ],
             Text(
               label,
               style: AppTypography.button.copyWith(
+                fontSize: 9,
                 color: selected ? style.fg : AppColors.textSecondary,
               ),
             ),
@@ -82,8 +85,8 @@ class DietLevelChoice extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     return Wrap(
-      spacing: 8,
-      runSpacing: 8,
+      spacing: 5,
+      runSpacing: 5,
       children: [
         for (final d in dietLevelOrder)
           DietChoicePill(
@@ -113,8 +116,8 @@ class GlutenStateChoice extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     return Wrap(
-      spacing: 8,
-      runSpacing: 8,
+      spacing: 5,
+      runSpacing: 5,
       children: [
         for (final g in triStateOrder)
           DietChoicePill(

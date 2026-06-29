@@ -30,16 +30,19 @@ class PhotoCarouselSection extends ConsumerWidget {
     super.key,
     required this.type,
     required this.entityId,
-    this.entityName,
+    this.searchTerm,
     this.creating = false,
   });
 
   final MediaEntityType type;
   final String entityId;
 
-  /// Spec 021 §B6: the entity's name, used to prefill the stock-photo search.
-  /// Optional — surfaces without a handy name (e.g. events) just omit it.
-  final String? entityName;
+  /// Spec 021 §B6 / Spec 031 §B: builds the stock-photo search prefill **at the
+  /// moment of opening the search**, so it reflects the live name being typed
+  /// (a static string captured at editor-build time went stale — the first open
+  /// showed only the initial letter). Optional — surfaces without a handy name
+  /// (e.g. events) just omit it.
+  final ValueGetter<String?>? searchTerm;
 
   /// Spec 030 §B: true on a create screen — the carousel renders the session's
   /// staged photos (in the staging bucket) instead of the `media` rows of a
@@ -62,7 +65,7 @@ class PhotoCarouselSection extends ConsumerWidget {
       row = _PhotoRow(
         type: type,
         entityId: entityId,
-        entityName: entityName,
+        searchTerm: searchTerm,
         photos: session?.pendingStaged ?? const [],
         bucket: PhotoStorage.stagingBucket,
         creating: true,
@@ -89,14 +92,14 @@ class PhotoCarouselSection extends ConsumerWidget {
         error: (_, _) => _PhotoRow(
           type: type,
           entityId: entityId,
-          entityName: entityName,
+          searchTerm: searchTerm,
           photos: const [],
           bucket: type.bucket,
         ),
         data: (photos) => _PhotoRow(
           type: type,
           entityId: entityId,
-          entityName: entityName,
+          searchTerm: searchTerm,
           photos: photos,
           bucket: type.bucket,
         ),
@@ -130,13 +133,13 @@ class _PhotoRow extends ConsumerStatefulWidget {
     required this.entityId,
     required this.photos,
     required this.bucket,
-    this.entityName,
+    this.searchTerm,
     this.creating = false,
   });
 
   final MediaEntityType type;
   final String entityId;
-  final String? entityName;
+  final ValueGetter<String?>? searchTerm;
   final List<Media> photos;
 
   /// Storage bucket the thumbnails are read from: the entity bucket normally,
@@ -215,7 +218,8 @@ class _PhotoRowState extends ConsumerState<_PhotoRow> {
                   context: context,
                   type: widget.type,
                   entityId: widget.entityId,
-                  entityName: widget.entityName,
+                  // Spec 031 §B: resolve the live name at tap time.
+                  entityName: widget.searchTerm?.call(),
                 ),
               ),
             );
@@ -232,7 +236,7 @@ class _PhotoRowState extends ConsumerState<_PhotoRow> {
                   widget.type,
                   widget.entityId,
                   index,
-                  entityName: widget.entityName,
+                  searchTerm: widget.searchTerm,
                   creating: widget.creating,
                 ),
                 child: ClipRRect(

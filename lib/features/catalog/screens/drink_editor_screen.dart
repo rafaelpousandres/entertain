@@ -396,8 +396,9 @@ class _DrinkFormState extends ConsumerState<_DrinkForm>
             type: MediaEntityType.drink,
             entityId: _entityId,
             creating: !widget.isEditing,
-            entityName: photoSearchTerm(
-              _nameController.text,
+            // Spec 031 §B: resolve the prefill live at tap time (full name).
+            searchTerm: () => photoSearchTerm(
+              _nameController.text.trim(),
               widget.initial?.nameEn,
             ),
           ),
