@@ -172,6 +172,15 @@ document.
 Android first, iOS later (iOS is a later phase). Play Store tracks: internal
 testing → closed testing → production.
 
+**Mobile validation gate (pre-merge).** For Entertain the merge gate is **not**
+green CI alone: on-device validation is **pre-merge**. The flow per pass is:
+code on a feature branch → green CI → **build the AAB from that branch** (see the
+output convention below) → validate on the Pixel via the Play Console **internal
+testing** channel (not in local) → **squash-merge to `main` only once the
+validation passes**. If the validation fails, fix it **on the branch** and
+rebuild — never patch `main`. `main` never receives code that has not been
+validated on the device. (Canonical: `Convencions de desenvolupament` §2.3, v0.9.)
+
 **Release AAB output convention (permanent rule).** After every
 `flutter build appbundle --release` (always with
 `--dart-define-from-file="$HOME/.config/entertain/local.json"`), do not leave the
@@ -242,4 +251,6 @@ managed on claude.ai). When in doubt, consult them; do not improvise.
 - Never put keys or secrets in code, specs, or commits; environment and
   config files stay excluded via .gitignore.
 - Commit small and often, with clear messages.
-- Validation happens on the user's Pixel 8 Pro.
+- Validation happens on the user's Pixel 8 Pro, and is a **pre-merge gate**
+  (see Release → "Mobile validation gate"): the AAB is built from the feature
+  branch and validated on the device before the squash-merge to `main`.
