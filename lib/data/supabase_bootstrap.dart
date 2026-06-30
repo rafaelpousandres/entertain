@@ -1,3 +1,5 @@
+import 'dart:ui' show PlatformDispatcher;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -44,9 +46,25 @@ Future<void> _ensureSession() async {
     final client = Supabase.instance.client;
     if (client.auth.currentSession == null) {
       await client.auth.signInAnonymously();
+      // Spec 033 §A.4: a brand-new user's group is seeded with the demo
+      // dataset in their device language. One-shot + guarded server-side;
+      // non-fatal, so a seeding hiccup never blocks first launch.
+      await _seedDemoForNewUser(client);
     }
   } catch (e) {
     throw StartupError(StartupErrorKind.network, e);
+  }
+}
+
+/// Best-effort demo seed for a just-created anonymous user. Picks the device
+/// language (ca/es/en, English fallback); failures are swallowed.
+Future<void> _seedDemoForNewUser(SupabaseClient client) async {
+  try {
+    final lang = PlatformDispatcher.instance.locale.languageCode;
+    final locale = const {'ca', 'es', 'en'}.contains(lang) ? lang : 'en';
+    await client.rpc('seed_demo', params: {'p_locale': locale});
+  } catch (_) {
+    // Non-fatal: the user simply starts without the example dataset.
   }
 }
 

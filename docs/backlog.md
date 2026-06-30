@@ -581,16 +581,25 @@ urgents, només presentació del PDF):
   la secció Compra).
 - **Quan:** propera passada de polits; trivial, només UI del PDF, sense BD.
 
-### 💡 Títols vidus al full resum (PDF): regla keep-with-next
-Detectat validant la Spec 032 (títols per plat + regles de dos gruixos). Evitar que
-un **títol de secció** (tipus de plat, o títol de bloc) quedi **sol al peu d'una
-pàgina** amb el contingut saltant a la següent. **Regla keep-with-next:** si després
-d'un títol no hi cap **almenys un element** abans del salt de pàgina, el títol salta
-**amb el contingut** a la pàgina nova.
-- **On va:** client, `event_summary_pdf_builder.dart` (control de salt de pàgina del
-  `MultiPage`; mantenir el títol enganxat al seu primer element, p. ex. agrupant
-  títol + primer bloc en un widget no separable).
-- **Quan:** propera passada de polits del PDF; sense BD.
+### 🔄 Títols vidus al full resum (PDF): regla keep-with-next — RESIDUAL
+Detectat validant la Spec 032; **implementat parcialment a la Spec 033 §B.1**
+(`_glueHeadings` agrupa cada tongada de capçaleres + el primer contingut que les
+segueix en un `pw.Column` no separable). **Residual (validat al Pixel, Spec 033):**
+encara queda algun títol vidu **quan hi ha una regla (`_thinRule`/`_thickRule`)
+entre el títol i el primer contingut** — el glue enganxa el títol amb la regla
+(que és el "primer element" següent) i deixa el contingut real per a la pàgina nova.
+- **On va:** client, `event_summary_pdf_builder.dart`. Cal que el glue salti la regla
+  i enganxi el títol al primer **bloc de contingut** real (p. ex. tractar les regles
+  com a part de la capçalera, o continuar la tongada a través d'elles).
+- **Quan:** actualització dins la finestra de Closed Testing; sense BD.
+
+### 🔄 Notes de l'esdeveniment: garantir "Crea resum" sense scroll — RESIDUAL
+A la Spec 033 §C es va reduir el camp Notes a `maxLines: 2`, però **validant al Pixel**
+es veu que **no sempre garanteix** que el botó **"Crea resum"** quedi visible sense
+scroll (depèn de l'alçada de pantalla i del contingut de sobre). Cal una solució
+robusta (p. ex. ancorar el botó fora del `scroll`, o calcular l'espai disponible).
+- **On va:** client, `event_detail_screen.dart`.
+- **Quan:** actualització dins la finestra de Closed Testing; sense BD.
 
 ### 💡 Single-source del manual (web vs PDF)
 El contingut autoritatiu (amb CA/ES) viu ara als mòduls Python de `tools/docgen/`;
