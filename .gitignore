@@ -145,3 +145,6 @@ app.*.symbols
 
 # Flutter DevTools per-project options (local tooling state).
 devtools_options.yaml
+
+# Generated user-documentation PDFs (regenerable via tools/docgen/render.py).
+tools/docgen/out/
