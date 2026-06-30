@@ -11,6 +11,7 @@ library;
 import 'dart:typed_data';
 
 import '../../catalog/data/diet.dart' show DietBadge;
+import '../../catalog/data/dish_category.dart' show DishCategory;
 
 /// Spec 030 §D.5 — the summary file is named after the event, **preserving its
 /// spaces and capitals** (e.g. "Dinar Maduixer 260614"). Only filesystem-
@@ -61,6 +62,7 @@ class SummaryIngredient {
 class SummaryDish {
   const SummaryDish({
     required this.name,
+    required this.category,
     required this.servingsLine,
     required this.badges,
     required this.ingredients,
@@ -70,6 +72,10 @@ class SummaryDish {
   });
 
   final String name;
+
+  /// Spec 032 §A — the dish's course, so the builder groups the menu by course
+  /// in the canonical order.
+  final DishCategory category;
 
   /// Pre-formatted servings line (e.g. "4 racions").
   final String servingsLine;
@@ -172,6 +178,7 @@ class EventSummaryLabels {
     required this.ingredientsHeading,
     required this.preparationHeading,
     required this.drinksHeading,
+    required this.courseTitles,
     required this.totalLabel,
     required this.footer,
     required this.badgeVegan,
@@ -186,6 +193,10 @@ class EventSummaryLabels {
   final String ingredientsHeading;
   final String preparationHeading;
   final String drinksHeading;
+
+  /// Spec 032 §D1 — per-course section titles (Aperitius … Postres / Altres),
+  /// keyed by category; the builder shows one before each present course.
+  final Map<DishCategory, String> courseTitles;
 
   /// Prefix for a guest group's total line, e.g. "Total".
   final String totalLabel;

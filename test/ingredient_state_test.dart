@@ -25,36 +25,39 @@ void main() {
   });
 
   group('allowedTransitions — outside the Rebost (free matrix)', () {
-    const work = [
-      IngredientState.toOrder,
-      IngredientState.ordered,
-      IngredientState.received,
-      IngredientState.missing,
-    ];
-
-    test('offers the three other work states plus at_home, never self', () {
-      for (final from in work) {
+    test('offers every other state in reverse-urgency order, never self', () {
+      // Spec 032 §C2: A casa → Rebut → Demanat → Falta → Per demanar, current
+      // omitted. Same reachable set as before (Spec 009 §2.4), reordered.
+      for (final from in IngredientState.values) {
         final targets = allowedTransitions(from, isPantry: false);
-        // Spec 009 §2.4: the three other work states, then at_home.
-        expect(targets, [...work.where((s) => s != from), IngredientState.atHome],
-            reason: 'free matrix from $from');
+        expect(
+          targets,
+          [for (final s in kStateSelectorOrder) if (s != from) s],
+          reason: 'free matrix from $from',
+        );
         expect(targets, isNot(contains(from)));
-        expect(targets, contains(IngredientState.atHome));
+        expect(
+          targets.toSet(),
+          IngredientState.values.toSet().difference({from}),
+          reason: 'every other state reachable from $from',
+        );
       }
     });
 
-    test('to_order can now move directly to ordered (non-app order)', () {
+    test('to_order can move directly to ordered (non-app order)', () {
       expect(
         allowedTransitions(IngredientState.toOrder, isPantry: false),
         contains(IngredientState.ordered),
       );
     });
 
-    test('a legacy at_home line is offered the four work states, not itself', () {
-      expect(
-        allowedTransitions(IngredientState.atHome, isPantry: false),
-        work,
-      );
+    test('from to_order the selector leads with at_home (reverse urgency)', () {
+      expect(allowedTransitions(IngredientState.toOrder, isPantry: false), [
+        IngredientState.atHome,
+        IngredientState.received,
+        IngredientState.ordered,
+        IngredientState.missing,
+      ]);
     });
   });
 

@@ -13,6 +13,8 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
 import '../../catalog/data/diet.dart' show DietBadge;
+import '../../catalog/data/dish_category.dart'
+    show DishCategory, dishCategoryActive;
 import 'event_summary_data.dart';
 
 /// The app fonts loaded for the PDF (from `assets/fonts/`). Optional: when null
@@ -38,6 +40,9 @@ class _Palette {
   static final green = PdfColor.fromInt(0xFF1F6B52);
   static final orange = PdfColor.fromInt(0xFFD85A30);
   static final border = PdfColor.fromInt(0xFFEDE2CC);
+  // Spec 032 §D2 — the heavier of the two rule weights (major block breaks),
+  // a darker cream so it reads above the thin within-block lines.
+  static final ruleThick = PdfColor.fromInt(0xFFCDBC97);
   static final veganBg = PdfColor.fromInt(0xFF1F6B52);
   static final vegetarianBg = PdfColor.fromInt(0xFFCFE7DD);
   static final vegetarianFg = PdfColor.fromInt(0xFF1F6B52);
@@ -168,13 +173,25 @@ Future<Uint8List> buildEventSummaryPdf({
   // ── Menú ──────────────────────────────────────────────────────────────────
   if (data.hasMenu) {
     widgets.add(_sectionHeader(labels.sectionMenu, titleStyle));
-    for (final dish in data.dishes) {
-      widgets.add(_dishBlock(dish, labels, body, boldFont));
+    // Spec 032 §A/§D1: group the menu by course in the canonical order, a
+    // section title before each present course; empty courses are omitted.
+    final byCourse = <DishCategory, List<SummaryDish>>{};
+    for (final d in data.dishes) {
+      byCourse.putIfAbsent(d.category, () => []).add(d);
+    }
+    for (final course in dishCategoryActive) {
+      final courseDishes = byCourse[course];
+      if (courseDishes == null || courseDishes.isEmpty) continue;
+      widgets.add(_courseTitle(labels.courseTitles[course] ?? '', body));
+      for (final dish in courseDishes) {
+        widgets.add(_dishBlock(dish, labels, body, boldFont));
+        widgets.add(_thinRule()); // §D2: under each dish + its ingredients.
+        widgets.add(pw.SizedBox(height: 6));
+      }
     }
     if (data.drinks.isNotEmpty) {
-      widgets.add(pw.SizedBox(height: 4));
-      widgets.add(pw.Text(labels.drinksHeading, style: body(bold: true, size: 12)));
-      widgets.add(pw.SizedBox(height: 4));
+      // Begudes is the last course in the canonical order (§A).
+      widgets.add(_courseTitle(labels.drinksHeading, body));
       for (final drink in data.drinks) {
         widgets.add(_drinkRow(drink, body));
       }
@@ -197,7 +214,14 @@ Future<Uint8List> buildEventSummaryPdf({
       widgets.add(
         pw.Padding(
           padding: const pw.EdgeInsets.only(top: 4, bottom: 4),
-          child: pw.Text(group.supplierName, style: body(bold: true, size: 12)),
+          child: pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Text(group.supplierName, style: body(bold: true, size: 12)),
+              pw.SizedBox(height: 3),
+              _thinRule(), // §D2: under each supplier-category title.
+            ],
+          ),
         ),
       );
       for (final item in group.items) {
@@ -236,20 +260,51 @@ Future<Uint8List> buildEventSummaryPdf({
   return doc.save();
 }
 
+/// A major block header (Convidats / Menú / Compra): a **thick** rule marks the
+/// break from the previous block (§D2), then the title, then a **thin** rule
+/// under it. The thick-then-thin pair is separated by the title text and ample
+/// air (§D3) so it never reads as a cramped double line.
 pw.Widget _sectionHeader(
   String title,
   pw.TextStyle Function(double, PdfColor) titleStyle,
 ) => pw.Padding(
-  padding: const pw.EdgeInsets.only(top: 18, bottom: 8),
+  padding: const pw.EdgeInsets.only(top: 16, bottom: 8),
   child: pw.Column(
     crossAxisAlignment: pw.CrossAxisAlignment.start,
     children: [
+      _thickRule(),
+      pw.SizedBox(height: 12),
       pw.Text(title, style: titleStyle(16, _Palette.green)),
-      pw.SizedBox(height: 4),
-      pw.Divider(color: _Palette.border, thickness: 0.5),
+      pw.SizedBox(height: 5),
+      _thinRule(),
     ],
   ),
 );
+
+/// Spec 032 §D1 — a per-course section title (Aperitius … Begudes) with a thin
+/// rule under it (§D2). A minor heading, lighter than the block [_sectionHeader].
+pw.Widget _courseTitle(
+  String title,
+  pw.TextStyle Function({double size, PdfColor? color, bool bold}) body,
+) => pw.Padding(
+  padding: const pw.EdgeInsets.only(top: 6, bottom: 6),
+  child: pw.Column(
+    crossAxisAlignment: pw.CrossAxisAlignment.start,
+    children: [
+      pw.Text(title, style: body(bold: true, size: 12, color: _Palette.green)),
+      pw.SizedBox(height: 3),
+      _thinRule(),
+    ],
+  ),
+);
+
+/// Spec 032 §D2 — the two full-width rule weights. Thin marks within-block
+/// groupings; thick marks the major block breaks.
+pw.Widget _thinRule() =>
+    pw.Divider(color: _Palette.border, thickness: 0.5, height: 0.5);
+
+pw.Widget _thickRule() =>
+    pw.Divider(color: _Palette.ruleThick, thickness: 1.4, height: 1.4);
 
 pw.Widget _dishBlock(
   SummaryDish dish,
@@ -328,7 +383,9 @@ pw.Widget _dishBlock(
   );
 
   return pw.Padding(
-    padding: const pw.EdgeInsets.only(bottom: 14),
+    // Spec 032 §D2: a thin rule (added by the caller) now separates dishes, so
+    // the block needs only a little air below its content.
+    padding: const pw.EdgeInsets.only(bottom: 6),
     child: pw.Row(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [

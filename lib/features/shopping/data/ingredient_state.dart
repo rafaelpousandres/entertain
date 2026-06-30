@@ -90,27 +90,18 @@ const List<DisplayState> kDisplayStateOrder = [
   DisplayState.atHome,
 ];
 
-/// Render order for the per-supplier **section** sub-groups (Spec 011 §B): the
-/// reverse of [kDisplayStateOrder] — settled states first, ending with `missing`
-/// then `to_order`, so "Per demanar" sits as close as possible to the section's
-/// order-generating action buttons (Send / Use-as-list). Only the in-section
-/// grouping uses this; the global summary header keeps [kDisplayStateOrder].
-const List<DisplayState> kSectionStateOrder = [
-  DisplayState.atHome,
-  DisplayState.received,
-  DisplayState.ordered,
-  DisplayState.delayed,
-  DisplayState.missing,
-  DisplayState.toOrder,
-];
-
-/// The four "work" states an ingredient outside the Rebost moves through; the
-/// free transition matrix (Fixes §2.3) lets the user pick any of them.
-const List<IngredientState> _workStates = [
-  IngredientState.toOrder,
-  IngredientState.ordered,
+/// Spec 032 §C2 — the order the status-change selector offers states in:
+/// **reverse urgency** (A casa → Rebut → Demanat → Falta → Per demanar), the
+/// mirror of the urgency order the shopping list now sorts by (§C1). The current
+/// state is omitted by [allowedTransitions]; this only fixes the order of the
+/// rest. Covers all five non-derived states (the selector never offers
+/// "Retrassat", a render-only overlay).
+const List<IngredientState> kStateSelectorOrder = [
+  IngredientState.atHome,
   IngredientState.received,
+  IngredientState.ordered,
   IngredientState.missing,
+  IngredientState.toOrder,
 ];
 
 /// The legal manual transitions from a line's current state.
@@ -144,12 +135,11 @@ List<IngredientState> allowedTransitions(
         ? const [IngredientState.missing]
         : const [IngredientState.atHome];
   }
-  // Free matrix: every work state except the current one, plus `at_home`
-  // (Spec 009 §2.4) unless the line already sits there. A non-pantry line in
-  // `at_home` is offered all four work states so it can re-enter the flow.
+  // Free matrix: every state except the current one (Spec 009 §2.4 keeps
+  // `at_home` always reachable so a line can settle without a shopping round).
+  // Spec 032 §C2: offered in reverse-urgency order (A casa → … → Per demanar).
   return [
-    for (final s in _workStates)
+    for (final s in kStateSelectorOrder)
       if (s != from) s,
-    if (from != IngredientState.atHome) IngredientState.atHome,
   ];
 }

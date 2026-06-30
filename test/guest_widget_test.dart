@@ -105,7 +105,7 @@ void main() {
 
     // The name field is the first text field on the form.
     await tester.enterText(find.byType(TextField).first, 'Anna');
-    await tester.tap(find.byIcon(Icons.check));
+    await tester.tap(find.widgetWithIcon(IconButton, Icons.check));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
     await tester.pumpAndSettle();
@@ -139,7 +139,7 @@ void main() {
     // Pick "Confirmed" in the state selector before saving.
     await tester.tap(find.text(l10n.guestStateConfirmed));
     await tester.pump();
-    await tester.tap(find.byIcon(Icons.check));
+    await tester.tap(find.widgetWithIcon(IconButton, Icons.check));
     await tester.pumpAndSettle();
 
     expect(fake.added.length, 1);
@@ -162,7 +162,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.check));
+    await tester.tap(find.widgetWithIcon(IconButton, Icons.check));
     await tester.pumpAndSettle();
 
     expect(fake.added, isEmpty);

@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../l10n/app_localizations.dart';
-import '../../../theme/app_colors.dart';
-import '../../../theme/app_typography.dart';
+import '../../../ui/input_pill.dart';
 import '../data/diet.dart';
 import 'diet_pill.dart';
 
@@ -31,38 +30,14 @@ class DietChoicePill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = dietBadgeStyle(badge);
-    // Spec 031 §C: scaled to ~60% (padding/icon/spacing/radius/font) so the
-    // full-word chips fit on one line; colour + checkmark stay legible.
-    return InkWell(
+    // Spec 032 §B: the dietary pill is now the shared [InputPill] tinted by the
+    // badge's palette. (Spec 031's bespoke 60% sizing is replaced by the shared
+    // ~72% base.)
+    return InputPill(
+      label: label,
+      selected: selected,
       onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-        decoration: BoxDecoration(
-          color: selected ? style.bg : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: selected ? style.bg : AppColors.border,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (selected) ...[
-              Icon(Icons.check, size: 10, color: style.fg),
-              const SizedBox(width: 4),
-            ],
-            Text(
-              label,
-              style: AppTypography.button.copyWith(
-                fontSize: 9,
-                color: selected ? style.fg : AppColors.textSecondary,
-              ),
-            ),
-          ],
-        ),
-      ),
+      pressed: dietBadgeStyle(badge),
     );
   }
 }

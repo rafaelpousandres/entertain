@@ -369,7 +369,12 @@ class _GuestEditorScreenState extends ConsumerState<GuestEditorScreen> {
             }),
             options: [
               for (final s in guestStateOrder)
-                SegmentedChoiceOption(s, guestStateLabel(l10n, s)),
+                // Spec 032 §B3: pressed state shows the traffic-light colour.
+                SegmentedChoiceOption(
+                  s,
+                  guestStateLabel(l10n, s),
+                  selectedColor: guestStateColor(s),
+                ),
             ],
           ),
           const SizedBox(height: 24),
