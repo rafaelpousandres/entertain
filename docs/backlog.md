@@ -579,6 +579,17 @@ urgents, només presentació del PDF):
   la secció Compra).
 - **Quan:** propera passada de polits; trivial, només UI del PDF, sense BD.
 
+### 💡 Títols vidus al full resum (PDF): regla keep-with-next
+Detectat validant la Spec 032 (títols per plat + regles de dos gruixos). Evitar que
+un **títol de secció** (tipus de plat, o títol de bloc) quedi **sol al peu d'una
+pàgina** amb el contingut saltant a la següent. **Regla keep-with-next:** si després
+d'un títol no hi cap **almenys un element** abans del salt de pàgina, el títol salta
+**amb el contingut** a la pàgina nova.
+- **On va:** client, `event_summary_pdf_builder.dart` (control de salt de pàgina del
+  `MultiPage`; mantenir el títol enganxat al seu primer element, p. ex. agrupant
+  títol + primer bloc en un widget no separable).
+- **Quan:** propera passada de polits del PDF; sense BD.
+
 ### ✅ La foto auto de l'assistent no apareix com a capçalera de la fitxa
 **Resolt a la Spec 021 (B1):** la inserció de `media` de l'assistent es va alinear
 amb la del selector manual (position 0 + provinença Pexels) perquè la foto auto
