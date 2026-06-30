@@ -8,6 +8,7 @@ import '../../../theme/app_typography.dart';
 import '../../../ui/help_icon_button.dart';
 import '../../../ui/primary_button.dart';
 import '../../../ui/section_header.dart';
+import '../../demo/widgets/demo_banner.dart';
 import '../../photos/data/media.dart';
 import '../../photos/data/media_providers.dart';
 import '../data/event.dart';
@@ -45,21 +46,30 @@ class EventsListScreen extends ConsumerWidget {
       ),
       body: SafeArea(
         top: false,
-        child: eventsAsync.when(
-          loading: () => const Center(
-            child: CircularProgressIndicator(color: AppColors.accent),
-          ),
-          error: (_, _) => _LoadError(
-            message: l10n.eventsLoadError,
-            onRetry: () => ref.invalidate(eventsListProvider),
-          ),
-          data: (events) => events.isEmpty
-              ? const _EmptyState()
-              : _GroupedEventList(
-                  events: events,
-                  readiness: readinessAsync.value ?? const {},
-                  firstPhotos: photosAsync.value ?? const {},
+        child: Column(
+          children: [
+            // Spec 033 §A.5 — "start from scratch" banner; hidden when there's
+            // no demo data or the user dismissed it.
+            const DemoBanner(),
+            Expanded(
+              child: eventsAsync.when(
+                loading: () => const Center(
+                  child: CircularProgressIndicator(color: AppColors.accent),
                 ),
+                error: (_, _) => _LoadError(
+                  message: l10n.eventsLoadError,
+                  onRetry: () => ref.invalidate(eventsListProvider),
+                ),
+                data: (events) => events.isEmpty
+                    ? const _EmptyState()
+                    : _GroupedEventList(
+                        events: events,
+                        readiness: readinessAsync.value ?? const {},
+                        firstPhotos: photosAsync.value ?? const {},
+                      ),
+              ),
+            ),
+          ],
         ),
       ),
       bottomNavigationBar: Container(
