@@ -36,33 +36,15 @@ returns uuid language sql stable as $$
   end
 $$;
 
-create or replace function public.seed_demo(p_locale text default 'en')
+-- Internal: the actual clone (template group → target group). No auth/guard, so
+-- it can be unit-tested against a throwaway group. Not granted to clients.
+create or replace function public._seed_demo_into(v_group uuid, v_template uuid, v_locale public.profile_locale)
 returns void
 language plpgsql
 security definer
 set search_path = public
 as $$
-declare
-  v_template constant uuid := '1f09045b-cacd-449a-a8a1-c7bdfb5bdc52';
-  v_group uuid;
-  v_locale public.profile_locale;
 begin
-  select m.group_id into v_group
-  from public.memberships m
-  where m.user_id = auth.uid()
-  limit 1;
-  if v_group is null then
-    raise exception 'seed_demo: no membership for caller';
-  end if;
-
-  -- Never seed the template itself; one-shot per group.
-  if v_group = v_template then return; end if;
-  perform 1 from public.groups g where g.id = v_group and g.demo_seeded_at is not null;
-  if found then return; end if;
-
-  v_locale := case when p_locale in ('ca','es','en')
-                   then p_locale::public.profile_locale else 'en'::public.profile_locale end;
-
   -- ── Suppliers (custom categories + their order-channel settings) ──────────
   insert into public.supplier_categories (id, group_id, code, is_system, name, is_demo)
   select public._demo_clone_id(v_group, sc.id), v_group, sc.code, false, sc.name, true
@@ -191,11 +173,13 @@ begin
      or (t.entity_type = 'dish'       and t.entity_id in (select id from public.dishes      where group_id = v_template and deleted_at is null))
      or (t.entity_type = 'drink'      and t.entity_id in (select id from public.drinks      where group_id = v_template));
 
-  -- ── Media: reference the shared read-only demo blobs (demo/{templateId}.jpg) ──
+  -- ── Media: reference the shared read-only demo blobs (demo/{mediaRowId}.jpg) ──
+  -- Keyed by the template MEDIA ROW id (not entity id): some entities have a
+  -- multi-photo carousel, so the blob must be unique per photo.
   insert into public.media
     (entity_type, entity_id, path, position, source_provider, source_author, source_url, source_ref, is_demo)
   select me.entity_type, public._demo_clone_id(v_group, me.entity_id),
-         'demo/' || me.entity_id::text || '.jpg', me.position,
+         'demo/' || me.id::text || '.jpg', me.position,
          me.source_provider, me.source_author, me.source_url, me.source_ref, true
   from public.media me
   where (me.entity_type = 'ingredient' and me.entity_id in (select id from public.ingredients where group_id = v_template and deleted_at is null))
@@ -203,6 +187,38 @@ begin
      or (me.entity_type = 'drink'      and me.entity_id in (select id from public.drinks      where group_id = v_template))
      or (me.entity_type = 'event'      and me.entity_id in (select id from public.events      where group_id = v_template and deleted_at is null));
 
+end;
+$$;
+
+-- Public entry point: resolve the caller's group, guard one-shot, then clone.
+create or replace function public.seed_demo(p_locale text default 'en')
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_template constant uuid := '1f09045b-cacd-449a-a8a1-c7bdfb5bdc52';
+  v_group uuid;
+  v_locale public.profile_locale;
+begin
+  select m.group_id into v_group
+  from public.memberships m
+  where m.user_id = auth.uid()
+  limit 1;
+  if v_group is null then
+    raise exception 'seed_demo: no membership for caller';
+  end if;
+
+  -- Never seed the template itself; one-shot per group.
+  if v_group = v_template then return; end if;
+  perform 1 from public.groups g where g.id = v_group and g.demo_seeded_at is not null;
+  if found then return; end if;
+
+  v_locale := case when p_locale in ('ca','es','en')
+                   then p_locale::public.profile_locale else 'en'::public.profile_locale end;
+
+  perform public._seed_demo_into(v_group, v_template, v_locale);
   update public.groups set demo_seeded_at = now() where id = v_group;
 end;
 $$;
@@ -278,6 +294,7 @@ begin
 end;
 $$;
 
+revoke all on function public._seed_demo_into(uuid, uuid, public.profile_locale) from public;
 revoke all on function public.seed_demo(text) from public;
 revoke all on function public.clear_demo_data() from public;
 grant execute on function public.seed_demo(text) to authenticated;
