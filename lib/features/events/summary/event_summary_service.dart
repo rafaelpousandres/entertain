@@ -21,6 +21,8 @@ import '../../../l10n/app_localizations.dart';
 import '../../catalog/data/catalog_providers.dart';
 import '../../catalog/data/denomination.dart' show denominationUnitNoun;
 import '../../catalog/data/diet.dart';
+import '../../catalog/data/dish_category.dart'
+    show dishCategoryActive, dishCategoryLabel;
 import '../../catalog/data/reference_data.dart' show UnitMagnitude;
 import '../../catalog/data/dish.dart' show formatQuantity, quantityDecimalSeparator;
 import '../../photos/data/media.dart';
@@ -209,6 +211,7 @@ Future<void> generateAndShareEventSummary(
     summaryDishes.add(
       SummaryDish(
         name: d.name,
+        category: d.category,
         servingsLine: l10n.eventDishServings(d.servings),
         badges: dietaryBadgesFor(diet, gf),
         ingredients: ingredients,
@@ -326,6 +329,9 @@ Future<void> generateAndShareEventSummary(
     ingredientsHeading: l10n.dishIngredientsSectionTitle,
     preparationHeading: l10n.dishPreparationSectionTitle,
     drinksHeading: l10n.summaryDrinksHeading,
+    courseTitles: {
+      for (final c in dishCategoryActive) c: dishCategoryLabel(l10n, c),
+    },
     totalLabel: l10n.summaryTotalLabel,
     footer: l10n.summaryFooter(formatLongDate(DateTime.now(), locale)),
     badgeVegan: l10n.dietBadgeVegan,

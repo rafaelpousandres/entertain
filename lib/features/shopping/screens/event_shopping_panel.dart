@@ -990,14 +990,18 @@ class _StateGroups extends StatelessWidget {
         state: [
           for (final l in lines)
             if (displayOf(l) == state) l,
-        ],
+        ]..sort(
+            (a, b) => a.ingredientName.toLowerCase().compareTo(
+              b.ingredientName.toLowerCase(),
+            ),
+          ),
     };
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // §B: within a supplier section the groups run settled → urgent, so
-        // "Per demanar" ends up closest to the action buttons below.
-        for (final state in kSectionStateOrder)
+        // Spec 032 §C1: within a supplier section the state groups run by
+        // urgency (most urgent on top), alphabetical within each group.
+        for (final state in kDisplayStateOrder)
           if ((byState[state] ?? const []).isNotEmpty) ...[
             Padding(
               padding: const EdgeInsets.only(top: 4, bottom: 6),

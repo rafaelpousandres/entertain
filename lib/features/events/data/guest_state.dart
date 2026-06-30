@@ -47,9 +47,12 @@ IconData guestStateIcon(GuestState state) => switch (state) {
   GuestState.excusat => Icons.cancel_outlined,
 };
 
-/// Accent for the state's section header badge (design system colours).
+/// The state's semantic colour — a traffic-light read used both for the section
+/// header badge and (Spec 032 §B3) the pressed status input-pill: pending →
+/// amber (waiting), confirmed → green (go), excused → red (no). One source of
+/// truth so the guest list and the editor pills read the same.
 Color guestStateColor(GuestState state) => switch (state) {
-  GuestState.pendent => AppColors.textTertiary,
+  GuestState.pendent => AppColors.warning,
   GuestState.confirmat => AppColors.accentSecondary,
   GuestState.excusat => AppColors.danger,
 };

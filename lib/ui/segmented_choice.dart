@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
-import '../theme/app_typography.dart';
+import 'input_pill.dart';
 
 /// Inline single-choice control for short enum-like options (event type,
 /// event format). Selected option uses the secondary accent so it stays
@@ -36,7 +36,12 @@ class SegmentedChoice<T> extends StatelessWidget {
 }
 
 class SegmentedChoiceOption<T> {
-  const SegmentedChoiceOption(this.value, this.label, {this.icon});
+  const SegmentedChoiceOption(
+    this.value,
+    this.label, {
+    this.icon,
+    this.selectedColor,
+  });
 
   final T value;
   final String label;
@@ -45,6 +50,11 @@ class SegmentedChoiceOption<T> {
   /// [label] becomes the long-press tooltip (Fixes round 3 §2.2: icon chips for
   /// the channel selector, which truncated as text on narrow widths).
   final IconData? icon;
+
+  /// Spec 032 §B — the fill colour for this option's pressed state. Null falls
+  /// back to the app's selected accent. Lets a domain pass a per-option palette
+  /// (e.g. the guest-status traffic-light).
+  final Color? selectedColor;
 }
 
 class _Chip<T> extends StatelessWidget {
@@ -60,35 +70,17 @@ class _Chip<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = selected ? AppColors.accentSecondarySoft : AppColors.surface;
-    final fg = selected ? AppColors.accentSecondary : AppColors.textPrimary;
-    final borderColor = selected ? AppColors.accentSecondary : AppColors.border;
-
-    return Material(
-      color: bg,
-      borderRadius: BorderRadius.circular(999),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(999),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: borderColor),
-          ),
-          child: option.icon != null
-              ? Tooltip(
-                  message: option.label,
-                  child: Icon(option.icon, size: 20, color: fg),
-                )
-              : Text(
-                  option.label,
-                  style: AppTypography.label.copyWith(
-                    color: fg,
-                    fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
-                  ),
-                ),
-        ),
+    // Spec 032 §B: every segmented choice is now the shared [InputPill]
+    // (neutral → coloured fill + checkmark). The per-option [selectedColor]
+    // tints the pressed fill; the default is the app's selected accent.
+    return InputPill(
+      label: option.label,
+      icon: option.icon,
+      selected: selected,
+      onTap: onTap,
+      pressed: (
+        bg: option.selectedColor ?? AppColors.accentSecondary,
+        fg: AppColors.onAccent,
       ),
     );
   }

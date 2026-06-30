@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:entertain/features/catalog/data/diet.dart';
+import 'package:entertain/features/catalog/data/dish_category.dart';
 import 'package:entertain/features/events/summary/event_summary_data.dart';
 import 'package:entertain/features/events/summary/event_summary_pdf_builder.dart';
 import 'package:entertain/features/events/summary/image_downscale.dart';
@@ -20,6 +21,13 @@ void main() {
     ingredientsHeading: 'Ingredients',
     preparationHeading: 'Preparació',
     drinksHeading: 'Begudes',
+    courseTitles: {
+      DishCategory.aperitif: 'Aperitius',
+      DishCategory.starter: 'Entrants',
+      DishCategory.main: 'Plats principals',
+      DishCategory.dessert: 'Postres',
+      DishCategory.other: 'Altres',
+    },
     totalLabel: 'Total',
     footer: 'Fotos d\'stock proporcionades per Pexels. · Generat el 28 de juny',
     badgeVegan: 'VGN',
@@ -43,6 +51,7 @@ void main() {
       dishes: const [
         SummaryDish(
           name: 'Amanida',
+          category: DishCategory.starter,
           servingsLine: '12 racions',
           badges: [DietBadge.vegan, DietBadge.glutenFree],
           ingredients: [
@@ -54,6 +63,7 @@ void main() {
         // A bought dish: name + servings + supplier only, no recipe.
         SummaryDish(
           name: 'Canelons',
+          category: DishCategory.main,
           servingsLine: '12 racions',
           badges: [],
           ingredients: [],

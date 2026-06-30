@@ -123,22 +123,4 @@ void main() {
       expect((counts.red, counts.yellow, counts.green), (0, 0, 0));
     });
   });
-
-  group('kSectionStateOrder (§B)', () {
-    test('runs settled → urgent, ending missing then to_order', () {
-      expect(kSectionStateOrder, [
-        DisplayState.atHome,
-        DisplayState.received,
-        DisplayState.ordered,
-        DisplayState.delayed,
-        DisplayState.missing,
-        DisplayState.toOrder,
-      ]);
-    });
-
-    test('is the reverse of the summary order, same set of states', () {
-      expect(kSectionStateOrder, kDisplayStateOrder.reversed.toList());
-      expect(kSectionStateOrder.toSet(), kDisplayStateOrder.toSet());
-    });
-  });
 }
