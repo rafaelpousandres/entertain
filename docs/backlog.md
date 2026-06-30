@@ -78,11 +78,13 @@ d'UX i deute petit:
   **no** el `kind = 'hint'` (els hints es gestionen per migració, vegeu §6).
 
 > **Documentació d'usuari (existent, reproduïble des del repo):**
-> - **Manual d'usuari complet** — `Entertain - User manual.pdf` (12 capítols, català),
->   generat amb `python3 tools/build_manual.py`; font web a `docs/manual/index.md`.
-> - **Guia ràpida de primers passos** — `Entertain - Getting started guide.pdf`
->   (10 seccions), generada amb `python3 tools/build_guide.py`; ara el peu remet al
->   Manual complet. Tots dos generadors resolen logo i sortida **relatius al repo**.
+> - **Generador únic** a `tools/docgen/` (`render.py` + mòduls de contingut Python +
+>   `assets/`): produeix els **4 documents × 3 idiomes = 12 PDFs** (teaser, guia de
+>   primers passos, manual d'usuari, guia del provador) en CA/ES/EN. Regeneració:
+>   `cd tools/docgen && python3 render.py` → PDFs a `out/` (no versionats,
+>   regenerables). Vegeu `tools/docgen/README.md`.
+> - Substitueix els antics `tools/build_manual.py` / `tools/build_guide.py`
+>   (un sol document, només EN), ja retirats — un únic generador, no dos en paral·lel.
 
 ### ✅ Spec 027 — Full resum de l'esdeveniment (PDF) — INCORPORADA
 **A `main`, validada al Pixel** (versió 1.0.23+30). Un botó **"Crea full resum"** a
@@ -589,6 +591,13 @@ d'un títol no hi cap **almenys un element** abans del salt de pàgina, el títo
   `MultiPage`; mantenir el títol enganxat al seu primer element, p. ex. agrupant
   títol + primer bloc en un widget no separable).
 - **Quan:** propera passada de polits del PDF; sense BD.
+
+### 💡 Single-source del manual (web vs PDF)
+El contingut autoritatiu (amb CA/ES) viu ara als mòduls Python de `tools/docgen/`;
+la web (`docs/manual/index.md`, GitHub Pages) es manté en Markdown EN a part.
+Resoldre en una passada pròpia: decidir si retirem el manual web, el generem des
+del mateix joc de contingut, o el mantenim com a còpia EN. Decisió de producte
+pendent.
 
 ### ✅ La foto auto de l'assistent no apareix com a capçalera de la fitxa
 **Resolt a la Spec 021 (B1):** la inserció de `media` de l'assistent es va alinear
