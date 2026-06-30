@@ -849,6 +849,13 @@ punt. Per activar-lo (ABANS del Closed Testing / trànsit real):
 Encaixa a la **tongada d'infraestructura del llançament (pas a Pro)**. Sense ell la
 brossa de staging no es neteja sola — **irrellevant fins que hi hagi usuaris reals**.
 
+### 💡 `currentGroupId()` selecciona el grup sense `ORDER BY` determinista
+`currentGroupId()` (`EventsRepository`) selecciona el grup amb `.limit(1)` sense
+`ORDER BY`. Correcte mentre cada usuari tingui exactament una membership (Phase 0).
+Esdevindria no determinista si un usuari té múltiples memberships (col·laboració
+multi-grup, Phase 2). Afegir `ORDER BY` determinista quan s'implementi multi-grup.
+No urgent ara: el dataset d'onboarding manté una sola membership per usuari.
+
 ---
 
 ## 10. Fites de llançament (camí cap a producció)
