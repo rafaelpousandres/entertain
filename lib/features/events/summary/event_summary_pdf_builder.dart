@@ -83,10 +83,16 @@ Future<Uint8List> buildEventSummaryPdf({
   pw.TextStyle titleStyle(double size, PdfColor color) =>
       pw.TextStyle(font: titleFont, fontSize: size, color: color);
 
-  final widgets = <pw.Widget>[];
+  // Spec 033 §B.1 (keep-with-next): blocks carry a `heading` flag. Titles
+  // (section / course / supplier headers) are glued to the first content that
+  // follows them so a title can never be left orphaned at the foot of a page —
+  // `pw.MultiPage` only breaks between top-level children, so a heading that is
+  // its own child can widow. `_glueHeadings` merges each run of headings + their
+  // first following item into one unbreakable column.
+  final blocks = <_Block>[];
 
   // ── Cover ────────────────────────────────────────────────────────────────
-  widgets.add(
+  blocks.add(_Block(
     pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
@@ -139,13 +145,13 @@ Future<Uint8List> buildEventSummaryPdf({
           ),
       ],
     ),
-  );
+  ));
 
   // ── Convidats ─────────────────────────────────────────────────────────────
   if (data.hasGuests) {
-    widgets.add(_sectionHeader(labels.sectionGuests, titleStyle));
+    blocks.add(_Block(_sectionHeader(labels.sectionGuests, titleStyle), heading: true));
     for (final g in data.guestGroups) {
-      widgets.add(
+      blocks.add(_Block(
         pw.Padding(
           padding: const pw.EdgeInsets.only(bottom: 6),
           child: pw.Column(
@@ -157,22 +163,22 @@ Future<Uint8List> buildEventSummaryPdf({
             ],
           ),
         ),
-      );
+      ));
     }
-    widgets.add(
+    blocks.add(_Block(
       pw.Text('${labels.totalLabel} · ${data.guestsTotal}', style: body(bold: true)),
-    );
+    ));
     if (data.overCapacityNote != null) {
-      widgets.add(pw.SizedBox(height: 3));
-      widgets.add(
+      blocks.add(_Block(pw.SizedBox(height: 3)));
+      blocks.add(_Block(
         pw.Text(data.overCapacityNote!, style: body(color: _Palette.orange)),
-      );
+      ));
     }
   }
 
   // ── Menú ──────────────────────────────────────────────────────────────────
   if (data.hasMenu) {
-    widgets.add(_sectionHeader(labels.sectionMenu, titleStyle));
+    blocks.add(_Block(_sectionHeader(labels.sectionMenu, titleStyle), heading: true));
     // Spec 032 §A/§D1: group the menu by course in the canonical order, a
     // section title before each present course; empty courses are omitted.
     final byCourse = <DishCategory, List<SummaryDish>>{};
@@ -182,36 +188,37 @@ Future<Uint8List> buildEventSummaryPdf({
     for (final course in dishCategoryActive) {
       final courseDishes = byCourse[course];
       if (courseDishes == null || courseDishes.isEmpty) continue;
-      widgets.add(_courseTitle(labels.courseTitles[course] ?? '', body));
+      blocks.add(_Block(_courseTitle(labels.courseTitles[course] ?? '', body), heading: true));
       for (final dish in courseDishes) {
-        widgets.add(_dishBlock(dish, labels, body, boldFont));
-        widgets.add(_thinRule()); // §D2: under each dish + its ingredients.
-        widgets.add(pw.SizedBox(height: 6));
+        blocks.add(_Block(_dishBlock(dish, labels, body, boldFont)));
+        blocks.add(_Block(_thinRule())); // §D2: under each dish + its ingredients.
+        blocks.add(_Block(pw.SizedBox(height: 6)));
       }
     }
     if (data.drinks.isNotEmpty) {
       // Begudes is the last course in the canonical order (§A).
-      widgets.add(_courseTitle(labels.drinksHeading, body));
+      blocks.add(_Block(_courseTitle(labels.drinksHeading, body), heading: true));
       for (final drink in data.drinks) {
-        widgets.add(_drinkRow(drink, body));
+        blocks.add(_Block(_drinkRow(drink, body)));
       }
     }
     if (data.totalsLines.isNotEmpty) {
-      widgets.add(pw.SizedBox(height: 8));
+      blocks.add(_Block(pw.SizedBox(height: 8)));
       for (final line in data.totalsLines) {
-        widgets.add(pw.Text(line, style: body(color: _Palette.inkSoft)));
+        blocks.add(_Block(pw.Text(line, style: body(color: _Palette.inkSoft))));
       }
     }
   }
 
   // ── Compra ────────────────────────────────────────────────────────────────
   if (data.hasShopping) {
-    widgets.add(_sectionHeader(labels.sectionPurchase, titleStyle));
-    // Spec 030 §D.3: a bit more air between the "Compra" title and its first
-    // supplier header.
-    widgets.add(pw.SizedBox(height: 4));
+    blocks.add(_Block(_sectionHeader(labels.sectionPurchase, titleStyle), heading: true));
+    // Spec 033 §B.3: more air between the "Compra" title and its first supplier
+    // header. Marked as a heading block so the keep-with-next glue carries the
+    // "Compra" title through to the first supplier header + its first line.
+    blocks.add(_Block(pw.SizedBox(height: 8), heading: true));
     for (final group in data.suppliers) {
-      widgets.add(
+      blocks.add(_Block(
         pw.Padding(
           padding: const pw.EdgeInsets.only(top: 4, bottom: 4),
           child: pw.Column(
@@ -223,9 +230,10 @@ Future<Uint8List> buildEventSummaryPdf({
             ],
           ),
         ),
-      );
+        heading: true,
+      ));
       for (final item in group.items) {
-        widgets.add(
+        blocks.add(_Block(
           pw.Padding(
             padding: const pw.EdgeInsets.only(bottom: 2),
             child: pw.Row(
@@ -237,23 +245,23 @@ Future<Uint8List> buildEventSummaryPdf({
               ],
             ),
           ),
-        );
+        ));
       }
     }
   }
 
   // ── Footer ─────────────────────────────────────────────────────────────────
-  widgets.add(pw.SizedBox(height: 16));
-  widgets.add(pw.Divider(color: _Palette.border, thickness: 0.5));
-  widgets.add(
+  blocks.add(_Block(pw.SizedBox(height: 16)));
+  blocks.add(_Block(pw.Divider(color: _Palette.border, thickness: 0.5)));
+  blocks.add(_Block(
     pw.Text(labels.footer, style: body(size: 8, color: _Palette.inkSoft)),
-  );
+  ));
 
   doc.addPage(
     pw.MultiPage(
       pageFormat: PdfPageFormat.a4,
       margin: const pw.EdgeInsets.fromLTRB(40, 40, 40, 40),
-      build: (_) => widgets,
+      build: (_) => _glueHeadings(blocks),
     ),
   );
 
@@ -305,6 +313,46 @@ pw.Widget _thinRule() =>
 
 pw.Widget _thickRule() =>
     pw.Divider(color: _Palette.ruleThick, thickness: 1.4, height: 1.4);
+
+/// Spec 033 §B.1 — a summary block plus whether it is a heading (a title that
+/// must not be widowed at the foot of a page).
+class _Block {
+  const _Block(this.widget, {this.heading = false});
+  final pw.Widget widget;
+  final bool heading;
+}
+
+/// Spec 033 §B.1 (keep-with-next) — `pw.MultiPage` only breaks between top-level
+/// children, so a heading that is its own child can be left alone at the bottom
+/// of a page. This merges each maximal run of heading blocks **plus the first
+/// non-heading block that follows them** into a single, unbreakable
+/// `pw.Column`, so a title always travels with its first line of content. Only
+/// the first follower is glued, so the rest of a long section still flows and
+/// paginates normally.
+List<pw.Widget> _glueHeadings(List<_Block> blocks) {
+  final out = <pw.Widget>[];
+  var i = 0;
+  while (i < blocks.length) {
+    if (!blocks[i].heading) {
+      out.add(blocks[i].widget);
+      i++;
+      continue;
+    }
+    final group = <pw.Widget>[];
+    while (i < blocks.length && blocks[i].heading) {
+      group.add(blocks[i].widget);
+      i++;
+    }
+    if (i < blocks.length) {
+      group.add(blocks[i].widget); // the first content line, kept with its title
+      i++;
+    }
+    out.add(
+      pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: group),
+    );
+  }
+  return out;
+}
 
 pw.Widget _dishBlock(
   SummaryDish dish,
@@ -373,9 +421,11 @@ pw.Widget _dishBlock(
         pw.SizedBox(height: 3),
         // Spec 030 §D.1: one tight line per step — drops the blank-line gaps
         // that stretched recipes (e.g. the rice) over far more space than needed.
+        // Spec 033 §B.2: tighten the inter-step gap further so multi-line recipes
+        // read compact.
         for (final step in _recipeSteps(dish.preparation!))
           pw.Padding(
-            padding: const pw.EdgeInsets.only(bottom: 1.5),
+            padding: const pw.EdgeInsets.only(bottom: 0.8),
             child: pw.Text(step, style: body()),
           ),
       ],

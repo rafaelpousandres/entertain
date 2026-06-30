@@ -737,7 +737,9 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
           child: AppTextField(
             controller: _notesController,
             hintText: l10n.fieldNotesHint,
-            maxLines: 4,
+            // Spec 033 §C.1: shorter Notes field so the "Crea resum" action
+            // below stays visible without scrolling.
+            maxLines: 2,
             textInputAction: TextInputAction.newline,
             onChanged: (_) => setState(() {}),
           ),
