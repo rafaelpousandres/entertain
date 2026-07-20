@@ -121,6 +121,16 @@ document.
 - **Internationalization from day one.** Every user-visible string goes through
   i18n (intl + ARB files). Base languages: Catalan, Spanish, English. No string
   literals hardcoded in the code.
+- **Language convention (canonical: `Convencions de desenvolupament.md` v1.0 §4.3,
+  repo `apps-and-webs-docs`).** One principle: **everything that lives INSIDE the
+  code is in English; project prose is in Catalan; anything the user sees goes
+  through i18n.** Inside the code (English): identifiers, file/dir names, i18n
+  keys, testids, **code comments, technical/internal error messages** (`401`/`500`,
+  logs, dev errors) **and test descriptions** (`it`/`describe`). Project prose
+  (Catalan): the backlog and other `.md` docs, and commit messages. User-facing
+  text: i18n (English source + `ca`/`es`), never hardcoded. Entertain already
+  follows this (code comments are English); it's stated here to match the
+  cross-project rule.
 - **Full data model from the start.** The data model is designed for the
   complete vision; phases activate subsets of it and do not redesign it. Do not
   modify it on your own: structural changes are decided on claude.ai and

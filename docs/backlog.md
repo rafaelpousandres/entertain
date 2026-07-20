@@ -140,6 +140,10 @@ justifiquin cobrar, i després que hi hagi prou valor premium acumulat.
 
 ---
 
+### 💡 Neteja de la convenció de llengua (backfill, si cal)
+Convenció revisada (director 20/07/2026; `Convencions de desenvolupament.md` v1.0 §4.3): dins del codi tot en **anglès** (inclosos comentaris, missatges d'error tècnics/interns i descripcions de test); prosa del projecte (docs/commits) en català; text d'usuari per i18n. **Entertain ja hi és majoritàriament** —els comentaris del codi ja són en anglès i el text d'usuari ja passa per ARB—: aquesta nota és per a una **auditoria de confirmació** (cap descripció de test o missatge tècnic en català colat, cap literal d'usuari fixat). Backfill incremental, no bloqueja.
+- On va: auditoria oportunista · Quan: incremental · Bloqueja: res
+
 ## 0. Principis de producte
 
 > Orientacions de fons que haurien de guiar les decisions de producte d'Entertain.
