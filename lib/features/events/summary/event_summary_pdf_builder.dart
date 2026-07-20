@@ -169,7 +169,7 @@ Future<Uint8List> buildEventSummaryPdf({
       pw.Text('${labels.totalLabel} · ${data.guestsTotal}', style: body(bold: true)),
     ));
     if (data.overCapacityNote != null) {
-      blocks.add(_Block(pw.SizedBox(height: 3)));
+      blocks.add(_Block(pw.SizedBox(height: 3), separator: true));
       blocks.add(_Block(
         pw.Text(data.overCapacityNote!, style: body(color: _Palette.orange)),
       ));
@@ -191,8 +191,9 @@ Future<Uint8List> buildEventSummaryPdf({
       blocks.add(_Block(_courseTitle(labels.courseTitles[course] ?? '', body), heading: true));
       for (final dish in courseDishes) {
         blocks.add(_Block(_dishBlock(dish, labels, body, boldFont)));
-        blocks.add(_Block(_thinRule())); // §D2: under each dish + its ingredients.
-        blocks.add(_Block(pw.SizedBox(height: 6)));
+        // §D2: under each dish + its ingredients.
+        blocks.add(_Block(_thinRule(), separator: true));
+        blocks.add(_Block(pw.SizedBox(height: 6), separator: true));
       }
     }
     if (data.drinks.isNotEmpty) {
@@ -203,7 +204,7 @@ Future<Uint8List> buildEventSummaryPdf({
       }
     }
     if (data.totalsLines.isNotEmpty) {
-      blocks.add(_Block(pw.SizedBox(height: 8)));
+      blocks.add(_Block(pw.SizedBox(height: 8), separator: true));
       for (final line in data.totalsLines) {
         blocks.add(_Block(pw.Text(line, style: body(color: _Palette.inkSoft))));
       }
@@ -251,8 +252,11 @@ Future<Uint8List> buildEventSummaryPdf({
   }
 
   // ── Footer ─────────────────────────────────────────────────────────────────
-  blocks.add(_Block(pw.SizedBox(height: 16)));
-  blocks.add(_Block(pw.Divider(color: _Palette.border, thickness: 0.5)));
+  blocks.add(_Block(pw.SizedBox(height: 16), separator: true));
+  blocks.add(_Block(
+    pw.Divider(color: _Palette.border, thickness: 0.5),
+    separator: true,
+  ));
   blocks.add(_Block(
     pw.Text(labels.footer, style: body(size: 8, color: _Palette.inkSoft)),
   ));
@@ -316,40 +320,77 @@ pw.Widget _thickRule() =>
 
 /// Spec 033 §B.1 — a summary block plus whether it is a heading (a title that
 /// must not be widowed at the foot of a page).
+///
+/// [separator] marks a block that carries no content of its own — a rule or a
+/// spacer. The glue treats these as transparent: they never satisfy a heading's
+/// need for a following content block (see [_glueHeadings]).
 class _Block {
-  const _Block(this.widget, {this.heading = false});
+  const _Block(this.widget, {this.heading = false, this.separator = false});
   final pw.Widget widget;
   final bool heading;
+  final bool separator;
 }
 
 /// Spec 033 §B.1 (keep-with-next) — `pw.MultiPage` only breaks between top-level
 /// children, so a heading that is its own child can be left alone at the bottom
 /// of a page. This merges each maximal run of heading blocks **plus the first
-/// non-heading block that follows them** into a single, unbreakable
+/// real content block that follows them** into a single, unbreakable
 /// `pw.Column`, so a title always travels with its first line of content. Only
-/// the first follower is glued, so the rest of a long section still flows and
+/// that first follower is glued, so the rest of a long section still flows and
 /// paginates normally.
+///
+/// Separator blocks (rules, spacers) are transparent to the search: they are
+/// pulled into the group but do not count as the content the heading needs.
+/// Without this, a rule sitting between a title and its first real line
+/// satisfied the glue on its own, and the title still widowed — with the rule
+/// trailing it at the page foot and the actual content starting the next page.
 List<pw.Widget> _glueHeadings(List<_Block> blocks) {
-  final out = <pw.Widget>[];
+  return [
+    for (final group in glueGroups(
+      [for (final b in blocks) (heading: b.heading, separator: b.separator)],
+    ))
+      if (group.length == 1)
+        blocks[group.single].widget
+      else
+        pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [for (final i in group) blocks[i].widget],
+        ),
+  ];
+}
+
+/// The grouping decision behind [_glueHeadings], over block flags alone.
+///
+/// Exposed (rather than private) so the keep-with-next invariant is covered by
+/// `event_summary_pdf_test.dart` without building a document and inspecting
+/// pagination: this bug has now been fixed twice, so the rule is pinned by a
+/// test instead of by a comment. Returns the indices making up each top-level
+/// child of the `pw.MultiPage`; a group of one is an unglued block.
+List<List<int>> glueGroups(List<({bool heading, bool separator})> flags) {
+  final out = <List<int>>[];
   var i = 0;
-  while (i < blocks.length) {
-    if (!blocks[i].heading) {
-      out.add(blocks[i].widget);
+  while (i < flags.length) {
+    if (!flags[i].heading) {
+      out.add([i]);
       i++;
       continue;
     }
-    final group = <pw.Widget>[];
-    while (i < blocks.length && blocks[i].heading) {
-      group.add(blocks[i].widget);
+    final group = <int>[];
+    while (i < flags.length && flags[i].heading) {
+      group.add(i);
       i++;
     }
-    if (i < blocks.length) {
-      group.add(blocks[i].widget); // the first content line, kept with its title
+    // Carry any rules/spacers along, then glue the first block that actually
+    // has content — that is what must share the page with the title.
+    while (i < flags.length && flags[i].separator) {
+      group.add(i);
       i++;
     }
-    out.add(
-      pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: group),
-    );
+    if (i < flags.length) {
+      group.add(i); // the first content line, kept with its title
+      i++;
+    }
+    out.add(group);
   }
   return out;
 }
