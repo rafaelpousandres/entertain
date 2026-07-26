@@ -21,7 +21,9 @@ class FieldLabel extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.only(bottom: 6),
+          // 1.0.30 §2 density pass: 6 → 4, the label still reads as attached
+          // to its field while the form breathes less vertical air.
+          padding: const EdgeInsets.only(bottom: 4),
           child: Text(
             label,
             style: AppTypography.label.copyWith(color: AppColors.textSecondary),
@@ -73,9 +75,11 @@ class AppTextField extends StatelessWidget {
         hintStyle: AppTypography.body.copyWith(color: AppColors.textTertiary),
         filled: true,
         fillColor: AppColors.surface,
+        // 1.0.30 §2 density pass: vertical 12 → 10 trims single-line fields
+        // (~44 px tall) without crowding the text against the border.
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 14,
-          vertical: 12,
+          vertical: 10,
         ),
         border: _outline(AppColors.border),
         enabledBorder: _outline(AppColors.border),
@@ -119,7 +123,9 @@ class FormFieldTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         onTap: onTap,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          // Kept in lockstep with AppTextField's content padding so tappable
+          // picker fields and text fields stay the same height (density pass).
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: AppColors.border),
