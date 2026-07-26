@@ -837,6 +837,19 @@ d'ingredient. Per això passa amb TOTS els ingredients.
 
 ## 9. Higiene de dades i pendents tècnics
 
+### 🔍 Auditoria del bump del paquet `pdf` a >=3.13
+El bump del paquet `pdf` (pubspec `pdf: ^3.13.0`) va convertir `pw.Column`
+(Flex vertical) en un `SpanningWidget` divisible pel límit de pàgina i va
+**desactivar en silenci** el glue capçalera+bloc de la Spec 033 — les
+capçaleres vídues de la 1.0.26, resoltes amb `pw.Inseparable` a la 1.0.29+44
+(PR #109). Pendent: repassar el changelog del paquet entre la versió d'abans
+del bump i la 3.13 per identificar **què més va canviar de comportament**
+(paginació, spanning d'altres widgets, mètriques de text/fonts) i contrastar-ho
+amb els widgets que fa servir `event_summary_pdf_builder.dart`; deixar
+constància del resultat aquí o en un test si en surt un invariant. Context: el
+guardià e2e de vídues ja cobreix el símptoma conegut; l'auditoria busca els
+que encara no coneixem.
+
 ### 🔴 CI real del repo — PRIORITAT
 El CLAUDE.md afirmava que hi havia CI (GitHub Actions) i el repo **no en té
 cap** — cap workflow ni cap check als PRs (verificat el juliol 2026, tanda
