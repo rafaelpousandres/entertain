@@ -123,7 +123,10 @@ class _DemoBannerState extends ConsumerState<DemoBanner> {
         ),
         actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
         actions: [
+          // S-04: cancelling is the default — it takes initial focus, so the
+          // path of least attention backs out rather than deletes.
           TextButton(
+            autofocus: true,
             onPressed: () => Navigator.of(dctx).pop(false),
             child: Text(
               l10n.cancelAction,

@@ -185,4 +185,104 @@ void main() {
       expect(out, src);
     });
   });
+
+  group('keep-with-next grouping (§B.1 + rule residual)', () {
+    ({bool heading, bool separator}) heading() =>
+        (heading: true, separator: false);
+    ({bool heading, bool separator}) rule() =>
+        (heading: false, separator: true);
+    ({bool heading, bool separator}) content() =>
+        (heading: false, separator: false);
+
+    test('glues a heading to the content that follows it', () {
+      expect(
+        glueGroups([heading(), content(), content()]),
+        [
+          [0, 1],
+          [2],
+        ],
+      );
+    });
+
+    test('a heading separated from its content by a rule still reaches it', () {
+      // The residual bug: the rule used to satisfy the glue on its own, so the
+      // title widowed at the page foot with the rule and the real content
+      // started the next page.
+      expect(
+        glueGroups([heading(), rule(), content(), content()]),
+        [
+          [0, 1, 2],
+          [3],
+        ],
+      );
+    });
+
+    test('crosses a run of several rules and spacers', () {
+      expect(
+        glueGroups([heading(), rule(), rule(), content()]),
+        [
+          [0, 1, 2, 3],
+        ],
+      );
+    });
+
+    test('a run of consecutive headings shares one content block', () {
+      // Section title + course title + first dish travel together.
+      expect(
+        glueGroups([heading(), heading(), content(), content()]),
+        [
+          [0, 1, 2],
+          [3],
+        ],
+      );
+    });
+
+    test('only the first follower is glued, so long sections still paginate', () {
+      final groups = glueGroups([
+        heading(),
+        content(),
+        content(),
+        content(),
+      ]);
+      expect(groups.first, [0, 1]);
+      expect(groups.skip(1).every((g) => g.length == 1), isTrue);
+    });
+
+    test('blocks without a heading are left ungrouped', () {
+      expect(
+        glueGroups([content(), rule(), content()]),
+        [
+          [0],
+          [1],
+          [2],
+        ],
+      );
+    });
+
+    test('a trailing heading with no content does not crash', () {
+      expect(glueGroups([content(), heading()]), [
+        [0],
+        [1],
+      ]);
+      expect(glueGroups([heading(), rule()]), [
+        [0, 1],
+      ]);
+    });
+
+    test('every block appears exactly once, in order', () {
+      final flags = [
+        heading(),
+        rule(),
+        content(),
+        content(),
+        heading(),
+        heading(),
+        rule(),
+        content(),
+        rule(),
+      ];
+      final flat = glueGroups(flags).expand((g) => g).toList();
+      expect(flat, List<int>.generate(flags.length, (i) => i));
+    });
+  });
 }

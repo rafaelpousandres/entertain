@@ -181,10 +181,22 @@ class _EventFormState extends ConsumerState<_EventForm> {
       setState(() => _titleError = titleError);
       return;
     }
-    setState(() {
-      _titleError = null;
-      _saving = true;
-    });
+    setState(() => _titleError = null);
+
+    // S-02: on the FIRST save of an undated event, one soft invitation to add
+    // a date, with a clear way out to save without one. Only the create path —
+    // an existing event is never "first-saved" again, so the invitation cannot
+    // recur on later saves. Dismissing the sheet returns to the form unsaved.
+    if (!widget.isEditing && _draft.eventDate == null) {
+      final addDate = await _askForDate(l10n);
+      if (!mounted || addDate == null) return;
+      if (addDate) {
+        await _pickDate(); // cancelling the picker just keeps the date empty
+        if (!mounted) return;
+      }
+    }
+
+    setState(() => _saving = true);
 
     final repo = ref.read(eventsRepositoryProvider);
 
@@ -207,6 +219,40 @@ class _EventFormState extends ConsumerState<_EventForm> {
       setState(() => _saving = false);
       messenger.showSnackBar(SnackBar(content: Text(l10n.saveError)));
     }
+  }
+
+  /// S-02 — the soft date invitation. `true` = add a date, `false` = continue
+  /// without one, `null` = dismissed (back to the form, nothing saved).
+  Future<bool?> _askForDate(AppLocalizations l10n) {
+    return showDialog<bool>(
+      context: context,
+      builder: (dctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        title: Text(l10n.eventDatePromptTitle, style: AppTypography.sectionTitle),
+        content: Text(
+          l10n.eventDatePromptBody,
+          style: AppTypography.body.copyWith(color: AppColors.textSecondary),
+        ),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dctx).pop(false),
+            child: Text(
+              l10n.eventDatePromptSkip,
+              style: AppTypography.button.copyWith(color: AppColors.textSecondary),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dctx).pop(true),
+            child: Text(
+              l10n.eventDatePromptAdd,
+              style: AppTypography.button.copyWith(color: AppColors.accentSecondary),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _confirmDelete() async {

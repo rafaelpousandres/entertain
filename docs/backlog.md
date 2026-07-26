@@ -572,7 +572,12 @@ traduccions explícitament** (el trigger d'òrfenes de la 026 no cobreix `kind='
 i reescriu els 4 canviats (`photos_three`, `event_format`, `config_suggestions`,
 `menu_adhoc`). Idempotent (`is distinct from`), regenerable amb `tools/gen_hints_sync.py`.
 
-### 💡 Retocs de format del full resum (PDF, Spec 027)
+### ✅ Retocs de format del full resum (PDF, Spec 027)
+**Els dos incorporats a la Spec 033 (§B.2 interlineat, §B.3 aire abans de
+"Compra"), a `main` des del PR #104 i validats al Pixel.** L'entrada havia quedat
+sense marcar en tancar la 033. Valors vius: gap entre passos de recepta 1.5 → 0.8;
+aire entre el títol "Compra" i la primera capçalera de proveïdor 4 → 8.
+
 Dos ajustos menors de maquetació detectats validant exemples reals al Pixel (no
 urgents, només presentació del PDF):
 - **(a) Interlineat dels passos de recepta**: quan els passos d'una preparació van
@@ -585,7 +590,14 @@ urgents, només presentació del PDF):
   la secció Compra).
 - **Quan:** propera passada de polits; trivial, només UI del PDF, sense BD.
 
-### 🔄 Títols vidus al full resum (PDF): regla keep-with-next — RESIDUAL
+### ✅ Títols vidus al full resum (PDF): regla keep-with-next — RESIDUAL RESOLT
+**Resolt a la branca `polish/pdf-widow-rule-glue`** (pendent de validació al
+Pixel). Els blocs que només són regla o espaiador porten ara un flag `separator`
+i el glue hi passa a través: arrossega la regla dins el grup i continua fins al
+primer bloc amb contingut real, que és el que ha de compartir pàgina amb el
+títol. La invariant queda fixada per tests (`glueGroups`, 8 casos) perquè el bug
+ja s'havia corregit dues vegades i vivia només com a comentari.
+
 Detectat validant la Spec 032; **implementat parcialment a la Spec 033 §B.1**
 (`_glueHeadings` agrupa cada tongada de capçaleres + el primer contingut que les
 segueix en un `pw.Column` no separable). **Residual (validat al Pixel, Spec 033):**
@@ -824,6 +836,16 @@ d'ingredient. Per això passa amb TOTS els ingredients.
 ---
 
 ## 9. Higiene de dades i pendents tècnics
+
+### 🔴 CI real del repo — PRIORITAT
+El CLAUDE.md afirmava que hi havia CI (GitHub Actions) i el repo **no en té
+cap** — cap workflow ni cap check als PRs (verificat el juliol 2026, tanda
+1.0.29). El CLAUDE.md ja ho diu correctament: **avui la porta és la suite
+local** (`flutter analyze` net + `flutter test` complet, guardià de versionCode
+inclòs) + la validació al Pixel. Pendent: un workflow de GitHub Actions que
+executi analyze + suite a cada PR i bloquegi el merge en vermell (i, si es vol,
+la build de l'AAB). L'abast concret el decideix el director quan es prioritzi
+la tanda.
 
 ### ✅ Proliferació de grups "My group" buits a la BD — TANCAT
 **Diagnòstic (benigne) + neteja FETA.** La causa era brossa **històrica de
