@@ -126,8 +126,9 @@ document.
   modify it on your own: structural changes are decided on claude.ai and
   reflected in the data model document.
 - **Main branch always shippable.** Work on feature branches with pull
-  requests. CI runs automated tests and dependency checks. Nothing is merged
-  that leaves `main` in a non-shippable state.
+  requests. The gate today is the local suite (`flutter analyze` clean + full
+  `flutter test` green) — the repo has **no CI yet** (backlog, prioritized).
+  Nothing is merged that leaves `main` in a non-shippable state.
 - **Lean first.** Each phase is a coherent, usable, shippable release.
   Implement the minimal scope of the current specification; do not add
   unrequested functionality.
@@ -151,7 +152,10 @@ document.
 - **Maps:** Google Maps (`google_maps_flutter`).
 - **Media:** device camera/gallery + Supabase Storage.
 - **Visual base:** Material 3, with the project's own design system.
-- **CI:** GitHub Actions.
+- **CI:** none configured today (no GitHub Actions workflows; verified July
+  2026). The gate is the local suite — `flutter analyze` clean + full
+  `flutter test` — plus the on-device validation below. Setting up real CI is
+  in the backlog, prioritized.
 - **Builds and release:** Codemagic.
 - **Error monitoring:** Sentry, configured not to collect personal data.
 
@@ -173,8 +177,9 @@ Android first, iOS later (iOS is a later phase). Play Store tracks: internal
 testing → closed testing → production.
 
 **Mobile validation gate (pre-merge).** For Entertain the merge gate is **not**
-green CI alone: on-device validation is **pre-merge**. The flow per pass is:
-code on a feature branch → green CI → **build the AAB from that branch** (see the
+a green suite alone: on-device validation is **pre-merge**. The flow per pass is:
+code on a feature branch → local suite green (`flutter analyze` clean + full
+`flutter test`) → **build the AAB from that branch** (see the
 output convention below) → validate on the Pixel via the Play Console **internal
 testing** channel (not in local) → **squash-merge to `main` only once the
 validation passes**. If the validation fails, fix it **on the branch** and
@@ -196,6 +201,22 @@ artifact at the default build path. **Copy** the generated
 The AAB is a build **output** handed to the user for upload to the Play Console;
 this does not make Windows a source of truth (the canonical repo stays on Linux).
 Report the final tray path + version + versionCode after each build.
+
+**versionCode convention (permanent rule, adopted July 2026).** The build number
+in `pubspec.yaml` is **derived from the version name**, never hand-counted:
+
+    versionCode = major*10000 + minor*100 + patch      (1.0.29 → 10029)
+
+`pubspec.yaml` is the single source of truth (Gradle reads
+`flutter.versionCode`/`flutter.versionName` from it), and the guard
+`test/version_code_test.dart` fails the whole suite if the code and the name
+ever disagree. Two digits are reserved for minor and patch (each < 100).
+The old hand-counted series stopped at 43 — a code that was **burned**: it was
+consumed in the Play Console by an uploaded AAB that never shipped, and Google
+never accepts a versionCode twice. Related rule: the real versionCode ceiling
+is checked in the Play Console under **Release › App bundle explorer** (every
+code ever uploaded), **never** deduced from what a testing track currently
+serves — a burned code can be higher than any track's active build.
 
 ---
 
@@ -240,9 +261,10 @@ managed on claude.ai). When in doubt, consult them; do not improvise.
   only the final objective (which file, its destination in the repo, the commit
   message); Claude Code then runs the whole docs/ pass alone — branch off
   up-to-date `main`, copy preserving the EXACT name (spaces and accents
-  included), commit, push, open the PR, wait for CI, squash-merge if green — and
-  reports. No manual git from the user. If CI goes red or anything unexpected
-  happens, Claude Code stops and reports without merging.
+  included), commit, push, open the PR, squash-merge once the local suite is
+  green (there is no CI today) — and reports. No manual git from the user. If
+  the suite goes red or anything unexpected happens, Claude Code stops and
+  reports without merging.
 - Work through the whole objective and report at the end; the user is a light
   bridge, not a step-by-step operator. Pause only at explicit stop points: a new
   product/design/scope decision, or before an irreversible data operation.

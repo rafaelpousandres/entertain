@@ -833,6 +833,16 @@ d'ingredient. Per això passa amb TOTS els ingredients.
 
 ## 9. Higiene de dades i pendents tècnics
 
+### 🔴 CI real del repo — PRIORITAT
+El CLAUDE.md afirmava que hi havia CI (GitHub Actions) i el repo **no en té
+cap** — cap workflow ni cap check als PRs (verificat el juliol 2026, tanda
+1.0.29). El CLAUDE.md ja ho diu correctament: **avui la porta és la suite
+local** (`flutter analyze` net + `flutter test` complet, guardià de versionCode
+inclòs) + la validació al Pixel. Pendent: un workflow de GitHub Actions que
+executi analyze + suite a cada PR i bloquegi el merge en vermell (i, si es vol,
+la build de l'AAB). L'abast concret el decideix el director quan es prioritzi
+la tanda.
+
 ### ✅ Proliferació de grups "My group" buits a la BD — TANCAT
 **Diagnòstic (benigne) + neteja FETA.** La causa era brossa **històrica de
 desenvolupament**: cada arrencada anònima (reinstal·lacions, `flutter run`, canvis
