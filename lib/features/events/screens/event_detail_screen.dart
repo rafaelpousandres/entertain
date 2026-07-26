@@ -532,6 +532,20 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
     // "Afegeix plat" (direct), Begudes open → "Afegeix beguda" (direct), nothing
     // open → "Afegeix" opening the Plat/Beguda chooser. This saves a tap when the
     // intent is clear while never losing access to either (the original bug).
+    //
+    // 1.0.30 §2: the Esdeveniment tab pins "Crea full resum" here — a
+    // persistent action bar above the scrolling form — instead of placing it
+    // after the last field, where any content growth (two-line title, filled
+    // notes, large font) pushed it below the fold.
+    if (_tab!.index == 0) {
+      return _ActionBar(
+        child: PrimaryButton(
+          label: l10n.summaryCreateAction,
+          icon: Icons.picture_as_pdf_outlined,
+          onPressed: _summaryBusy ? null : () => _createSummary(event),
+        ),
+      );
+    }
     if (_tab!.index == 1) {
       return ValueListenableBuilder<_MenuAddContext>(
         valueListenable: _menuAddContext,
@@ -629,7 +643,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
         // (moved here from between Lloc and Notes). Same reusable widget the
         // dish and ingredient editors use.
         PhotoCarouselSection(type: MediaEntityType.event, entityId: event.id),
-        const SizedBox(height: 20),
+        const SizedBox(height: 16),
         FieldLabel(
           label: l10n.fieldTitleLabel,
           child: AppTextField(
@@ -651,7 +665,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
               style: AppTypography.caption.copyWith(color: AppColors.danger),
             ),
           ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         FieldLabel(
           label: l10n.fieldTypeLabel,
           child: SegmentedChoice<EventType>(
@@ -663,7 +677,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
             ],
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         FieldLabel(
           label: l10n.fieldFormatLabel,
           child: SegmentedChoice<EventFormat>(
@@ -675,7 +689,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
             ],
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -714,7 +728,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
             ),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         FieldLabel(
           label: l10n.fieldGuestCountLabel,
           child: StepperField(
@@ -722,7 +736,7 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
             onChanged: (v) => setState(() => _draft.guestCount = v),
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         FieldLabel(
           label: l10n.fieldLocationLabel,
           child: AppTextField(
@@ -731,27 +745,19 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
             onChanged: (_) => setState(() {}),
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         FieldLabel(
           label: l10n.fieldNotesLabel,
           child: AppTextField(
             controller: _notesController,
             hintText: l10n.fieldNotesHint,
-            // Spec 033 §C.1: shorter Notes field so the "Crea resum" action
-            // below stays visible without scrolling.
             maxLines: 2,
             textInputAction: TextInputAction.newline,
             onChanged: (_) => setState(() {}),
           ),
         ),
-        // Spec 027 §A — a prominent, discoverable action over the whole event:
-        // build the summary-sheet PDF and present the system share/save sheet.
-        const SizedBox(height: 28),
-        PrimaryButton(
-          label: l10n.summaryCreateAction,
-          icon: Icons.picture_as_pdf_outlined,
-          onPressed: _summaryBusy ? null : () => _createSummary(event),
-        ),
+        // Spec 027 §A's "Crea full resum" action now lives in the persistent
+        // bottom action bar (1.0.30 §2), not here at the mercy of the fold.
       ],
     );
   }

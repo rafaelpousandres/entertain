@@ -37,6 +37,17 @@ class EventsListScreen extends ConsumerWidget {
       appBar: AppBar(
         title: Text(l10n.eventsScreenTitle, style: AppTypography.display),
         actions: [
+          // 1.0.30 §1 — an always-visible, discreet door to the suggestions
+          // box. It must NOT live only behind the hints sheet: that sheet is
+          // gated by the "show hints on open" toggle, so with the toggle off a
+          // feedback path hidden there is unreachable. Same destination as
+          // Configuració › Suggeriments (shared route, no duplicated logic).
+          IconButton(
+            icon: const Icon(Icons.chat_bubble_outline),
+            color: AppColors.accentSecondary,
+            tooltip: l10n.hintsFeedbackAction,
+            onPressed: () => context.push('/settings/suggestions'),
+          ),
           // Spec 012 §2.4: per-screen help pop-up.
           HelpIconButton(
             title: l10n.eventsScreenTitle,
