@@ -53,12 +53,21 @@ class _Palette {
   static final unknownBg = PdfColor.fromInt(0xFF000000);
 }
 
+/// The A4 sheet margins, shared with the keep-with-next height guard so the
+/// usable width/height it measures against always match the real page.
+const _pageMargin = pw.EdgeInsets.fromLTRB(40, 40, 40, 40);
+
 /// Builds the summary PDF and returns its bytes.
+///
+/// [debugDisableKeepWithNext] turns off the §B.1 heading glue so the
+/// widowed-heading regression test can prove its detector actually fails on
+/// the unglued layout (a guard that cannot go red guards nothing).
 Future<Uint8List> buildEventSummaryPdf({
   required EventSummaryData data,
   required EventSummaryLabels labels,
   Uint8List? logo,
   EventSummaryFonts? fonts,
+  bool debugDisableKeepWithNext = false,
 }) async {
   final theme = pw.ThemeData.withFont(
     base: fonts?.base,
@@ -264,8 +273,10 @@ Future<Uint8List> buildEventSummaryPdf({
   doc.addPage(
     pw.MultiPage(
       pageFormat: PdfPageFormat.a4,
-      margin: const pw.EdgeInsets.fromLTRB(40, 40, 40, 40),
-      build: (_) => _glueHeadings(blocks),
+      margin: _pageMargin,
+      build: (context) => debugDisableKeepWithNext
+          ? [for (final b in blocks) b.widget]
+          : _glueHeadings(blocks, context),
     ),
   );
 
@@ -344,18 +355,63 @@ class _Block {
 /// Without this, a rule sitting between a title and its first real line
 /// satisfied the glue on its own, and the title still widowed — with the rule
 /// trailing it at the page foot and the actual content starting the next page.
-List<pw.Widget> _glueHeadings(List<_Block> blocks) {
+///
+/// Safeguard (1.0.29+43): a glued group taller than the usable page would fit
+/// nowhere — `pw.MultiPage` throws on a non-spanning child taller than a full
+/// page. Each candidate group is measured against the real content box (via
+/// [context], the same one `MultiPage` lays out with) and, when it cannot fit
+/// on an empty page, the glue is dropped and its blocks flow individually.
+List<pw.Widget> _glueHeadings(List<_Block> blocks, pw.Context context) {
+  final grouped = glueGroups(
+    [for (final b in blocks) (heading: b.heading, separator: b.separator)],
+  );
+  final contentWidth = PdfPageFormat.a4.width - _pageMargin.horizontal;
+  final usableHeight = PdfPageFormat.a4.height - _pageMargin.vertical;
+  final guarded = applyGlueHeightGuard(
+    grouped,
+    (i) {
+      final w = blocks[i].widget;
+      w.layout(context, pw.BoxConstraints(maxWidth: contentWidth));
+      return w.box?.height ?? 0;
+    },
+    usableHeight,
+  );
   return [
-    for (final group in glueGroups(
-      [for (final b in blocks) (heading: b.heading, separator: b.separator)],
-    ))
+    for (final group in guarded)
       if (group.length == 1)
         blocks[group.single].widget
       else
-        pw.Column(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
-          children: [for (final i in group) blocks[i].widget],
+        // pw.Column alone is NOT enough: since pdf 3.13 a vertical Flex is a
+        // SpanningWidget (canSpan == true), so MultiPage splits it at the page
+        // boundary — exactly between the title and its first block, which is
+        // the widow this glue exists to prevent (seen on the 1.0.26 sheet,
+        // pages 2 and 5). Inseparable pins the group as one unbreakable child.
+        pw.Inseparable(
+          child: pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [for (final i in group) blocks[i].widget],
+          ),
         ),
+  ];
+}
+
+/// The height safeguard behind [_glueHeadings], pure over measured heights.
+///
+/// A group whose blocks together exceed [maxHeight] (the usable height of an
+/// empty page) is split back into singletons: better a heading that may widow
+/// than an unbreakable column no page can hold. Groups of one pass through
+/// unmeasured. Exposed for unit tests, like [glueGroups].
+List<List<int>> applyGlueHeightGuard(
+  List<List<int>> groups,
+  double Function(int index) heightOf,
+  double maxHeight,
+) {
+  return [
+    for (final g in groups)
+      if (g.length == 1 || g.fold(0.0, (s, i) => s + heightOf(i)) <= maxHeight)
+        g
+      else
+        ...[for (final i in g) [i]],
   ];
 }
 
