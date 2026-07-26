@@ -202,21 +202,29 @@ The AAB is a build **output** handed to the user for upload to the Play Console;
 this does not make Windows a source of truth (the canonical repo stays on Linux).
 Report the final tray path + version + versionCode after each build.
 
-**versionCode convention (permanent rule, adopted July 2026).** The build number
-in `pubspec.yaml` is **derived from the version name**, never hand-counted:
+**versionCode convention (permanent rule, corrected July 2026).** The
+versionCode is a strictly increasing **counter, independent of the version
+name**. One version name may ship under several codes — 1.0.29 already has 41,
+42, 43 (burned) and 44. There is **no formula** tying the code to the name: a
+name-derived formula cannot represent two builds of the same name, a case that
+has already happened, so a guard enforcing one blocks correct builds. (A
+formula convention — `major*10000+minor*100+patch` — was adopted and reverted
+the same day, July 2026, for exactly this reason.) To pick the next code: read
+the real ceiling in the Play Console under **Release › App bundle explorer**
+(every code ever uploaded — an uploaded bundle burns its number even if it is
+never published) and add one. **Never** deduce the ceiling from what a testing
+track currently serves — a burned code can be higher than any track's active
+build. `pubspec.yaml` carries the chosen code (Gradle reads
+`flutter.versionCode`/`flutter.versionName` from it).
 
-    versionCode = major*10000 + minor*100 + patch      (1.0.29 → 10029)
-
-`pubspec.yaml` is the single source of truth (Gradle reads
-`flutter.versionCode`/`flutter.versionName` from it), and the guard
-`test/version_code_test.dart` fails the whole suite if the code and the name
-ever disagree. Two digits are reserved for minor and patch (each < 100).
-The old hand-counted series stopped at 43 — a code that was **burned**: it was
-consumed in the Play Console by an uploaded AAB that never shipped, and Google
-never accepts a versionCode twice. Related rule: the real versionCode ceiling
-is checked in the Play Console under **Release › App bundle explorer** (every
-code ever uploaded), **never** deduced from what a testing track currently
-serves — a burned code can be higher than any track's active build.
+**Delivery verification (permanent rule, July 2026).** An artifact is **not
+delivered** until it has been **listed at its final destination** — an `ls`
+of the destination folder showing the file's name and size, pasted literally
+into the report. A report that claims "delivered" without that proof is
+invalid. Obsolete artifacts are deleted only **after** their replacement is
+verified in place. (Origin: a delivered-and-verified AAB was reported missing
+because alphabetical sorting hid `+10029` between `+40` and `+41` — the
+listing in the report is what settles such doubts.)
 
 ---
 
