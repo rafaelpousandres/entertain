@@ -837,6 +837,19 @@ d'ingredient. Per això passa amb TOTS els ingredients.
 
 ## 9. Higiene de dades i pendents tècnics
 
+### 🔍 Cobertura de maquetació de la passada de densitat (1.0.30)
+La passada de densitat de la 1.0.30 (etiqueta→camp 6→4, padding vertical dels
+camps 12→10, seccions 16→12) es va fer als **widgets compartits** del sistema
+de disseny (`FieldLabel`, `AppTextField`, `FormFieldTile`), així que afecta
+**TOTS els formularis** — Catàleg (plats/ingredients/begudes), Convidats,
+Configuració, Compra —, però els guardians nous només cobreixen Events
+(entrada de Suggeriments) i el botó del full resum. Pendent: avaluar si cal
+cobertura de maquetació a la resta de pantalles (p. ex. un test per pantalla
+que verifiqui que cap acció primària queda sota el plec amb contingut llarg i
+lletra gran), o si n'hi ha prou amb la validació visual al Pixel de cada
+tanda. Decidir-ho quan es prioritzi; capturat a la tanda de tancament de la
+1.0.30+45.
+
 ### 🔍 Auditoria del bump del paquet `pdf` a >=3.13
 El bump del paquet `pdf` (pubspec `pdf: ^3.13.0`) va convertir `pw.Column`
 (Flex vertical) en un `SpanningWidget` divisible pel límit de pàgina i va
