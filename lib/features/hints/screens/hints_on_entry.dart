@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../l10n/app_localizations.dart';
 import '../../../theme/app_colors.dart';
@@ -132,6 +133,36 @@ class _HintsSheetState extends ConsumerState<_HintsSheet> {
                     Text(
                       l10n.hintsDisableCheckbox,
                       style: AppTypography.body.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            // S-03: a discreet door to the suggestions box — same destination
+            // as Configuració › Suggeriments, no duplicated screen or logic.
+            InkWell(
+              onTap: () {
+                final router = GoRouter.of(context);
+                Navigator.of(context).pop();
+                router.push('/settings/suggestions');
+              },
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.chat_bubble_outline,
+                      size: 16,
+                      color: AppColors.textTertiary,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      l10n.hintsFeedbackAction,
+                      style: AppTypography.caption.copyWith(
                         color: AppColors.textSecondary,
                       ),
                     ),
