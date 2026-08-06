@@ -1,6 +1,7 @@
 # entertain — Detailed data model
 
-> Draft for review and approval. Version 0.2 (updated for Specs 013–016).
+> Draft for review and approval. Version 0.3 (quota infrastructure — Spec 019
+> family + server-resolved limits, August 2026).
 > Model of the **complete vision**. The lean MVP implements a subset of it; the
 > phases activate the rest without redesigning anything. Each entity indicates
 > the phase in which it is activated.
@@ -43,6 +44,8 @@ erDiagram
     GROUPS ||--o{ MATERIAL_ITEMS : contains
     GROUPS ||--o{ PANTRY_ITEMS : contains
     GROUPS ||--o{ MESSAGE_TEMPLATES : contains
+    GROUPS ||--o{ QUOTA_USAGE : consumes
+    GROUPS ||--o{ QUOTA_ENTITLEMENTS : overrides
 
     EVENTS ||--o{ EVENT_DISHES : includes
     EVENTS ||--o{ EVENT_DRINKS : includes
@@ -532,6 +535,97 @@ Default (system) template and per-group customization; orders snapshot it
 | footer | text | Default sign-off. |
 | is_system | boolean | |
 
+### 3.10 Quotas and entitlements
+
+The generic metering/monetization infrastructure (Spec 019; extended August
+2026 with server-resolved limits). `quota_key` namespaces consumers — today
+`stock_photos`, `dish_assistant`, `menu_wizard` — so new metered features reuse
+these tables with no schema change. Effective limit resolution:
+**`quota_entitlements` (per-group override) > `quota_defaults` (global
+default) > NULL (configuration error, fail closed)** — one SQL function
+(`effective_quota_limit`) serves both enforcement (Edge Functions) and display
+(client), so the applied and the shown limit can never diverge. The client
+holds no limit constants.
+
+#### `quota_usage` — Quota counter · Phase 0 (Spec 019)
+One row per (group, quota_key, calendar month). The period is a UTC `YYYY-MM`
+key; a new month simply starts a new row (no reset job).
+
+| Field | Type | Notes |
+|---|---|---|
+| group_id | uuid | FK → groups (cascade). |
+| quota_key | text | Consumer namespace (`stock_photos`, `dish_assistant`, `menu_wizard`, …). |
+| period | text | Calendar month `YYYY-MM` (UTC). |
+| used | integer | Consumed units this period; default `0`. |
+| | | Unique (`group_id`, `quota_key`, `period`); index on the same triple. |
+
+> **Paywall trust (Spec 019).** Clients may only SELECT (RLS via
+> `is_group_member`); with no client DML grant, a write dies at the privilege
+> check before RLS. Only the service role writes it, through two atomic RPCs:
+> `consume_quota` (limit check fused with the increment in one statement —
+> returns the new `used`, or NULL at the cap) and `release_quota` (refund on
+> failed operations). Both `service_role`-only.
+
+#### `quota_entitlements` — Per-group limit override · Phase 0 (Spec 019)
+The premium seam: a row here overrides the global default for one group and
+one key. No row ⇒ the `quota_defaults` value applies.
+
+| Field | Type | Notes |
+|---|---|---|
+| group_id | uuid | FK → groups (cascade). |
+| quota_key | text | |
+| monthly_limit | integer | Overrides the global default for this group. |
+| tier | text | `free` \| `premium` (informational); default `free`. |
+| | | Unique (`group_id`, `quota_key`). |
+
+> SELECT-only for clients (group members, via `is_group_member`); written only
+> by the service role (future Billing).
+
+#### `quota_defaults` — Global default limit · August 2026
+The global monthly default per `quota_key`, replacing the former hardcoded
+`DEFAULT_LIMIT` constants in the Edge Functions and their client mirrors.
+Operational changes ("raise dish_assistant for everyone") are an `UPDATE` here
+— immediate for all groups without an entitlement row, present and future,
+deploy-free and reversible (standing procedure: `docs/quota-operacio.md`).
+
+| Field | Type | Notes |
+|---|---|---|
+| quota_key | text | **PK.** |
+| monthly_limit | integer | Global default; `CHECK (monthly_limit >= 0)`. |
+| created_at | timestamptz | |
+| updated_at | timestamptz | |
+
+> **Canonical seed (free tier):** `dish_assistant` 3 · `menu_wizard` 2 ·
+> `stock_photos` 10. Temporary operational overrides live in labelled
+> operational migrations or Studio UPDATEs, never in this canonical seed.
+>
+> **Grants.** SELECT for `anon`/`authenticated` (default limits are not
+> sensitive; RLS policy `using (true)` for authenticated) **and explicitly for
+> `service_role`** (house rule: every table a service-role Edge Function reads
+> gets its grant in the table's initial migration). No client DML grant — same
+> paywall-trust model as `quota_usage`.
+
+#### `platform_admins` — Latent platform-admin role · Phase 0 (Spec 019, no UI)
+Platform-scoped (transcends groups); a row's existence *is* the admin check
+(`is_platform_admin()`, SECURITY DEFINER). Authorization anchor for a future
+admin/Billing flow. `user_id` (PK, FK → auth.users, cascade) + `created_at`;
+self-readable only, seeded out of band by the service role.
+
+#### Quota functions (August 2026)
+
+- **`effective_quota_limit(group_id, quota_key) → integer`** — THE resolution
+  chain, in one place: the group's `quota_entitlements.monthly_limit` if a row
+  exists, else `quota_defaults.monthly_limit`, else NULL. NULL means a deleted
+  seed row: callers fail closed and loudly (Edge Functions log and return a
+  configuration error; they never fall back to a guessed number).
+  `service_role`-only.
+- **`get_quota_status(group_id, quota_key) → (used, quota_limit)`** — the
+  client read path (one RPC instead of two table reads): current-period `used`
+  plus the limit resolved via `effective_quota_limit`. Computes the period
+  internally (calendar month, UTC) so the period definition has exactly one
+  home — the client no longer computes periods. SECURITY DEFINER guarded by
+  `is_group_member`; granted to `anon`/`authenticated`/`service_role`.
+
 ---
 
 ## 4. Row-level security (RLS)
@@ -611,6 +705,20 @@ is planned:
 
 ## 9. Change log
 
+- **0.3** — Quota infrastructure (August 2026):
+  - Retro-documented the **Spec 019 family**, live in production since June
+    2026 but missing from this model: `quota_usage` (atomic counter +
+    `consume_quota`/`release_quota` RPCs), `quota_entitlements` (per-group
+    override, the premium seam) and `platform_admins` (latent role). New §3.10;
+    both group-owned tables added to the §2 diagram.
+  - **Server-resolved limits (August 2026 pass, PR #113):** new
+    `quota_defaults` table (global per-key default, canonical seed
+    `dish_assistant` 3 · `menu_wizard` 2 · `stock_photos` 10) and functions
+    `effective_quota_limit` (single resolution chain: entitlement > default >
+    NULL fail-closed) and `get_quota_status` (client read, period computed
+    internally, `is_group_member`-guarded). Replaces the hardcoded
+    `DEFAULT_LIMIT` constants and their client mirrors; operational limit
+    changes are now DB UPDATEs (see `docs/quota-operacio.md`).
 - **0.2** — Updated for Specs 013–016:
   - **013** — multi-supplier model: `group_supplier_settings` is now 1:N per
     category (dropped the unique constraint) with `is_default` + partial unique
