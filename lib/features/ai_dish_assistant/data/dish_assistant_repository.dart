@@ -1,6 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../stock_photos/data/quota.dart' show QuotaStatus, currentPeriodUtc;
+import '../../stock_photos/data/quota.dart' show QuotaStatus, fetchQuotaStatus;
 import 'dish_assistant.dart';
 import 'dish_card.dart';
 
@@ -53,8 +53,8 @@ class DishAssistantRepository {
         final map = details is Map ? details.cast<String, dynamic>() : null;
         throw QuotaExceededException(
           used: (map?['used'] as num?)?.toInt() ?? 0,
-          limit:
-              (map?['limit'] as num?)?.toInt() ?? kDishAssistantDefaultLimit,
+          // Malformed 402 body only; the function always sends used/limit.
+          limit: (map?['limit'] as num?)?.toInt() ?? 0,
         );
       }
       rethrow;
@@ -74,28 +74,11 @@ class DishAssistantRepository {
     return data['dish_id'] as String;
   }
 
-  /// Reads the group's usage for the current period + its effective limit
-  /// (entitlement row, else the system default). Drives the "N de 3" header.
-  Future<QuotaStatus> fetchQuota(String groupId) async {
-    final period = currentPeriodUtc();
-    final usageRow = await _client
-        .from('quota_usage')
-        .select('used')
-        .eq('group_id', groupId)
-        .eq('quota_key', kDishAssistantQuotaKey)
-        .eq('period', period)
-        .maybeSingle();
-    final entRow = await _client
-        .from('quota_entitlements')
-        .select('monthly_limit')
-        .eq('group_id', groupId)
-        .eq('quota_key', kDishAssistantQuotaKey)
-        .maybeSingle();
-    return QuotaStatus(
-      used: (usageRow?['used'] as num?)?.toInt() ?? 0,
-      limit:
-          (entRow?['monthly_limit'] as num?)?.toInt() ??
-          kDishAssistantDefaultLimit,
-    );
-  }
+  /// The group's usage + effective limit, resolved server-side. Drives the
+  /// "N de M" header.
+  Future<QuotaStatus> fetchQuota(String groupId) => fetchQuotaStatus(
+    _client,
+    groupId: groupId,
+    quotaKey: kDishAssistantQuotaKey,
+  );
 }

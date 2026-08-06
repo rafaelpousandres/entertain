@@ -16,9 +16,9 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const QUOTA_KEY = "stock_photos";
-// System default when a group has no quota_entitlements row. MUST match the
-// client mirror (kStockPhotosDefaultLimit in lib/features/stock_photos/data/quota.dart).
-const DEFAULT_LIMIT = 10;
+// The limit is server-resolved by the `effective_quota_limit` SQL function
+// (entitlement > quota_defaults row). No constant here, no client mirror:
+// operational changes are an UPDATE on quota_defaults, deploy-free.
 
 const PEXELS_API = "https://api.pexels.com/v1/search";
 const PER_PAGE = 24;
@@ -158,21 +158,22 @@ async function handleSave(
     groupId = (entityRow as { group_id: string }).group_id;
   }
 
-  // 3. Effective limit: entitlement row or the system default.
-  const { data: ent, error: entErr } = await serviceClient
-    .from("quota_entitlements")
-    .select("monthly_limit")
-    .eq("group_id", groupId)
-    .eq("quota_key", QUOTA_KEY)
-    .maybeSingle();
-  // Defense in depth: a failed read here (e.g. a missing service_role grant)
-  // would silently fall back to DEFAULT_LIMIT and wrongly cap a higher-tier
-  // group. Surface it instead of swallowing it.
-  if (entErr) {
-    console.error("[save] entitlement read failed:", entErr.message);
+  // 3. Effective limit — single source of truth: entitlement > quota_defaults,
+  // resolved in SQL. NULL means the quota_defaults seed row is gone — a
+  // configuration hole. Fail closed and loudly; a guessed fallback would
+  // silently mis-cap groups.
+  const { data: limitData, error: limitErr } = await serviceClient.rpc(
+    "effective_quota_limit",
+    { p_group_id: groupId, p_quota_key: QUOTA_KEY },
+  );
+  if (limitErr || limitData === null || limitData === undefined) {
+    console.error(
+      "[save] effective_quota_limit failed:",
+      limitErr?.message ?? `no quota_defaults row for ${QUOTA_KEY}`,
+    );
+    return json({ error: "quota_config_error" }, 500);
   }
-  const limit = (ent as { monthly_limit: number } | null)?.monthly_limit ??
-    DEFAULT_LIMIT;
+  const limit = limitData as number;
   const period = currentPeriod();
 
   // 4. Atomic reserve (check + increment fused). NULL ⇒ cap reached.

@@ -97,35 +97,19 @@ class StockPhotoRepository {
         final map = details is Map ? details.cast<String, dynamic>() : null;
         throw QuotaExceededException(
           used: (map?['used'] as num?)?.toInt() ?? 0,
-          limit: (map?['limit'] as num?)?.toInt() ?? kStockPhotosDefaultLimit,
+          // Malformed 402 body only; the function always sends used/limit.
+          limit: (map?['limit'] as num?)?.toInt() ?? 0,
         );
       }
       rethrow;
     }
   }
 
-  /// Reads the group's usage for the current period + its effective limit
-  /// (entitlement row, else the system default). Drives the "N de 10" header.
-  Future<QuotaStatus> fetchQuota(String groupId) async {
-    final period = currentPeriodUtc();
-    final usageRow = await _client
-        .from('quota_usage')
-        .select('used')
-        .eq('group_id', groupId)
-        .eq('quota_key', kStockPhotosQuotaKey)
-        .eq('period', period)
-        .maybeSingle();
-    final entRow = await _client
-        .from('quota_entitlements')
-        .select('monthly_limit')
-        .eq('group_id', groupId)
-        .eq('quota_key', kStockPhotosQuotaKey)
-        .maybeSingle();
-    return QuotaStatus(
-      used: (usageRow?['used'] as num?)?.toInt() ?? 0,
-      limit:
-          (entRow?['monthly_limit'] as num?)?.toInt() ??
-          kStockPhotosDefaultLimit,
-    );
-  }
+  /// The group's usage + effective limit, resolved server-side. Drives the
+  /// "N de M" header.
+  Future<QuotaStatus> fetchQuota(String groupId) => fetchQuotaStatus(
+    _client,
+    groupId: groupId,
+    quotaKey: kStockPhotosQuotaKey,
+  );
 }

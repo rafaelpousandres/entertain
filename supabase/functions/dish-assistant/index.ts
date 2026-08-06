@@ -23,9 +23,9 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const QUOTA_KEY = "dish_assistant";
-// MUST match the client mirror (kDishAssistantDefaultLimit). Free 3/month;
-// premium (50) is an entitlement row, no code change.
-const DEFAULT_LIMIT = 3;
+// The limit is server-resolved by the `effective_quota_limit` SQL function
+// (entitlement > quota_defaults row). No constant here, no client mirror:
+// operational changes are an UPDATE on quota_defaults, deploy-free.
 
 // Sonnet 4.6 — Haiku's dish quality wasn't convincing, so we use the stronger
 // model (better identification/accuracy, incl. obscure dishes). Pure generation,
@@ -294,20 +294,21 @@ async function handleGenerate(
   if (!group) return json({ error: "forbidden" }, 403);
   const groupId = group.groupId;
 
-  const { data: ent, error: entErr } = await serviceClient
-    .from("quota_entitlements")
-    .select("monthly_limit")
-    .eq("group_id", groupId)
-    .eq("quota_key", QUOTA_KEY)
-    .maybeSingle();
-  // Defense in depth: a failed read here (e.g. a missing service_role grant)
-  // would silently fall back to DEFAULT_LIMIT and wrongly cap a higher-tier
-  // group. Surface it instead of swallowing it.
-  if (entErr) {
-    console.error("[generate] entitlement read failed:", entErr.message);
+  // Single source of truth: entitlement > quota_defaults, resolved in SQL.
+  // NULL means the quota_defaults seed row is gone — a configuration hole.
+  // Fail closed and loudly; a guessed fallback would silently mis-cap groups.
+  const { data: limitData, error: limitErr } = await serviceClient.rpc(
+    "effective_quota_limit",
+    { p_group_id: groupId, p_quota_key: QUOTA_KEY },
+  );
+  if (limitErr || limitData === null || limitData === undefined) {
+    console.error(
+      "[generate] effective_quota_limit failed:",
+      limitErr?.message ?? `no quota_defaults row for ${QUOTA_KEY}`,
+    );
+    return json({ error: "quota_config_error" }, 500);
   }
-  const limit = (ent as { monthly_limit: number } | null)?.monthly_limit ??
-    DEFAULT_LIMIT;
+  const limit = limitData as number;
   const period = currentPeriod();
 
   // Charged HERE (generation is the costly step). NULL ⇒ cap reached.

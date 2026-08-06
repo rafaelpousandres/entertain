@@ -5,10 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 /// Spec 022 §7 — menu_wizard quota math (the generic Spec 019 quota reused with
 /// a third key). Pure, no Supabase.
 void main() {
-  test('system default limit is 2 (mirror of the Edge Function constant)', () {
-    expect(kMenuWizardDefaultLimit, 2);
-  });
-
+  // No default-limit test: the client no longer holds a limit value —
+  // `get_quota_status` resolves it server-side (entitlement > quota_defaults).
   test('quota key namespaces this consumer', () {
     expect(kMenuWizardQuotaKey, 'menu_wizard');
   });

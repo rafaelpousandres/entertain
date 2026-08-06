@@ -23,24 +23,9 @@ void main() {
     });
   });
 
-  test('system default limit is 10 (mirror of the Edge Function constant)', () {
-    expect(kStockPhotosDefaultLimit, 10);
-  });
-
-  group('currentPeriodUtc', () {
-    test('formats YYYY-MM, zero-padded month', () {
-      expect(currentPeriodUtc(DateTime.utc(2026, 6, 22)), '2026-06');
-      expect(currentPeriodUtc(DateTime.utc(2026, 12, 1)), '2026-12');
-    });
-
-    test('uses UTC: a late-night local instant maps to the UTC month', () {
-      // 2026-06-30 23:30 UTC is still June in UTC.
-      expect(currentPeriodUtc(DateTime.utc(2026, 6, 30, 23, 30)), '2026-06');
-    });
-
-    test('a new month resets the period key', () {
-      expect(currentPeriodUtc(DateTime.utc(2026, 6, 30)), '2026-06');
-      expect(currentPeriodUtc(DateTime.utc(2026, 7, 1)), '2026-07');
-    });
+  // No default-limit or period tests: the client no longer holds a limit
+  // value or computes periods — `get_quota_status` resolves both server-side.
+  test('quota key namespaces this consumer', () {
+    expect(kStockPhotosQuotaKey, 'stock_photos');
   });
 }

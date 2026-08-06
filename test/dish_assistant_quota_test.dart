@@ -5,10 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 /// Spec 020 §8 — dish_assistant quota math (the generic Spec 019 quota reused
 /// with a new key). Pure, no Supabase.
 void main() {
-  test('system default limit is 3 (mirror of the Edge Function constant)', () {
-    expect(kDishAssistantDefaultLimit, 3);
-  });
-
+  // No default-limit test: the client no longer holds a limit value —
+  // `get_quota_status` resolves it server-side (entitlement > quota_defaults).
   test('quota key namespaces this consumer', () {
     expect(kDishAssistantQuotaKey, 'dish_assistant');
   });

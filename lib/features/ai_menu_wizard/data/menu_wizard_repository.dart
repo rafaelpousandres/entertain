@@ -3,7 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../ai_dish_assistant/data/dish_assistant_repository.dart'
     show DishAssistantRepository, QuotaExceededException;
 import '../../events/data/events_repository.dart';
-import '../../stock_photos/data/quota.dart' show QuotaStatus, currentPeriodUtc;
+import '../../stock_photos/data/quota.dart' show QuotaStatus, fetchQuotaStatus;
 import 'menu_proposal.dart';
 import 'menu_wizard.dart';
 
@@ -61,7 +61,8 @@ class MenuWizardRepository {
         final map = details is Map ? details.cast<String, dynamic>() : null;
         throw QuotaExceededException(
           used: (map?['used'] as num?)?.toInt() ?? 0,
-          limit: (map?['limit'] as num?)?.toInt() ?? kMenuWizardDefaultLimit,
+          // Malformed 402 body only; the function always sends used/limit.
+          limit: (map?['limit'] as num?)?.toInt() ?? 0,
         );
       }
       rethrow;
@@ -101,27 +102,11 @@ class MenuWizardRepository {
     return (added: added, failed: failed);
   }
 
-  /// Reads the group's usage for the current period + its effective limit
-  /// (entitlement row, else the system default). Drives the "N de 2" header.
-  Future<QuotaStatus> fetchQuota(String groupId) async {
-    final period = currentPeriodUtc();
-    final usageRow = await _client
-        .from('quota_usage')
-        .select('used')
-        .eq('group_id', groupId)
-        .eq('quota_key', kMenuWizardQuotaKey)
-        .eq('period', period)
-        .maybeSingle();
-    final entRow = await _client
-        .from('quota_entitlements')
-        .select('monthly_limit')
-        .eq('group_id', groupId)
-        .eq('quota_key', kMenuWizardQuotaKey)
-        .maybeSingle();
-    return QuotaStatus(
-      used: (usageRow?['used'] as num?)?.toInt() ?? 0,
-      limit:
-          (entRow?['monthly_limit'] as num?)?.toInt() ?? kMenuWizardDefaultLimit,
-    );
-  }
+  /// The group's usage + effective limit, resolved server-side. Drives the
+  /// "N de M" header.
+  Future<QuotaStatus> fetchQuota(String groupId) => fetchQuotaStatus(
+    _client,
+    groupId: groupId,
+    quotaKey: kMenuWizardQuotaKey,
+  );
 }
