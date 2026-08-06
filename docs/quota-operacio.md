@@ -28,9 +28,16 @@ Efecte immediat per a tots els grups sense fila d'entitlement, presents i
 futurs. Les files de `quota_entitlements` (premium/per grup) sempre manen per
 sobre.
 
+> Via d'execució: l'usuari pot fer aquests UPDATE directament a l'editor SQL de
+> l'Studio (zero migracions). Des de Claude Code, l'únic canal SQL cap a la BD
+> vinculada són les migracions: els overrides operatius van en migracions
+> pròpies clarament etiquetades (vegeu `20260806000100_launch_bridge_quota_override.sql`).
+
 ## Override vigent — pont de llançament (aplicat 2026-08-06)
 
-Mentre hi ha pocs usuaris, límits alts perquè els primers usuaris puguin provar:
+Mentre hi ha pocs usuaris, límits alts perquè els primers usuaris puguin provar
+(aplicat via la migració `20260806000100_launch_bridge_quota_override.sql`, amb
+ASSERTs que verifiquen els valors i la cadena de resolució):
 
 ```sql
 update public.quota_defaults set monthly_limit = 20 where quota_key = 'dish_assistant';

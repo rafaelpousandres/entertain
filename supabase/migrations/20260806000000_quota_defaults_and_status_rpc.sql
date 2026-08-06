@@ -29,9 +29,10 @@ create trigger trg_quota_defaults_updated_at
   before update on public.quota_defaults
   for each row execute function public.set_updated_at();
 
--- Canonical free-tier values. Temporary operational overrides are applied as
--- ad-hoc UPDATEs after the push, NOT here — migrations carry structure and
--- canonical state only.
+-- Canonical free-tier values. Temporary operational overrides do NOT belong
+-- here — they go in separate, clearly-labelled operational migrations (see
+-- 20260806000100) or the Studio SQL editor; this migration carries structure
+-- and canonical state only.
 insert into public.quota_defaults (quota_key, monthly_limit) values
   ('dish_assistant', 3),
   ('menu_wizard', 2),
