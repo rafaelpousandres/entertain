@@ -33,9 +33,9 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const QUOTA_KEY = "menu_wizard";
-// MUST match the client mirror (kMenuWizardDefaultLimit). Free 2/month;
-// premium (15) is an entitlement row, no code change.
-const DEFAULT_LIMIT = 2;
+// The limit is server-resolved by the `effective_quota_limit` SQL function
+// (entitlement > quota_defaults row). No constant here, no client mirror:
+// operational changes are an UPDATE on quota_defaults, deploy-free.
 
 // Sonnet 4.6 — same model choice as Spec 020: quality matters for proposing a
 // coherent menu and identifying real dishes. Pure generation, no web tools.
@@ -475,19 +475,21 @@ async function handlePropose(
   const event = await loadEvent(serviceClient, eventId, groupId);
   if (!event) return json({ error: "forbidden" }, 403);
 
-  const { data: ent, error: entErr } = await serviceClient
-    .from("quota_entitlements")
-    .select("monthly_limit")
-    .eq("group_id", groupId)
-    .eq("quota_key", QUOTA_KEY)
-    .maybeSingle();
-  // Defense in depth: a failed read here (e.g. a missing service_role grant)
-  // would silently fall back to DEFAULT_LIMIT and wrongly cap a premium group.
-  if (entErr) {
-    console.error("[propose] entitlement read failed:", entErr.message);
+  // Single source of truth: entitlement > quota_defaults, resolved in SQL.
+  // NULL means the quota_defaults seed row is gone — a configuration hole.
+  // Fail closed and loudly; a guessed fallback would silently mis-cap groups.
+  const { data: limitData, error: limitErr } = await serviceClient.rpc(
+    "effective_quota_limit",
+    { p_group_id: groupId, p_quota_key: QUOTA_KEY },
+  );
+  if (limitErr || limitData === null || limitData === undefined) {
+    console.error(
+      "[propose] effective_quota_limit failed:",
+      limitErr?.message ?? `no quota_defaults row for ${QUOTA_KEY}`,
+    );
+    return json({ error: "quota_config_error" }, 500);
   }
-  const limit = (ent as { monthly_limit: number } | null)?.monthly_limit ??
-    DEFAULT_LIMIT;
+  const limit = limitData as number;
   const period = currentPeriod();
 
   // Charged HERE (the AI proposal is the costly step). NULL ⇒ cap reached.
