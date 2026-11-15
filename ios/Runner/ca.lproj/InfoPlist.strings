@@ -1,0 +1,4 @@
+/* Permission prompts shown by iOS (Spec 035 A2). Keep in sync with Info.plist. */
+"NSCameraUsageDescription" = "L'Entertain fa servir la càmera perquè puguis fer fotos dels teus plats, ingredients, begudes i esdeveniments.";
+"NSContactsUsageDescription" = "L'Entertain només llegeix el contacte que tries, per omplir el nom, el telèfon i el correu d'un proveïdor o d'un convidat.";
+"NSPhotoLibraryUsageDescription" = "L'Entertain et deixa triar fotos de la teva fototeca per afegir-les als teus plats, ingredients, begudes i esdeveniments.";
