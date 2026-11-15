@@ -660,7 +660,7 @@
   },
   "duplicateEventConfirmTitle": "Duplicate this event?",
   "@duplicateEventConfirmTitle": {},
-  "duplicateEventConfirmBody": "The copy will have the same menu but no date and no ordered ingredients.",
+  "duplicateEventConfirmBody": "The copy will have the same menu and guests, but no date and no ordered ingredients.",
   "@duplicateEventConfirmBody": {},
   "pickFromContactsAction": "Pick from contacts",
   "@pickFromContactsAction": {},

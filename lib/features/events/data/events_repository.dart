@@ -7,6 +7,63 @@ import 'event_draft.dart';
 import 'event_drink.dart';
 import 'event_guest.dart';
 
+/// Spec 034 §D1 — the `event_dishes` row for a duplicated event. Carries the
+/// acquisition snapshot (`acquisition_mode`, `supplier_category_id`,
+/// `servings_per_unit`) so a bought dish stays bought in the copy; the
+/// procurement `state` is left to its column default (`to_order`).
+Map<String, dynamic> duplicatedEventDishRow(
+  Map<String, dynamic> source, {
+  required String newEventId,
+}) => {
+  'event_id': newEventId,
+  'source_dish_id': source['source_dish_id'],
+  'dish_name': source['dish_name'],
+  'category': source['category'],
+  'servings': source['servings'],
+  'sort_order': source['sort_order'],
+  // Older rows read without the column fall back to the schema default.
+  'acquisition_mode': source['acquisition_mode'] ?? 'cooked',
+  'supplier_category_id': source['supplier_category_id'],
+  'servings_per_unit': source['servings_per_unit'],
+};
+
+/// Spec 034 §D1 — the `event_drinks` row for a duplicated event: same drink
+/// snapshot and quantity. `state` is deliberately omitted so the copy starts
+/// from the column default, exactly like a drink freshly added to an event.
+Map<String, dynamic> duplicatedEventDrinkRow(
+  Map<String, dynamic> source, {
+  required String newEventId,
+}) => {
+  'event_id': newEventId,
+  'source_drink_id': source['source_drink_id'],
+  'drink_name': source['drink_name'],
+  'supplier_category_id': source['supplier_category_id'],
+  'quantity': source['quantity'],
+  'denomination': source['denomination'],
+  'sort_order': source['sort_order'],
+};
+
+/// Spec 034 §D1 — the `event_guests` row for a duplicated event. Who the guest
+/// is (name, contact, dietary restrictions) carries over; what happened in the
+/// source event does not: the RSVP state restarts at `pendent`, `invited_at`
+/// is left null, and `rsvp_token` is omitted so the column default mints a
+/// fresh capability (the token is unique per guest row).
+Map<String, dynamic> duplicatedGuestRow(
+  Map<String, dynamic> source, {
+  required String newEventId,
+  required String groupId,
+}) => {
+  'event_id': newEventId,
+  'group_id': groupId,
+  'name': source['name'],
+  'phone': source['phone'],
+  'email': source['email'],
+  'state': 'pendent',
+  'diet_vegetarian': source['diet_vegetarian'] ?? false,
+  'diet_vegan': source['diet_vegan'] ?? false,
+  'diet_gluten_free': source['diet_gluten_free'] ?? false,
+};
+
 /// Thin data-access wrapper around the `events` table. Keeps the Supabase
 /// SDK calls in one place so screens and providers can stay declarative.
 ///
@@ -431,6 +488,13 @@ class EventsRepository {
   /// - **no orders** and **no photos** are copied — orders belong to the source
   ///   event and the new event generates its own.
   ///
+  /// Spec 034 §D1 extends the copy so the duplicate is a faithful starting
+  /// point: bought dishes keep their acquisition snapshot (they used to fall
+  /// back to `cooked` and vanish from Shopping), **drinks** are copied with a
+  /// fresh procurement state (the column default), and so is the **guest list** — contact and
+  /// dietary fields carry over while the RSVP state and the invited stamp
+  /// start fresh (see [duplicatedGuestRow]).
+  ///
   /// The localized name ("Copia de …") is built by the caller, which has the
   /// l10n context, and passed in as [newTitle]. Returns the new event id so the
   /// caller can navigate to it. The inserts mirror the non-transactional
@@ -474,7 +538,10 @@ class EventsRepository {
 
     final dishes = await _client
         .from('event_dishes')
-        .select('source_dish_id, dish_name, category, servings, sort_order, id')
+        .select(
+          'source_dish_id, dish_name, category, servings, sort_order, id, '
+          'acquisition_mode, supplier_category_id, servings_per_unit',
+        )
         .eq('event_id', sourceEventId)
         // Spec 011 §2.11: the phantom "extras" dish is per-event shopping state,
         // not menu structure, so a duplicate starts without the source's extras.
@@ -485,14 +552,7 @@ class EventsRepository {
       final dish = raw as Map<String, dynamic>;
       final newDish = await _client
           .from('event_dishes')
-          .insert({
-            'event_id': newEventId,
-            'source_dish_id': dish['source_dish_id'],
-            'dish_name': dish['dish_name'],
-            'category': dish['category'],
-            'servings': dish['servings'],
-            'sort_order': dish['sort_order'],
-          })
+          .insert(duplicatedEventDishRow(dish, newEventId: newEventId))
           .select('id')
           .single();
       final newDishId = newDish['id'] as String;
@@ -531,6 +591,46 @@ class EventsRepository {
           }(),
       ];
       await _client.from('event_dish_ingredients').insert(payload);
+    }
+
+    // Spec 034 §D1: drinks are menu structure too.
+    final drinks = await _client
+        .from('event_drinks')
+        .select(
+          'source_drink_id, drink_name, supplier_category_id, quantity, '
+          'denomination, sort_order',
+        )
+        .eq('event_id', sourceEventId)
+        .order('sort_order', ascending: true);
+    final drinkRows = [
+      for (final raw in drinks as List)
+        duplicatedEventDrinkRow(
+          raw as Map<String, dynamic>,
+          newEventId: newEventId,
+        ),
+    ];
+    if (drinkRows.isNotEmpty) {
+      await _client.from('event_drinks').insert(drinkRows);
+    }
+
+    // Spec 034 §D1: the guest list, oldest first so the copy keeps the order.
+    final guests = await _client
+        .from('event_guests')
+        .select(
+          'name, phone, email, diet_vegetarian, diet_vegan, diet_gluten_free',
+        )
+        .eq('event_id', sourceEventId)
+        .order('created_at', ascending: true);
+    final guestRows = [
+      for (final raw in guests as List)
+        duplicatedGuestRow(
+          raw as Map<String, dynamic>,
+          newEventId: newEventId,
+          groupId: groupId,
+        ),
+    ];
+    if (guestRows.isNotEmpty) {
+      await _client.from('event_guests').insert(guestRows);
     }
 
     return newEventId;

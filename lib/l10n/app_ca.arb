@@ -420,7 +420,7 @@
   "duplicateEventAction": "Duplica",
   "duplicateEventNameTemplate": "{name} - Còpia",
   "duplicateEventConfirmTitle": "Vols duplicar aquest esdeveniment?",
-  "duplicateEventConfirmBody": "La còpia tindrà el mateix menú però sense data ni ingredients demanats.",
+  "duplicateEventConfirmBody": "La còpia tindrà el mateix menú i els mateixos convidats, però sense data ni ingredients demanats.",
   "pickFromContactsAction": "Tria del contactes",
   "contactPickPhoneTitle": "Aquest contacte té diversos telèfons. Quin vols fer servir?",
   "contactPickEmailTitle": "Aquest contacte té diversos correus electrònics. Quin vols fer servir?",
