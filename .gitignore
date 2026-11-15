@@ -17,6 +17,11 @@ env/*.json
 secrets/
 *.pem
 *.p12
+# iOS signing material (Spec 035 B) — lives only in Codemagic / Apple.
+*.p8
+*.mobileprovision
+*.cer
+ios_distribution_private_key*
 *.keystore
 google-services.json
 GoogleService-Info.plist

@@ -125,3 +125,28 @@ Tracks de Play (recordatori): Internal testing → Closed testing → Production
 - [ ] AAB copiat a `/mnt/c/Users/rafa/Claude/entertain/` amb el nom de versió.
 - [ ] Pujat a Internal testing + release notes + Save and publish.
 - [ ] (Després de validar) commit/PR del bump i la feina.
+
+---
+
+## 7. iOS (Codemagic → TestFlight)
+
+iOS no es compila en local (cal macOS). El build el fa **Codemagic** amb el
+workflow `ios-testflight` de `codemagic.yaml`, sempre engegat **a mà**.
+
+- **Flutter fixat a 3.44.6** al workflow. Si es canvia la versió local, cal
+  canviar-la també allà.
+- **Número de build d'iOS:** és el comptador de builds del projecte a Codemagic
+  (`PROJECT_BUILD_NUMBER`), independent del `versionCode` d'Android. El nom de
+  versió surt del `pubspec.yaml`, com a Android.
+- **Credencials:** cap al repo. A Codemagic hi ha la integració `entertain_asc`
+  (clau de l'API d'App Store Connect) i els grups de variables
+  `entertain_ios_signing` (`CERTIFICATE_PRIVATE_KEY`) i `entertain_app`
+  (`SUPABASE_URL`, `SUPABASE_ANON_KEY`).
+- **Signing:** automàtic; Codemagic crea o recupera el certificat i el perfil
+  amb la clau de l'API.
+- **Permisos:** el workflow força `PERMISSION_PHOTOS=0` i
+  `PERMISSION_NOTIFICATIONS=0` perquè `permission_handler` no compili permisos
+  que l'app no demana.
+- **Publicació:** el build es puja a App Store Connect (TestFlight). No s'envia
+  a revisió externa ni a l'App Store.
+
