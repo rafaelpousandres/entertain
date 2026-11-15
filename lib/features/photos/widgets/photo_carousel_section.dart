@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../l10n/app_localizations.dart';
@@ -201,9 +202,12 @@ class _PhotoRowState extends ConsumerState<_PhotoRow> {
         scrollDirection: Axis.horizontal,
         buildDefaultDragHandles: false,
         onReorderItem: _onReorder,
-        // Keep the dragged thumbnail clean (no default elevated rectangle).
-        proxyDecorator: (child, _, _) =>
-            Material(color: Colors.transparent, child: child),
+        // Spec 034 §C2: the long-press pick-up is confirmed at once — a short
+        // vibration plus a visibly "lifted" thumbnail — instead of only
+        // becoming apparent when the photo starts to move.
+        onReorderStart: (_) => HapticFeedback.mediumImpact(),
+        proxyDecorator: (child, _, animation) =>
+            PhotoDragProxy(animation: animation, child: child),
         itemCount: _photos.length + 1,
         itemBuilder: (context, index) {
           if (index == _photos.length) {
@@ -254,6 +258,84 @@ class _PhotoRowState extends ConsumerState<_PhotoRow> {
           );
         },
       ),
+    );
+  }
+}
+
+/// Spec 034 §C2 — the look of a carousel thumbnail while it is picked up for
+/// reordering: it grows slightly, gains a drop shadow and an accent outline,
+/// animated in over the pick-up so the "grabbed" state reads immediately, even
+/// before the finger moves.
+///
+/// The carousel item carries its 8 px trailing gap inside the dragged widget,
+/// so the shadow and outline are inset by that gap to hug the photo itself.
+class PhotoDragProxy extends StatelessWidget {
+  const PhotoDragProxy({
+    super.key,
+    required this.animation,
+    required this.child,
+  });
+
+  /// The list's pick-up animation (0 → 1).
+  final Animation<double> animation;
+  final Widget child;
+
+  /// How much the grabbed thumbnail grows at full lift.
+  static const double liftScale = 1.08;
+
+  static const double _gap = 8;
+  static final BorderRadius _radius = BorderRadius.circular(12);
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: animation,
+      child: child,
+      builder: (context, child) {
+        final t = Curves.easeOut.transform(animation.value.clamp(0.0, 1.0));
+        return Transform.scale(
+          scale: 1 + (liftScale - 1) * t,
+          child: Material(
+            color: Colors.transparent,
+            child: Stack(
+              children: [
+                // Shadow under the photo.
+                Positioned.fill(
+                  right: _gap,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      borderRadius: _radius,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.28 * t),
+                          blurRadius: 12 * t,
+                          offset: Offset(0, 4 * t),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                child!,
+                // Accent outline over the photo.
+                Positioned.fill(
+                  right: _gap,
+                  child: IgnorePointer(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        borderRadius: _radius,
+                        border: Border.all(
+                          color: AppColors.accent.withValues(alpha: t),
+                          width: 3,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }
