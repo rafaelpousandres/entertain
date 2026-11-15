@@ -675,5 +675,7 @@
   "dishLineRestoredMessage": "Ingrediente restaurado en el catálogo.",
   "dishLineRestoreError": "No se ha podido restaurar el ingrediente. Comprueba la conexión.",
   "addDishServingsHint": "Las raciones se pueden cambiar más adelante desde el menú.",
-  "addDishServingsConfirm": "Añadir al menú"
+  "addDishServingsConfirm": "Añadir al menú",
+  "dishAssistantSaveAndAddAction": "Guardar y añadir",
+  "dishAssistantFromMenuNote": "El plato se guarda en el catálogo y se añade a este menú. Después podrás editarlo."
 }

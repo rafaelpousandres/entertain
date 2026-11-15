@@ -7,10 +7,19 @@ import '../theme/app_typography.dart';
 /// add-to-menu lists (dishes and drinks). A tappable accent row mirroring the
 /// shape of the catalog/menu item rows, with a leading "+" and a label.
 class CreateNewTile extends StatelessWidget {
-  const CreateNewTile({super.key, required this.label, required this.onTap});
+  const CreateNewTile({
+    super.key,
+    required this.label,
+    required this.onTap,
+    this.icon = Icons.add,
+  });
 
   final String label;
   final VoidCallback? onTap;
+
+  /// Leading icon. Defaults to "+"; the AI entry (Spec 034 §A2) passes the AI
+  /// symbol used on every AI-driven action.
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
@@ -28,7 +37,7 @@ class CreateNewTile extends StatelessWidget {
           ),
           child: Row(
             children: [
-              const Icon(Icons.add, color: AppColors.accentSecondary, size: 22),
+              Icon(icon, color: AppColors.accentSecondary, size: 22),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(

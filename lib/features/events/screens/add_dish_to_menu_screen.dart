@@ -51,6 +51,18 @@ class _AddDishToMenuScreenState extends ConsumerState<AddDishToMenuScreen> {
     await _add(created, alreadyInMenu: false);
   }
 
+  /// Spec 034 §A2: create a dish with the AI assistant without leaving the
+  /// event. The assistant persists the dish to the catalog (same generate /
+  /// review / save and the same `dish_assistant` quota as the catalog entry)
+  /// and returns it; it then goes through the servings step like any other
+  /// dish. Backing out, or discarding the generated card, adds nothing.
+  Future<void> _createWithAi() async {
+    if (_adding) return;
+    final created = await context.push<Dish>('/ai-dish-assistant?return=dish');
+    if (created == null || !mounted) return;
+    await _add(created, alreadyInMenu: false);
+  }
+
   Future<void> _add(Dish dish, {required bool alreadyInMenu}) async {
     if (_adding) return;
     final l10n = AppLocalizations.of(context);
@@ -148,6 +160,14 @@ class _AddDishToMenuScreenState extends ConsumerState<AddDishToMenuScreen> {
                   child: CreateNewTile(
                     label: l10n.addScreenCreateDishAction,
                     onTap: _adding ? null : _createNew,
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 4),
+                  child: CreateNewTile(
+                    label: l10n.dishAssistantCreateAction,
+                    icon: Icons.auto_awesome,
+                    onTap: _adding ? null : _createWithAi,
                   ),
                 ),
                 Expanded(

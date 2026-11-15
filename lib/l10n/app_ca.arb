@@ -675,5 +675,7 @@
   "dishLineRestoredMessage": "Ingredient restaurat al catàleg.",
   "dishLineRestoreError": "No s'ha pogut restaurar l'ingredient. Comprova la connexió.",
   "addDishServingsHint": "Les racions es poden canviar més endavant des del menú.",
-  "addDishServingsConfirm": "Afegeix al menú"
+  "addDishServingsConfirm": "Afegeix al menú",
+  "dishAssistantSaveAndAddAction": "Desa i afegeix",
+  "dishAssistantFromMenuNote": "El plat es desa al catàleg i s'afegeix a aquest menú. Després el podràs editar."
 }
