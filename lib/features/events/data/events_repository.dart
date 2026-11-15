@@ -6,6 +6,7 @@ import 'event_dish_line.dart';
 import 'event_draft.dart';
 import 'event_drink.dart';
 import 'event_guest.dart';
+import 'serving_scale.dart';
 
 /// Spec 034 §D1 — the `event_dishes` row for a duplicated event. Carries the
 /// acquisition snapshot (`acquisition_mode`, `supplier_category_id`,
@@ -302,9 +303,14 @@ class EventsRepository {
   /// the moment of adding; nothing is read back afterwards, so later catalog
   /// edits never propagate to the event. The inserts mirror the catalog
   /// dish editor's non-transactional client-side pattern.
+  ///
+  /// Spec 034 §A1: [servings] is the value the user confirmed in the add flow's
+  /// servings step. When null (the AI menu wizard, which adds several dishes at
+  /// once) the format-dependent default below applies, as before.
   Future<void> addDishToEvent({
     required String eventId,
     required String dishId,
+    int? servings,
   }) async {
     final event = await _client
         .from('events')
@@ -337,9 +343,13 @@ class EventsRepository {
     // master dish's own servings.
     final baseServings = (dish['base_servings'] as num?)?.toInt() ?? 4;
     final guestCount = (event['guest_count'] as num).toInt();
-    final servings = (event['format'] as String?) == 'seated'
-        ? guestCount
-        : baseServings;
+    final effectiveServings =
+        servings ??
+        defaultEventDishServings(
+          seated: (event['format'] as String?) == 'seated',
+          guestCount: guestCount,
+          baseServings: baseServings,
+        );
     final isBought = (dish['acquisition_mode'] as String?) == 'bought';
 
     final eventDish = await _client
@@ -349,7 +359,7 @@ class EventsRepository {
           'source_dish_id': dishId,
           'dish_name': dish['name'],
           'category': dish['category'],
-          'servings': servings,
+          'servings': effectiveServings,
           'sort_order': (existing as List).length,
           // Spec 014 §2.3: snapshot how the dish is obtained. A bought dish has
           // no ingredient lines, so the copy below is a no-op for it; its single

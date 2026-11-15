@@ -68,3 +68,19 @@ double _ceilToTwoSigFigs(double value) {
   final decimals = math.max(0, 1 - exponent);
   return double.parse(rounded.toStringAsFixed(decimals));
 }
+
+/// The servings a dish gets by default when it is added to an event (Spec 008
+/// §2.10): a seated event serves every guest, so it defaults to the guest
+/// count; a buffet / other event carries the dish's own base servings.
+///
+/// Spec 034 §A1: this is the value the add flow pre-fills in the servings step,
+/// so the user confirms or adjusts it *before* the dish lands on the menu. A
+/// non-positive result is clamped to 1 — the stepper never offers less.
+int defaultEventDishServings({
+  required bool seated,
+  required int guestCount,
+  required int baseServings,
+}) {
+  final value = seated ? guestCount : baseServings;
+  return value < 1 ? 1 : value;
+}

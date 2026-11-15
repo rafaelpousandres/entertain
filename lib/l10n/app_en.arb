@@ -1183,5 +1183,9 @@
   "dishLineRestoredMessage": "Ingredient restored to the catalog.",
   "@dishLineRestoredMessage": {},
   "dishLineRestoreError": "Couldn't restore the ingredient. Check your connection.",
-  "@dishLineRestoreError": {}
+  "@dishLineRestoreError": {},
+  "addDishServingsHint": "You can change the servings later from the menu.",
+  "@addDishServingsHint": {},
+  "addDishServingsConfirm": "Add to menu",
+  "@addDishServingsConfirm": {}
 }

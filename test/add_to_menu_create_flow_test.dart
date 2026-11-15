@@ -1,6 +1,7 @@
 import 'package:entertain/features/catalog/data/catalog_providers.dart';
 import 'package:entertain/features/catalog/data/dish.dart';
 import 'package:entertain/features/catalog/data/drink.dart';
+import 'package:entertain/features/events/data/event.dart';
 import 'package:entertain/features/events/data/event_dish.dart';
 import 'package:entertain/features/events/data/event_drink.dart';
 import 'package:entertain/features/events/data/events_providers.dart';
@@ -40,6 +41,7 @@ class _FakeEventsRepository extends EventsRepository {
   Future<void> addDishToEvent({
     required String eventId,
     required String dishId,
+    int? servings,
   }) async {
     addedDishes.add((eventId: eventId, dishId: dishId));
   }
@@ -132,6 +134,17 @@ void main() {
           overrides: [
             eventsRepositoryProvider.overrideWithValue(fake),
             dishesListProvider.overrideWith((ref) async => <Dish>[]),
+            eventByIdProvider(eventId).overrideWith(
+              (ref) async => Event(
+                id: eventId,
+                groupId: 'group-1',
+                title: 'Dinar',
+                type: EventType.lunch,
+                format: EventFormat.buffet,
+                guestCount: 10,
+                createdAt: DateTime(2026),
+              ),
+            ),
             eventDishesProvider(
               eventId,
             ).overrideWith((ref) async => <EventDish>[]),
@@ -148,7 +161,11 @@ void main() {
       await tester.tap(find.text(l10n.addScreenCreateDishAction));
       await tester.pumpAndSettle();
 
-      // The created dish was added to the event (defaults applied by the repo).
+      // Spec 034 §A1: the created dish goes through the servings step too.
+      await tester.tap(find.text(l10n.addDishServingsConfirm));
+      await tester.pumpAndSettle();
+
+      // The created dish was added to the event.
       expect(fake.addedDishes, [(eventId: eventId, dishId: 'dish-new')]);
       // …and we are back on the Menu.
       expect(find.text('MENU'), findsOneWidget);

@@ -50,6 +50,7 @@ class _FakeEvents extends EventsRepository {
   Future<void> addDishToEvent({
     required String eventId,
     required String dishId,
+    int? servings,
   }) async {
     if (dishId == failDishId) throw StateError('boom');
     dishAdds.add(dishId);

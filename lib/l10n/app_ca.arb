@@ -673,5 +673,7 @@
   "dishLineRestoreAction": "Restaura al catàleg",
   "dishLineReplaceAction": "Canvia per un altre ingredient",
   "dishLineRestoredMessage": "Ingredient restaurat al catàleg.",
-  "dishLineRestoreError": "No s'ha pogut restaurar l'ingredient. Comprova la connexió."
+  "dishLineRestoreError": "No s'ha pogut restaurar l'ingredient. Comprova la connexió.",
+  "addDishServingsHint": "Les racions es poden canviar més endavant des del menú.",
+  "addDishServingsConfirm": "Afegeix al menú"
 }

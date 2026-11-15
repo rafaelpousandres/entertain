@@ -673,5 +673,7 @@
   "dishLineRestoreAction": "Restaurar en el catálogo",
   "dishLineReplaceAction": "Cambiar por otro ingrediente",
   "dishLineRestoredMessage": "Ingrediente restaurado en el catálogo.",
-  "dishLineRestoreError": "No se ha podido restaurar el ingrediente. Comprueba la conexión."
+  "dishLineRestoreError": "No se ha podido restaurar el ingrediente. Comprueba la conexión.",
+  "addDishServingsHint": "Las raciones se pueden cambiar más adelante desde el menú.",
+  "addDishServingsConfirm": "Añadir al menú"
 }
