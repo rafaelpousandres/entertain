@@ -14,6 +14,7 @@ import '../../../ui/app_logo.dart';
 import '../../../ui/dirty_tabs_guard.dart';
 import '../../../ui/primary_button.dart';
 import '../../../ui/segmented_choice.dart';
+import '../../account/widgets/delete_account_section.dart';
 import '../../catalog/data/catalog_providers.dart';
 import '../../catalog/data/reference_data.dart';
 import '../../events/data/events_providers.dart' show currentGroupIdProvider;
@@ -739,6 +740,14 @@ class _PrivacyDataCard extends StatelessWidget {
               ),
             ),
           ),
+          // Spec 035 §D: delete the account and all its data from inside the
+          // app (required by the stores) — no email needed.
+          if (userId != null) ...[
+            const SizedBox(height: 14),
+            const Divider(height: 1, color: AppColors.border),
+            const SizedBox(height: 14),
+            const DeleteAccountSection(),
+          ],
         ],
       ),
     );
