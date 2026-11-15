@@ -29,6 +29,7 @@ import '../data/ingredient.dart';
 import '../data/reference_data.dart';
 import '../widgets/diet_choice.dart';
 import '../widgets/dietary_badges.dart';
+import '../widgets/dish_line_row.dart';
 import 'ingredient_line_editor_screen.dart';
 
 /// Create / edit a catalog dish and its recipe lines (Specification 004
@@ -186,9 +187,62 @@ class _DishFormState extends ConsumerState<_DishForm>
       if (result.removed) {
         _draft.lines.removeAt(index);
       } else if (result.line != null) {
-        _draft.lines[index] = result.line!;
+        final previous = _draft.lines[index];
+        final edited = result.line!;
+        // Spec 034 §B2: the line editor builds a fresh draft, so the
+        // not-in-catalog flag is carried over unless the ingredient changed.
+        if (edited.ingredientId == previous.ingredientId) {
+          edited.ingredientDeleted = previous.ingredientDeleted;
+        }
+        _draft.lines[index] = edited;
       }
     });
+  }
+
+  /// Spec 034 §B2: a line whose ingredient was deleted from the catalog opens
+  /// a fix sheet instead of going straight to the line editor.
+  Future<void> _fixLine(int index) async {
+    final line = _draft.lines[index];
+    final choice = await showMissingIngredientSheet(
+      context,
+      ingredientName: line.ingredientName,
+    );
+    if (choice == null || !mounted) return;
+    switch (choice) {
+      case MissingIngredientFix.replace:
+        await _editLine(index);
+      case MissingIngredientFix.restore:
+        await _restoreIngredient(line);
+    }
+  }
+
+  /// Puts the deleted ingredient back in the catalog. Persisted immediately
+  /// (like an ingredient created on the fly from the picker): it is a catalog
+  /// change, independent of saving or discarding this dish.
+  Future<void> _restoreIngredient(DishLineDraft line) async {
+    final l10n = AppLocalizations.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await ref
+          .read(catalogRepositoryProvider)
+          .restoreIngredient(line.ingredientId);
+      ref.invalidate(ingredientsListProvider);
+      ref.invalidate(ingredientByIdProvider(line.ingredientId));
+      if (!mounted) return;
+      setState(() {
+        // Every line of this dish pointing at the ingredient is fixed at once.
+        for (final l in _draft.lines) {
+          if (l.ingredientId == line.ingredientId) l.ingredientDeleted = false;
+        }
+      });
+      messenger.showSnackBar(
+        SnackBar(content: Text(l10n.dishLineRestoredMessage)),
+      );
+    } catch (_) {
+      messenger.showSnackBar(
+        SnackBar(content: Text(l10n.dishLineRestoreError)),
+      );
+    }
   }
 
   /// Spec 016 §2.2: the system "Plats preparats" category id, used as the
@@ -577,11 +631,13 @@ class _DishFormState extends ConsumerState<_DishForm>
               for (var i = 0; i < _draft.lines.length; i++)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
-                  child: _LineRow(
+                  child: DishLineRow(
                     line: _draft.lines[i],
                     unit: unitsById[_draft.lines[i].unitId],
                     supplierCategory: supplierFor(_draft.lines[i]),
-                    onTap: () => _editLine(i),
+                    onTap: () => _draft.lines[i].ingredientDeleted
+                        ? _fixLine(i)
+                        : _editLine(i),
                   ),
                 ),
             const SizedBox(height: 12),
@@ -653,86 +709,6 @@ class _DishFormState extends ConsumerState<_DishForm>
             ),
           ],
         ],
-      ),
-    );
-  }
-}
-
-class _LineRow extends StatelessWidget {
-  const _LineRow({
-    required this.line,
-    required this.unit,
-    required this.supplierCategory,
-    required this.onTap,
-  });
-
-  final DishLineDraft line;
-  final Unit? unit;
-  final SupplierCategory? supplierCategory;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    final qty = formatQuantity(
-      line.quantity,
-      decimalSeparator: quantityDecimalSeparator(
-        Localizations.localeOf(context).languageCode,
-      ),
-    );
-    final measure = unit == null ? qty : '$qty ${unit!.name}';
-    final hasNote = line.prepNote != null && line.prepNote!.trim().isNotEmpty;
-    // Same layout as the event-dish ingredient card: quantity · prep · supplier.
-    final parts = <String>[
-      measure,
-      if (hasNote) line.prepNote!.trim(),
-      if (supplierCategory != null) supplierCategory!.name,
-    ];
-
-    return Material(
-      color: AppColors.surface,
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppColors.border),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      line.ingredientName,
-                      style: AppTypography.body,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      parts.join(l10n.metadataSeparator),
-                      style: AppTypography.caption,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              const Icon(
-                Icons.chevron_right,
-                color: AppColors.disabled,
-                size: 22,
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
