@@ -10,7 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/pdf_page_text.dart';
 
 /// Spec 034 §C3 — the summary keeps the cover photo and adds the remaining
-/// event and dish photos as small thumbnails, capped, without disturbing the
+/// event and dish photos as small thumbnails, all of them, without disturbing the
 /// pagination rules.
 
 // A valid 1×1 transparent PNG — enough for the builder to embed an image.
@@ -59,7 +59,12 @@ const _headings = <String>{
 
 /// A paginating menu where the event and every dish carry extra photos.
 /// [shim] slides the page boundaries, as in the widowed-heading guard.
-EventSummaryData _event({int shim = 0, bool extras = true}) {
+EventSummaryData _event({
+  int shim = 0,
+  bool extras = true,
+  int dishExtras = 4,
+  int eventExtras = 8,
+}) {
   SummaryDish dish(DishCategory c, int n, {int extraSteps = 0}) => SummaryDish(
     name: 'Plat $n',
     category: c,
@@ -70,8 +75,7 @@ EventSummaryData _event({int shim = 0, bool extras = true}) {
         SummaryIngredient(text: 'Ingredient $i · $i kg', badges: const []),
     ],
     photo: _png,
-    extraPhotos: extras ? [_png, _png, _png, _png] : const [],
-    extraPhotosOverflow: extras ? 1 : 0,
+    extraPhotos: extras ? [for (var i = 0; i < dishExtras; i++) _png] : const [],
     preparation: [
       'Prepara-ho.',
       'Cou-ho.',
@@ -82,8 +86,9 @@ EventSummaryData _event({int shim = 0, bool extras = true}) {
   return EventSummaryData(
     eventTitle: 'Dinar de prova',
     eventPhoto: _png,
-    eventExtraPhotos: extras ? [for (var i = 0; i < 8; i++) _png] : const [],
-    eventExtraPhotosOverflow: extras ? 7 : 0,
+    eventExtraPhotos: extras
+        ? [for (var i = 0; i < eventExtras; i++) _png]
+        : const [],
     headerFields: const [SummaryField('Data', 'diumenge, 14 de juny')],
     guestGroups: const [],
     guestsTotal: 0,
@@ -111,86 +116,100 @@ EventSummaryData _event({int shim = 0, bool extras = true}) {
 void main() {
   group('secondaryPhotoPaths', () {
     test('an entity with only a cover has no extras', () {
-      expect(secondaryPhotoPaths(null, max: 4), (
-        paths: const <String>[],
-        overflow: 0,
-      ));
-      expect(secondaryPhotoPaths(const ['cover.jpg'], max: 4).paths, isEmpty);
+      expect(secondaryPhotoPaths(null), isEmpty);
+      expect(secondaryPhotoPaths(const ['cover.jpg']), isEmpty);
     });
 
     test('skips the cover and keeps carousel order', () {
-      final pick = secondaryPhotoPaths(const [
-        'cover.jpg',
+      expect(secondaryPhotoPaths(const ['cover.jpg', 'b.jpg', 'c.jpg']), [
         'b.jpg',
         'c.jpg',
-      ], max: 4);
-      expect(pick.paths, ['b.jpg', 'c.jpg']);
-      expect(pick.overflow, 0);
+      ]);
     });
 
-    test('caps the extras and reports how many were left out', () {
-      final pick = secondaryPhotoPaths([
+    test('returns every extra photo, with no cap', () {
+      final paths = secondaryPhotoPaths([
         'cover.jpg',
-        for (var i = 1; i <= 15; i++) 'p$i.jpg',
-      ], max: kSummaryEventExtraPhotos);
-      expect(pick.paths.length, kSummaryEventExtraPhotos);
-      expect(pick.paths.first, 'p1.jpg');
-      expect(pick.overflow, 15 - kSummaryEventExtraPhotos);
+        for (var i = 1; i <= 40; i++) 'p$i.jpg',
+      ]);
+      expect(paths, hasLength(40));
+      expect(paths.first, 'p1.jpg');
+      expect(paths.last, 'p40.jpg');
     });
   });
 
-  test('secondary thumbnails are embedded far smaller than the cover', () {
-    // The size/time constraint: an extra photo costs a fraction of a cover.
-    expect(kSummaryThumbMaxEdge, lessThanOrEqualTo(kSummaryImageMaxEdge ~/ 3));
-    // …and they print clearly smaller than the photos they accompany.
-    expect(kSummaryEventThumbSize, lessThan(150));
-    expect(kSummaryDishThumbSize, lessThan(70));
+  test('thumbnails shrink as their number grows, and stay subordinate', () {
+    for (final count in const [1, 8, 9, 20, 21, 60]) {
+      // The size/time constraint: an extra photo costs a fraction of a cover.
+      expect(
+        summaryThumbMaxEdge(count),
+        lessThanOrEqualTo(kSummaryImageMaxEdge ~/ 3),
+      );
+      // …and they print clearly smaller than the photos they accompany.
+      expect(summaryEventThumbSize(count), lessThan(150));
+      expect(summaryDishThumbSize(count), lessThan(70));
+    }
+    expect(summaryEventThumbSize(30), lessThan(summaryEventThumbSize(8)));
+    expect(summaryDishThumbSize(30), lessThan(summaryDishThumbSize(4)));
+    expect(summaryThumbMaxEdge(30), lessThan(summaryThumbMaxEdge(8)));
   });
 
-  test('the PDF shows the extra photos and the "+N" overflow tiles', () async {
-    final withExtras = await buildEventSummaryPdf(
-      data: _event(),
-      labels: _labels,
-    );
-    final coverOnly = await buildEventSummaryPdf(
-      data: _event(extras: false),
-      labels: _labels,
-    );
+  test('the PDF embeds every extra photo and draws no "+N" tile', () async {
+    Future<Uint8List> build(EventSummaryData data) =>
+        buildEventSummaryPdf(data: data, labels: _labels);
+    // The fixture PNG has an alpha channel, so each embedded photo is two
+    // image objects: the picture and its soft mask.
+    int images(Uint8List pdf) =>
+        RegExp(
+          r'/Subtype\s*/Image',
+        ).allMatches(String.fromCharCodes(pdf)).length ~/
+        2;
 
-    final text = [
-      for (final page in extractPdfTextLines(withExtras))
-        for (final line in page) line.text,
-    ];
-    // Event strip overflow and one per dish.
-    expect(text.where((t) => t.contains('+7')), hasLength(1));
-    expect(text.where((t) => t.contains('+1')), hasLength(12));
+    final coverOnly = await build(_event(extras: false));
+    final few = await build(_event());
+    final many = await build(_event(dishExtras: 9, eventExtras: 15));
 
-    // Without extras nothing of the sort is drawn (the summary is as before).
-    final plain = [
-      for (final page in extractPdfTextLines(coverOnly))
-        for (final line in page) line.text,
-    ];
-    expect(plain.where((t) => t.contains('+')), isEmpty);
+    // 1 event + 12 dishes: covers only, then +8 / +4 each, then +15 / +9 each.
+    expect(images(coverOnly), 13);
+    expect(images(few), 13 + 8 + 12 * 4);
+    expect(images(many), 13 + 15 + 12 * 9);
+
+    for (final pdf in [coverOnly, few, many]) {
+      final text = [
+        for (final page in extractPdfTextLines(pdf))
+          for (final line in page) line.text,
+      ];
+      expect(text.where((t) => t.contains('+')), isEmpty);
+    }
   });
 
   test('extra photos never widow a heading, at any pagination phase', () async {
-    for (final shim in const [0, 1, 2, 3, 4, 5, 6, 7]) {
-      final bytes = await buildEventSummaryPdf(
-        data: _event(shim: shim),
-        labels: _labels,
-      );
-      final pages = extractPdfTextLines(bytes);
-      expect(
-        pages.length,
-        greaterThan(1),
-        reason: 'the fixture must paginate for the guard to mean anything',
-      );
-      for (final page in pages) {
-        expect(
-          _headings.contains(page.last.text),
-          isFalse,
-          reason: 'shim $shim: a page ends with the heading "${page.last.text}"',
+    // The capped counts of the first cut, a real-life load, and a heavy one.
+    for (final (dishExtras, eventExtras) in const [(4, 8), (9, 15), (30, 40)]) {
+      for (final shim in const [0, 1, 2, 3, 4, 5, 6, 7]) {
+        final bytes = await buildEventSummaryPdf(
+          data: _event(
+            shim: shim,
+            dishExtras: dishExtras,
+            eventExtras: eventExtras,
+          ),
+          labels: _labels,
         );
+        final pages = extractPdfTextLines(bytes);
+        expect(
+          pages.length,
+          greaterThan(1),
+          reason: 'the fixture must paginate for the guard to mean anything',
+        );
+        for (final page in pages) {
+          expect(
+            _headings.contains(page.last.text),
+            isFalse,
+            reason:
+                'extras $dishExtras/$eventExtras, shim $shim: a page ends '
+                'with the heading "${page.last.text}"',
+          );
+        }
       }
     }
   });

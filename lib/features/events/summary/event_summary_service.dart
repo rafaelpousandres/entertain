@@ -120,23 +120,22 @@ Future<void> generateAndShareEventSummary(
     return result;
   }
 
-  /// Spec 034 §C3: the entity's photos beyond the cover, as small thumbnails
-  /// (capped). Loaded concurrently; one that fails is simply left out.
-  Future<({List<Uint8List> photos, int overflow})> resolveExtras(
+  /// Spec 034 §C3: all the entity's photos beyond the cover, as small
+  /// thumbnails (embedded smaller the more there are). Loaded concurrently;
+  /// one that fails is simply left out.
+  Future<List<Uint8List>> resolveExtras(
     MediaEntityType type,
     String? entityId,
     Map<String, List<String>> pathsByEntity,
-    int max,
   ) async {
-    final pick = secondaryPhotoPaths(
+    final paths = secondaryPhotoPaths(
       entityId == null ? null : pathsByEntity[entityId],
-      max: max,
     );
+    final maxEdge = summaryThumbMaxEdge(paths.length);
     final loaded = await Future.wait([
-      for (final path in pick.paths)
-        resolvePath(type, path, kSummaryThumbMaxEdge),
+      for (final path in paths) resolvePath(type, path, maxEdge),
     ]);
-    return (photos: loaded.nonNulls.toList(), overflow: pick.overflow);
+    return loaded.nonNulls.toList();
   }
 
   Future<Uint8List?> resolvePhoto(
@@ -253,7 +252,6 @@ Future<void> generateAndShareEventSummary(
       MediaEntityType.dish,
       d.sourceDishId,
       dishPhotoPaths,
-      kSummaryDishExtraPhotos,
     );
     summaryDishes.add(
       SummaryDish(
@@ -263,8 +261,7 @@ Future<void> generateAndShareEventSummary(
         badges: dietaryBadgesFor(diet, gf),
         ingredients: ingredients,
         photo: await resolvePhoto(MediaEntityType.dish, d.sourceDishId, dishCovers),
-        extraPhotos: dishExtras.photos,
-        extraPhotosOverflow: dishExtras.overflow,
+        extraPhotos: dishExtras,
         supplierLine: supplierLine,
         preparation: prep,
       ),
@@ -361,13 +358,11 @@ Future<void> generateAndShareEventSummary(
     MediaEntityType.event,
     event.id,
     eventPhotoPaths,
-    kSummaryEventExtraPhotos,
   );
   final data = EventSummaryData(
     eventTitle: event.title,
     eventPhoto: await resolvePhoto(MediaEntityType.event, event.id, eventCovers),
-    eventExtraPhotos: eventExtras.photos,
-    eventExtraPhotosOverflow: eventExtras.overflow,
+    eventExtraPhotos: eventExtras,
     headerFields: fields,
     guestGroups: guestGroups,
     guestsTotal: guests.length,

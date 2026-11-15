@@ -6,10 +6,13 @@ import '../../../theme/app_typography.dart';
 
 /// Confirmation shown before deleting a catalog ingredient.
 ///
-/// Spec 034 §B1: when the ingredient is used by live catalog dishes, the dialog
-/// names them ([usedIn]) and spells out the consequence, so the delete is an
-/// informed confirmation — never silent, never a hard block. With no usage it
-/// is the plain confirmation it always was. Resolves to true on confirm.
+/// Spec 034 §B1 — two behaviours, by usage:
+/// - No live catalog dish uses it ([usedIn] empty): a clean delete
+///   confirmation that says nothing about dishes.
+/// - Some do: a warning that names them and spells out the consequence, with
+///   the choice to cancel (back out) or delete anyway — an informed
+///   confirmation, never silent, never a hard block.
+/// Resolves to true only when the user confirms the delete.
 Future<bool?> showDeleteIngredientDialog(
   BuildContext context, {
   required List<String> usedIn,
@@ -73,7 +76,9 @@ Future<bool?> showDeleteIngredientDialog(
         TextButton(
           onPressed: () => Navigator.of(dialogContext).pop(true),
           child: Text(
-            l10n.deleteIngredientConfirmButton,
+            usedIn.isEmpty
+                ? l10n.deleteIngredientConfirmButton
+                : l10n.deleteIngredientAnywayButton,
             style: AppTypography.button.copyWith(color: AppColors.danger),
           ),
         ),

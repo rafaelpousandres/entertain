@@ -68,7 +68,6 @@ class SummaryDish {
     required this.ingredients,
     this.photo,
     this.extraPhotos = const [],
-    this.extraPhotosOverflow = 0,
     this.supplierLine,
     this.preparation,
   });
@@ -90,10 +89,9 @@ class SummaryDish {
   /// placeholder).
   final Uint8List? photo;
 
-  /// Spec 034 §C3 — the dish's photos beyond the cover, as small downscaled
-  /// JPEG thumbnails (capped), and how many more were left out ("+N").
+  /// Spec 034 §C3 — all the dish's photos beyond the cover, as small
+  /// downscaled JPEG thumbnails.
   final List<Uint8List> extraPhotos;
-  final int extraPhotosOverflow;
 
   /// "Plat preparat · supplier" line for a bought dish; null for cooked.
   final String? supplierLine;
@@ -148,16 +146,14 @@ class EventSummaryData {
     required this.suppliers,
     this.eventPhoto,
     this.eventExtraPhotos = const [],
-    this.eventExtraPhotosOverflow = 0,
   });
 
   final String eventTitle;
   final Uint8List? eventPhoto;
 
-  /// Spec 034 §C3 — the event's photos beyond the cover, as small downscaled
-  /// JPEG thumbnails (capped), and how many more were left out ("+N").
+  /// Spec 034 §C3 — all the event's photos beyond the cover, as small
+  /// downscaled JPEG thumbnails.
   final List<Uint8List> eventExtraPhotos;
-  final int eventExtraPhotosOverflow;
   final List<SummaryField> headerFields;
 
   final List<SummaryGuestGroup> guestGroups;

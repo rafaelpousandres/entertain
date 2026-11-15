@@ -16,6 +16,7 @@ import '../../catalog/data/diet.dart' show DietBadge;
 import '../../catalog/data/dish_category.dart'
     show DishCategory, dishCategoryActive;
 import 'event_summary_data.dart';
+import 'summary_photos.dart';
 
 /// The app fonts loaded for the PDF (from `assets/fonts/`). Optional: when null
 /// the builder falls back to the PDF standard fonts, which keeps unit tests
@@ -139,9 +140,7 @@ Future<Uint8List> buildEventSummaryPdf({
             pw.SizedBox(height: 6),
             _photoStrip(
               data.eventExtraPhotos,
-              overflow: data.eventExtraPhotosOverflow,
-              size: kSummaryEventThumbSize,
-              body: body,
+              size: summaryEventThumbSize(data.eventExtraPhotos.length),
             ),
           ],
           pw.SizedBox(height: 12),
@@ -574,29 +573,16 @@ pw.Widget _dishBlock(
               pw.SizedBox(height: 5),
               _photoStrip(
                 dish.extraPhotos,
-                overflow: dish.extraPhotosOverflow,
-                size: kSummaryDishThumbSize,
-                body: body,
+                size: summaryDishThumbSize(dish.extraPhotos.length),
               ),
             ],
           ),
   );
 }
 
-/// Spec 034 §C3 — printed size (pt) of the secondary thumbnails: clearly
-/// visible, clearly subordinate to the 150 pt event cover / 70 pt dish photo.
-const double kSummaryEventThumbSize = 56;
-const double kSummaryDishThumbSize = 34;
-
-/// A wrapping row of square thumbnails, closed by a "+N" tile when [overflow]
-/// photos were left out of the summary.
-pw.Widget _photoStrip(
-  List<Uint8List> photos, {
-  required int overflow,
-  required double size,
-  required pw.TextStyle Function({double size, PdfColor? color, bool bold})
-  body,
-}) {
+/// Spec 034 §C3 — a wrapping row of square thumbnails: every photo beyond the
+/// cover, on as many rows as it takes.
+pw.Widget _photoStrip(List<Uint8List> photos, {required double size}) {
   final radius = size >= 50 ? 6.0 : 4.0;
   return pw.Wrap(
     spacing: 5,
@@ -611,20 +597,6 @@ pw.Widget _photoStrip(
             width: size,
             height: size,
             fit: pw.BoxFit.cover,
-          ),
-        ),
-      if (overflow > 0)
-        pw.Container(
-          width: size,
-          height: size,
-          alignment: pw.Alignment.center,
-          decoration: pw.BoxDecoration(
-            color: _Palette.border,
-            borderRadius: pw.BorderRadius.circular(radius),
-          ),
-          child: pw.Text(
-            '+$overflow',
-            style: body(size: size >= 50 ? 12 : 9, color: _Palette.inkSoft),
           ),
         ),
     ],

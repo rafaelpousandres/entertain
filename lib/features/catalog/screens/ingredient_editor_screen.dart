@@ -308,8 +308,9 @@ class _IngredientFormState extends ConsumerState<_IngredientForm>
 
   Future<void> _confirmDelete() async {
     // Spec 034 §B1: look up which live dishes use the ingredient so the
-    // confirmation can name them. A failed lookup must not block the delete —
-    // it degrades to the plain confirmation.
+    // confirmation can name them and let the user back out. A failed lookup
+    // must not block the delete — it degrades to the plain confirmation — but
+    // is logged so a systemic failure surfaces instead of hiding.
     var usedIn = const <String>[];
     try {
       usedIn = await ref
@@ -318,7 +319,9 @@ class _IngredientFormState extends ConsumerState<_IngredientForm>
             widget.ingredientId!,
             ref.read(localeCodeProvider),
           );
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('ingredient delete: usage lookup failed — $e');
+    }
     if (!mounted) return;
     final confirmed = await showDeleteIngredientDialog(context, usedIn: usedIn);
     if (confirmed != true) return;
