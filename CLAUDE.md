@@ -186,15 +186,20 @@ document.
 Android first, iOS later (iOS is a later phase). Play Store tracks: internal
 testing → closed testing → production.
 
-**Mobile validation gate (pre-merge).** For Entertain the merge gate is **not**
-a green suite alone: on-device validation is **pre-merge**. The flow per pass is:
-code on a feature branch → local suite green (`flutter analyze` clean + full
-`flutter test`) → **build the AAB from that branch** (see the
-output convention below) → validate on the Pixel via the Play Console **internal
-testing** channel (not in local) → **squash-merge to `main` only once the
-validation passes**. If the validation fails, fix it **on the branch** and
-rebuild — never patch `main`. `main` never receives code that has not been
-validated on the device. (Canonical: `Convencions de desenvolupament` §2.3, v0.9.)
+**Mobile validation gate (pre-merge) — always via Closed Testing.** For
+Entertain the merge gate is **not** a green suite alone: validation on real
+devices is **pre-merge**, and it **always** happens on the Play Console
+**closed testing** track (director's decision, 15 November 2026 — it replaces
+the earlier Pixel validation through the internal testing track). The flow per
+pass is: code on a feature branch → local suite green (`flutter analyze` clean +
+full `flutter test`) → **build the AAB from that branch** (see the output
+convention below) → the user uploads it to **closed testing** and validates it
+there → **squash-merge to `main` only once the validation passes**. If the
+validation fails, fix it **on the branch** and rebuild — never patch `main`.
+`main` never receives code that has not been validated. (The canonical
+`Convencions de desenvolupament` §2.3, v0.9, still describes the internal-testing
+Pixel gate; this section is the Entertain-specific rule and takes precedence
+here.)
 
 **Release AAB output convention (permanent rule).** After every
 `flutter build appbundle --release` (always with
@@ -291,6 +296,7 @@ managed on claude.ai). When in doubt, consult them; do not improvise.
 - Never put keys or secrets in code, specs, or commits; environment and
   config files stay excluded via .gitignore.
 - Commit small and often, with clear messages.
-- Validation happens on the user's Pixel 8 Pro, and is a **pre-merge gate**
-  (see Release → "Mobile validation gate"): the AAB is built from the feature
-  branch and validated on the device before the squash-merge to `main`.
+- Validation always happens on the Play Console **closed testing** track, and
+  is a **pre-merge gate** (see Release → "Mobile validation gate"): the AAB is
+  built from the feature branch and validated there before the squash-merge to
+  `main`.
