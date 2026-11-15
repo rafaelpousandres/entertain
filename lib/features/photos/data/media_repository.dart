@@ -51,6 +51,25 @@ class MediaRepository {
     return result;
   }
 
+  /// Every photo path of every entity of [type] the caller can see, in
+  /// carousel order (cover first), as entity id → paths. One read, like
+  /// [coverPathByEntity]; used by the event summary to embed the photos beyond
+  /// the cover without an N+1 (Spec 034 §C3).
+  Future<Map<String, List<String>>> pathsByEntity(MediaEntityType type) async {
+    final rows = await _client
+        .from('media')
+        .select('entity_id, path')
+        .eq('entity_type', type.wire)
+        .order('position', ascending: true)
+        .order('created_at', ascending: true);
+    final result = <String, List<String>>{};
+    for (final r in rows as List) {
+      final row = r as Map<String, dynamic>;
+      (result[row['entity_id'] as String] ??= []).add(row['path'] as String);
+    }
+    return result;
+  }
+
   /// Inserts a media row after its blob has been uploaded. [position] is
   /// typically the current photo count, so the new photo lands at the end.
   ///

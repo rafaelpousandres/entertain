@@ -14,7 +14,8 @@
 
 > **Cua de specs (planificada):** 025 catàleg ric ✅ · 026 polits + descobribilitat ✅ ·
 > 027 full resum (PDF al client) + splash + sync hints ✅ · 028 mode compra al súper ·
-> 029 convidats Capa 2 (RSVP) · Google Play Billing. (Detall just a sota.)
+> 029 convidats Capa 2 (RSVP) · 034 millores d'UX del primer feedback 🔄 ·
+> Google Play Billing. (Detall just a sota.)
 
 > **Estratègia de tancament de scope.** L'abast de funcionalitats **es tanca
 > conscientment a la Spec 029**. Les specs **028** (compra en persona) i **029**
@@ -133,6 +134,38 @@ propi** (~10 $/mes). El codi queda **al repo, llest per reactivar**: l'Edge Func
 `diet_*` + grant `service_role`), i el helper Dart `rsvpUrl` (+ test). Per reactivar:
 configurar el domini propi, tornar a posar l'enllaç a la invitació, i deixar que el convidat
 ompli ell mateix l'estat + les restriccions.
+
+### 🔄 Spec 034 — Millores d'UX a partir del feedback d'usuaris — IMPLEMENTADA, pendent de validació
+**A la branca `spec/034` (versió 1.0.32), pendent de validació a Closed Testing.**
+Primera ronda de feedback real de producció: suggeriments rebuts per l'eina de
+Suggeriments (Spec 021), extrets el 15/11/2026 (S#), més tres temes del director
+(DIR) i un residual del backlog. Tot són millores de fluxos que ja existien; cap
+canvi d'esquema de BD ni d'Edge Functions.
+
+- **A1 — Racions abans d'afegir un plat al menú** (S#11). El plat entra ja amb
+  les racions triades; l'avís de "ja és al menú" va al mateix pas.
+- **A2 — Plat amb IA des del menú de l'esdeveniment** (DIR). Mateix assistent i
+  mateixa quota que des del catàleg; el plat es desa al catàleg i s'afegeix al
+  menú sense sortir de l'esdeveniment.
+- **B1 — Avís en esborrar un ingredient en ús** (S#8). El diàleg anomena els
+  plats que el fan servir.
+- **B2 — Marca de l'ingredient que no és al catàleg** (S#9). El cas real és
+  l'ingredient esborrat (l'esborrat és suau i la línia hi continua apuntant); es
+  pot restaurar al catàleg o canviar per un altre.
+- **C1 — Selecció múltiple de fotos de la galeria** (S#12), fins a 10 per acció.
+- **C2 — Senyal visual en agafar una foto del carrusel** (S#13).
+- **C3 — Totes les fotos al full resum** (S#10): fins a 8 de l'esdeveniment i 4
+  per plat com a miniatures, amb "+N" si en queden més.
+- **D1 — Duplicar l'esdeveniment copia els convidats** (DIR). De passada també
+  copia les begudes i arregla els plats comprats, que quedaven com a cuinats i
+  desapareixien de la compra de la còpia.
+- **F1 — Duplicar un plat del catàleg** (DIR) en una còpia independent, amb
+  còpia pròpia de les fotos a Storage (no referència compartida).
+- **E1 — "Crea full resum" sense scroll**: ja estava resolt a la 1.0.30; només
+  s'ha tancat l'entrada (§6).
+
+Fora d'abast, capturats com a idees: tipografia (S#1, §6) i llista de compra
+col·laborativa (S#7, §3).
 
 ### Google Play Billing
 El flux de pagament que activa premium (§5). Quan les funcions premium (fotos + IA)
@@ -503,6 +536,15 @@ servidor (Edge Functions de 019) és base per geolocalització/afiliació.
 - **Bloqueja:** panell d'admin; model proveïdor/plat de sistema amb
   geolocalització; decisió d'afiliació; densitat de curació en una zona.
 
+### 💡 Llista de compra col·laborativa (suggeriment d'usuari)
+Un usuari demana poder compartir la llista de compra amb companys
+("collaborative scope to share shopping list among coworkers", suggeriment 7 de
+l'extracció del 15/11/2026). És gran: toca RLS i l'arquitectura de grups
+(multi-grup, Fase 2), i lliga amb els rols de grup (§4) i amb
+`currentGroupId()` sense ordre determinista (§9).
+- On va: spec pròpia · Quan: Fase 2 (multi-grup) · Bloqueja: model de
+  col·laboració entre usuaris i grups
+
 ---
 
 ## 4. Administració
@@ -609,13 +651,23 @@ entre el títol i el primer contingut** — el glue enganxa el títol amb la reg
   com a part de la capçalera, o continuar la tongada a través d'elles).
 - **Quan:** actualització dins la finestra de Closed Testing; sense BD.
 
-### 🔄 Notes de l'esdeveniment: garantir "Crea resum" sense scroll — RESIDUAL
-A la Spec 033 §C es va reduir el camp Notes a `maxLines: 2`, però **validant al Pixel**
-es veu que **no sempre garanteix** que el botó **"Crea resum"** quedi visible sense
-scroll (depèn de l'alçada de pantalla i del contingut de sobre). Cal una solució
-robusta (p. ex. ancorar el botó fora del `scroll`, o calcular l'espai disponible).
-- **On va:** client, `event_detail_screen.dart`.
-- **Quan:** actualització dins la finestra de Closed Testing; sense BD.
+### ✅ Notes de l'esdeveniment: garantir "Crea resum" sense scroll — RESOLT
+**Resolt a la 1.0.30 (PR #111)**: el botó "Crea full resum" es va ancorar fora
+de la zona de scroll, com a barra d'acció fixa de la pestanya Esdeveniment, amb
+un test guardià (`test/summary_button_visibility_test.dart`). L'entrada havia
+quedat sense marcar; es tanca amb la Spec 034 (§E1), que no hi ha hagut de tocar
+codi.
+
+Context original: a la Spec 033 §C es va reduir el camp Notes a `maxLines: 2`,
+però validant al Pixel es va veure que no sempre garantia que el botó quedés
+visible sense scroll (depenia de l'alçada de pantalla i del contingut de sobre).
+
+### 💡 Tipografia més senzilla (suggeriment d'usuari)
+Un usuari va dir que la tipografia no li acaba d'agradar i que la faria més
+senzilla (suggeriment 1 de l'extracció del 15/11/2026). És una sola opinió sobre
+el sistema de disseny i la identitat de marca; no s'actua amb un sol punt de
+dades.
+- On va: sistema de disseny · Quan: revisar si més usuaris ho demanen · Bloqueja: res
 
 ### 💡 Single-source del manual (web vs PDF)
 El contingut autoritatiu (amb CA/ES) viu ara als mòduls Python de `tools/docgen/`;

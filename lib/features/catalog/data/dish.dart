@@ -125,6 +125,7 @@ class DishLineDraft {
     this.prepNote,
     this.ingredientDiet = DietLevel.unknown,
     this.ingredientGlutenFree = TriState.unknown,
+    this.ingredientDeleted = false,
   });
 
   /// Reference to the catalog ingredient.
@@ -143,6 +144,13 @@ class DishLineDraft {
   DietLevel ingredientDiet;
   TriState ingredientGlutenFree;
 
+  /// Spec 034 §B2 — true when the referenced ingredient was deleted from the
+  /// catalog. Ingredients are soft-deleted and `dish_ingredients` keeps
+  /// pointing at the row, so the line survives but its ingredient is no longer
+  /// pickable or editable; the dish editor flags it and offers a fix. Display
+  /// only — never written back to `dish_ingredients`.
+  bool ingredientDeleted;
+
   DishLineDraft copy() => DishLineDraft(
     ingredientId: ingredientId,
     ingredientName: ingredientName,
@@ -151,11 +159,13 @@ class DishLineDraft {
     prepNote: prepNote,
     ingredientDiet: ingredientDiet,
     ingredientGlutenFree: ingredientGlutenFree,
+    ingredientDeleted: ingredientDeleted,
   );
 
   factory DishLineDraft.fromRow(Map<String, dynamic> row) {
-    // `ingredients` is an embedded relation (may be null if the referenced
-    // ingredient was soft-deleted); fall back gracefully.
+    // `ingredients` is an embedded relation. A soft-deleted ingredient is still
+    // returned (RLS does not filter on `deleted_at`), flagged via `deleted_at`;
+    // a null embed is tolerated defensively.
     final ingredient = row['ingredients'] as Map<String, dynamic>?;
     return DishLineDraft(
       ingredientId: row['ingredient_id'] as String,
@@ -167,6 +177,7 @@ class DishLineDraft {
       ingredientGlutenFree: TriStateWire.parse(
         ingredient?['gluten_free'] as String?,
       ),
+      ingredientDeleted: ingredient?['deleted_at'] != null,
     );
   }
 
@@ -186,7 +197,7 @@ class DishLineDraft {
   /// dish for edit / for deriving the dish's dietary status (Spec 025 B.3).
   static const String selectColumns =
       'id, ingredient_id, quantity, unit_id, prep_note, sort_order, '
-      'ingredients(name, diet, gluten_free)';
+      'ingredients(name, diet, gluten_free, deleted_at)';
 }
 
 /// Mutable editor view of a dish and its lines.

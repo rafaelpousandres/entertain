@@ -15,13 +15,17 @@ import '../../photos/data/media_providers.dart';
 import '../../photos/data/photo_storage.dart';
 import '../../photos/widgets/photo_image.dart';
 import '../../shopping/data/shopping_providers.dart';
+import '../data/event.dart';
 import '../data/events_providers.dart';
+import '../data/serving_scale.dart';
+import '../widgets/dish_servings_sheet.dart';
 
 /// Add dish to event menu (Specification 004 screen 5 / §3.7). Shows the
 /// dish catalog grouped by category; tapping a dish copies it into the
 /// event's menu via [EventsRepository.addDishToEvent]. Dishes already in the
-/// menu are flagged, and re-adding one asks for confirmation before creating
-/// a second independent copy.
+/// menu are flagged. Spec 034 §A1: every add goes through a servings step
+/// first (which also carries the "second independent copy" notice when the
+/// dish is already in the menu).
 class AddDishToMenuScreen extends ConsumerStatefulWidget {
   const AddDishToMenuScreen({super.key, required this.eventId});
 
@@ -37,12 +41,24 @@ class _AddDishToMenuScreenState extends ConsumerState<AddDishToMenuScreen> {
 
   /// Spec 018 §3: create a brand-new dish from within the add flow. Opens the
   /// dish editor in create mode; on save it returns the created dish, which we
-  /// add to the event with default servings (same as adding an existing dish)
-  /// and return to the Menu. Backing out of the editor returns null and leaves
+  /// add to the event through the same servings step as an existing dish
+  /// (Spec 034 §A1) and return to the Menu. Backing out of the editor returns null and leaves
   /// the add list unchanged (§3.3).
   Future<void> _createNew() async {
     if (_adding) return;
     final created = await context.push<Dish>('/dishes/new');
+    if (created == null || !mounted) return;
+    await _add(created, alreadyInMenu: false);
+  }
+
+  /// Spec 034 §A2: create a dish with the AI assistant without leaving the
+  /// event. The assistant persists the dish to the catalog (same generate /
+  /// review / save and the same `dish_assistant` quota as the catalog entry)
+  /// and returns it; it then goes through the servings step like any other
+  /// dish. Backing out, or discarding the generated card, adds nothing.
+  Future<void> _createWithAi() async {
+    if (_adding) return;
+    final created = await context.push<Dish>('/ai-dish-assistant?return=dish');
     if (created == null || !mounted) return;
     await _add(created, alreadyInMenu: false);
   }
@@ -52,16 +68,22 @@ class _AddDishToMenuScreenState extends ConsumerState<AddDishToMenuScreen> {
     final l10n = AppLocalizations.of(context);
     final messenger = ScaffoldMessenger.of(context);
 
-    if (alreadyInMenu) {
-      final confirmed = await _confirmDuplicate(dish.name);
-      if (confirmed != true) return;
-    }
+    // Spec 034 §A1: ask for the servings BEFORE the dish lands on the menu,
+    // pre-filled with the default the repository would apply (seated → guest
+    // count, otherwise the dish's base servings). The "already in the menu"
+    // notice rides on the same sheet, so re-adding is still a single step.
+    final servings = await _askServings(dish, alreadyInMenu: alreadyInMenu);
+    if (servings == null || !mounted) return;
 
     setState(() => _adding = true);
     try {
       await ref
           .read(eventsRepositoryProvider)
-          .addDishToEvent(eventId: widget.eventId, dishId: dish.id);
+          .addDishToEvent(
+            eventId: widget.eventId,
+            dishId: dish.id,
+            servings: servings,
+          );
       ref.invalidate(eventDishesProvider(widget.eventId));
       // Fixes §2.1/§2.3: keep the shopping panel in sync with the menu so the
       // re-added dish (with any catalog lines added since the first add) shows
@@ -79,41 +101,24 @@ class _AddDishToMenuScreenState extends ConsumerState<AddDishToMenuScreen> {
     }
   }
 
-  Future<bool?> _confirmDuplicate(String name) {
-    final l10n = AppLocalizations.of(context);
-    return showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        title: Text(
-          l10n.addDuplicateDishConfirmTitle,
-          style: AppTypography.sectionTitle,
-        ),
-        content: Text(
-          l10n.addDuplicateDishConfirmBody(name),
-          style: AppTypography.body.copyWith(color: AppColors.textSecondary),
-        ),
-        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: Text(
-              l10n.cancelAction,
-              style: AppTypography.button.copyWith(
-                color: AppColors.textSecondary,
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text(
-              l10n.addDuplicateDishConfirmButton,
-              style: AppTypography.button.copyWith(color: AppColors.accent),
-            ),
-          ),
-        ],
+  /// The servings step (Spec 034 §A1). Returns null when the user backs out.
+  Future<int?> _askServings(Dish dish, {required bool alreadyInMenu}) async {
+    // The event drives the default; if it cannot be read, fall back to the
+    // dish's own servings rather than blocking the add.
+    Event? event;
+    try {
+      event = await ref.read(eventByIdProvider(widget.eventId).future);
+    } catch (_) {}
+    if (!mounted) return null;
+    return showDishServingsSheet(
+      context,
+      dishName: dish.name,
+      initialServings: defaultEventDishServings(
+        seated: event?.format == EventFormat.seated,
+        guestCount: event?.guestCount ?? dish.baseServings,
+        baseServings: dish.baseServings,
       ),
+      alreadyInMenu: alreadyInMenu,
     );
   }
 
@@ -155,6 +160,14 @@ class _AddDishToMenuScreenState extends ConsumerState<AddDishToMenuScreen> {
                   child: CreateNewTile(
                     label: l10n.addScreenCreateDishAction,
                     onTap: _adding ? null : _createNew,
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 4),
+                  child: CreateNewTile(
+                    label: l10n.dishAssistantCreateAction,
+                    icon: Icons.auto_awesome,
+                    onTap: _adding ? null : _createWithAi,
                   ),
                 ),
                 Expanded(

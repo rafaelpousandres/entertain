@@ -49,3 +49,55 @@ Future<CaptureResult> capturePhoto(PhotoSource source) async {
     return const CaptureResult(CaptureStatus.error);
   }
 }
+
+/// Spec 034 §C1 — how many gallery photos one pick may add. Bounds the work of
+/// a single action (each photo is compressed and uploaded in turn) while
+/// covering the real need of adding a handful at once.
+const int kGalleryMultiPickLimit = 10;
+
+/// Picks several photos from the gallery in one action (Spec 034 §C1), in the
+/// order the user selected them. Goes through the Android Photo Picker, so no
+/// storage permission is involved. Returns the picked file paths — empty when
+/// the user cancelled — or null when the picker itself failed.
+///
+/// [limit] is enforced twice: passed to the picker (which caps the selection
+/// where the platform supports it) and applied to the result, since older
+/// picker fallbacks ignore it.
+Future<List<String>?> pickGalleryPhotos({
+  int limit = kGalleryMultiPickLimit,
+}) async {
+  try {
+    final files = await ImagePicker().pickMultiImage(
+      maxWidth: 1600,
+      maxHeight: 1600,
+      limit: limit,
+    );
+    return [for (final f in files.take(limit)) f.path];
+  } catch (_) {
+    return null;
+  }
+}
+
+/// Spec 034 §C1 — runs [addOne] for each picked photo, in selection order, and
+/// reports how many made it. A photo that fails (corrupt file, a dropped
+/// upload) is counted and skipped; it never aborts the ones after it.
+///
+/// [addOne] receives the file path and the number of photos already added in
+/// this batch, so the caller can assign consecutive carousel positions without
+/// leaving a gap where a photo failed.
+Future<({int added, int failed})> addPickedPhotos({
+  required List<String> filePaths,
+  required Future<void> Function(String filePath, int addedSoFar) addOne,
+}) async {
+  var added = 0;
+  var failed = 0;
+  for (final path in filePaths) {
+    try {
+      await addOne(path, added);
+      added++;
+    } catch (_) {
+      failed++;
+    }
+  }
+  return (added: added, failed: failed);
+}

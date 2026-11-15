@@ -16,6 +16,7 @@ import '../../catalog/data/diet.dart' show DietBadge;
 import '../../catalog/data/dish_category.dart'
     show DishCategory, dishCategoryActive;
 import 'event_summary_data.dart';
+import 'summary_photos.dart';
 
 /// The app fonts loaded for the PDF (from `assets/fonts/`). Optional: when null
 /// the builder falls back to the PDF standard fonts, which keeps unit tests
@@ -133,6 +134,15 @@ Future<Uint8List> buildEventSummaryPdf({
               fit: pw.BoxFit.cover,
             ),
           ),
+          // Spec 034 §C3: the rest of the event's photos, small, under the
+          // cover.
+          if (data.eventExtraPhotos.isNotEmpty) ...[
+            pw.SizedBox(height: 6),
+            _photoStrip(
+              data.eventExtraPhotos,
+              size: summaryEventThumbSize(data.eventExtraPhotos.length),
+            ),
+          ],
           pw.SizedBox(height: 12),
         ],
         // Spec 030 §D.4: a clean two-column data block — a fixed label gutter,
@@ -529,29 +539,67 @@ pw.Widget _dishBlock(
     ],
   );
 
+  final row = pw.Row(
+    crossAxisAlignment: pw.CrossAxisAlignment.start,
+    children: [
+      if (dish.photo != null) ...[
+        pw.ClipRRect(
+          horizontalRadius: 6,
+          verticalRadius: 6,
+          child: pw.Image(
+            pw.MemoryImage(dish.photo!),
+            width: 70,
+            height: 70,
+            fit: pw.BoxFit.cover,
+          ),
+        ),
+        pw.SizedBox(width: 10),
+      ],
+      pw.Expanded(child: left),
+    ],
+  );
+
   return pw.Padding(
     // Spec 032 §D2: a thin rule (added by the caller) now separates dishes, so
     // the block needs only a little air below its content.
     padding: const pw.EdgeInsets.only(bottom: 6),
-    child: pw.Row(
-      crossAxisAlignment: pw.CrossAxisAlignment.start,
-      children: [
-        if (dish.photo != null) ...[
-          pw.ClipRRect(
-            horizontalRadius: 6,
-            verticalRadius: 6,
-            child: pw.Image(
-              pw.MemoryImage(dish.photo!),
-              width: 70,
-              height: 70,
-              fit: pw.BoxFit.cover,
-            ),
+    child: dish.extraPhotos.isEmpty
+        ? row
+        // Spec 034 §C3: the dish's other photos, small, under its block.
+        : pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              row,
+              pw.SizedBox(height: 5),
+              _photoStrip(
+                dish.extraPhotos,
+                size: summaryDishThumbSize(dish.extraPhotos.length),
+              ),
+            ],
           ),
-          pw.SizedBox(width: 10),
-        ],
-        pw.Expanded(child: left),
-      ],
-    ),
+  );
+}
+
+/// Spec 034 §C3 — a wrapping row of square thumbnails: every photo beyond the
+/// cover, on as many rows as it takes.
+pw.Widget _photoStrip(List<Uint8List> photos, {required double size}) {
+  final radius = size >= 50 ? 6.0 : 4.0;
+  return pw.Wrap(
+    spacing: 5,
+    runSpacing: 5,
+    children: [
+      for (final photo in photos)
+        pw.ClipRRect(
+          horizontalRadius: radius,
+          verticalRadius: radius,
+          child: pw.Image(
+            pw.MemoryImage(photo),
+            width: size,
+            height: size,
+            fit: pw.BoxFit.cover,
+          ),
+        ),
+    ],
   );
 }
 

@@ -7,6 +7,7 @@ import '../../../theme/app_colors.dart';
 import '../../../theme/app_typography.dart';
 import '../../../ui/primary_button.dart';
 import '../../catalog/data/catalog_providers.dart';
+import '../../catalog/data/dish.dart';
 import '../../catalog/data/dish_category.dart';
 import '../../photos/data/media.dart';
 import '../../photos/data/media_providers.dart';
@@ -18,8 +19,15 @@ import '../data/dish_card.dart';
 /// generates a dish card from its own knowledge → the user reviews it (new
 /// ingredients visibly marked) → Desa (save + open) or Descarta. Quota is
 /// charged at generate; a header shows the remaining quota.
+///
+/// Spec 034 §A2: with [returnCreatedDish] (opened from an event menu's add
+/// flow) saving pops with the created catalog [Dish] instead of opening it, so
+/// the caller can add it to the menu. Generation, quota and persistence are
+/// identical — this is only a different exit.
 class DishAssistantScreen extends ConsumerStatefulWidget {
-  const DishAssistantScreen({super.key});
+  const DishAssistantScreen({super.key, this.returnCreatedDish = false});
+
+  final bool returnCreatedDish;
 
   @override
   ConsumerState<DishAssistantScreen> createState() =>
@@ -88,12 +96,35 @@ class _DishAssistantScreenState extends ConsumerState<DishAssistantScreen> {
       ref.invalidate(
         entityMediaProvider((type: MediaEntityType.dish, entityId: dishId)),
       );
+      if (widget.returnCreatedDish) {
+        final dish = await _createdDish(dishId, card);
+        if (!mounted) return;
+        context.pop<Dish>(dish);
+        return;
+      }
       context.pushReplacement('/dishes/$dishId');
     } catch (_) {
       if (!mounted) return;
       setState(() => _saving = false);
       messenger.showSnackBar(
         SnackBar(content: Text(l10n.dishAssistantSaveError)),
+      );
+    }
+  }
+
+  /// The catalog dish just saved, for the caller of the menu flow (§A2). Read
+  /// back from the catalog; if that read fails the dish still exists, so fall
+  /// back to the reviewed card's values rather than losing the add.
+  Future<Dish> _createdDish(String dishId, DishCard card) async {
+    try {
+      return await ref.read(dishByIdProvider(dishId).future);
+    } catch (_) {
+      return Dish(
+        id: dishId,
+        groupId: '',
+        name: card.displayName,
+        category: card.category,
+        baseServings: card.baseServings,
       );
     }
   }
@@ -213,7 +244,9 @@ class _DishAssistantScreenState extends ConsumerState<DishAssistantScreen> {
         // prompt and clarifies they keep final control.
         const SizedBox(height: 12),
         Text(
-          l10n.dishAssistantEditableNote,
+          widget.returnCreatedDish
+              ? l10n.dishAssistantFromMenuNote
+              : l10n.dishAssistantEditableNote,
           textAlign: TextAlign.center,
           style: AppTypography.caption.copyWith(color: AppColors.textTertiary),
         ),
@@ -309,7 +342,9 @@ class _DishAssistantScreenState extends ConsumerState<DishAssistantScreen> {
               const SizedBox(width: 12),
               Expanded(
                 child: PrimaryButton(
-                  label: l10n.dishAssistantSaveAction,
+                  label: widget.returnCreatedDish
+                      ? l10n.dishAssistantSaveAndAddAction
+                      : l10n.dishAssistantSaveAction,
                   onPressed: _save,
                 ),
               ),

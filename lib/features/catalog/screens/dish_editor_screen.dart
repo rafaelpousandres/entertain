@@ -25,10 +25,12 @@ import '../data/catalog_providers.dart';
 import '../data/diet.dart';
 import '../data/dish.dart';
 import '../data/dish_category.dart';
+import '../data/dish_duplicator.dart';
 import '../data/ingredient.dart';
 import '../data/reference_data.dart';
 import '../widgets/diet_choice.dart';
 import '../widgets/dietary_badges.dart';
+import '../widgets/dish_line_row.dart';
 import 'ingredient_line_editor_screen.dart';
 
 /// Create / edit a catalog dish and its recipe lines (Specification 004
@@ -117,12 +119,13 @@ class _DishFormState extends ConsumerState<_DishForm>
 
   bool _saving = false;
   bool _deleting = false;
+  bool _duplicating = false;
   bool _submitted = false;
   String? _nameError;
   // §2.3: tracks user edits so the unsaved-changes guard knows when to prompt.
   bool _dirty = false;
 
-  bool get _busy => _saving || _deleting;
+  bool get _busy => _saving || _deleting || _duplicating;
 
   // §2.3: mark the form dirty (and rebuild so EditScaffold's exit guard sees
   // it) the first time a free-text field changes. The pickers setState when
@@ -186,9 +189,62 @@ class _DishFormState extends ConsumerState<_DishForm>
       if (result.removed) {
         _draft.lines.removeAt(index);
       } else if (result.line != null) {
-        _draft.lines[index] = result.line!;
+        final previous = _draft.lines[index];
+        final edited = result.line!;
+        // Spec 034 §B2: the line editor builds a fresh draft, so the
+        // not-in-catalog flag is carried over unless the ingredient changed.
+        if (edited.ingredientId == previous.ingredientId) {
+          edited.ingredientDeleted = previous.ingredientDeleted;
+        }
+        _draft.lines[index] = edited;
       }
     });
+  }
+
+  /// Spec 034 §B2: a line whose ingredient was deleted from the catalog opens
+  /// a fix sheet instead of going straight to the line editor.
+  Future<void> _fixLine(int index) async {
+    final line = _draft.lines[index];
+    final choice = await showMissingIngredientSheet(
+      context,
+      ingredientName: line.ingredientName,
+    );
+    if (choice == null || !mounted) return;
+    switch (choice) {
+      case MissingIngredientFix.replace:
+        await _editLine(index);
+      case MissingIngredientFix.restore:
+        await _restoreIngredient(line);
+    }
+  }
+
+  /// Puts the deleted ingredient back in the catalog. Persisted immediately
+  /// (like an ingredient created on the fly from the picker): it is a catalog
+  /// change, independent of saving or discarding this dish.
+  Future<void> _restoreIngredient(DishLineDraft line) async {
+    final l10n = AppLocalizations.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await ref
+          .read(catalogRepositoryProvider)
+          .restoreIngredient(line.ingredientId);
+      ref.invalidate(ingredientsListProvider);
+      ref.invalidate(ingredientByIdProvider(line.ingredientId));
+      if (!mounted) return;
+      setState(() {
+        // Every line of this dish pointing at the ingredient is fixed at once.
+        for (final l in _draft.lines) {
+          if (l.ingredientId == line.ingredientId) l.ingredientDeleted = false;
+        }
+      });
+      messenger.showSnackBar(
+        SnackBar(content: Text(l10n.dishLineRestoredMessage)),
+      );
+    } catch (_) {
+      messenger.showSnackBar(
+        SnackBar(content: Text(l10n.dishLineRestoreError)),
+      );
+    }
   }
 
   /// Spec 016 §2.2: the system "Plats preparats" category id, used as the
@@ -340,6 +396,54 @@ class _DishFormState extends ConsumerState<_DishForm>
     await _delete();
   }
 
+  /// Spec 034 §F1 — duplicates the SAVED dish into an independent copy (fields,
+  /// recipe lines and photos) and opens the copy, ready to be turned into a
+  /// variant. Unsaved edits are not part of the saved dish, so the user is
+  /// asked to save first rather than getting a copy that silently differs
+  /// from what is on screen.
+  Future<void> _duplicate() async {
+    if (_busy) return;
+    final l10n = AppLocalizations.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    if (_dirty || photosDirty) {
+      messenger.showSnackBar(
+        SnackBar(content: Text(l10n.dishDuplicateSaveFirst)),
+      );
+      return;
+    }
+    setState(() => _duplicating = true);
+    try {
+      final groupId = await ref.read(currentGroupIdProvider.future);
+      final result = await duplicateDish(
+        catalog: ref.read(catalogRepositoryProvider),
+        media: ref.read(mediaRepositoryProvider),
+        storage: ref.read(photoStorageProvider),
+        sourceDishId: widget.dishId!,
+        newName: l10n.dishDuplicateNameTemplate(_draft.name.trim()),
+        groupId: groupId,
+        localeCode: ref.read(localeCodeProvider),
+      );
+      ref.invalidate(dishesListProvider);
+      ref.invalidate(dishDietMapProvider);
+      ref.invalidate(entityCoverPathsProvider(MediaEntityType.dish));
+      if (!mounted) return;
+      if (result.photosFailed > 0) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(l10n.dishDuplicatePhotosFailed(result.photosFailed)),
+          ),
+        );
+      }
+      // Replace the source editor so "back" returns to the catalog, where both
+      // dishes are listed.
+      context.pushReplacement('/dishes/${result.dish.id}');
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _duplicating = false);
+      messenger.showSnackBar(SnackBar(content: Text(l10n.dishDuplicateError)));
+    }
+  }
+
   Future<void> _delete() async {
     final l10n = AppLocalizations.of(context);
     final messenger = ScaffoldMessenger.of(context);
@@ -422,11 +526,21 @@ class _DishFormState extends ConsumerState<_DishForm>
             ),
             onSelected: (action) {
               switch (action) {
+                case _OverflowAction.duplicate:
+                  _duplicate();
                 case _OverflowAction.delete:
                   _confirmDelete();
               }
             },
             itemBuilder: (context) => [
+              // Spec 034 §F1: duplicate the dish to record a variant.
+              PopupMenuItem(
+                value: _OverflowAction.duplicate,
+                child: Text(
+                  l10n.duplicateEventAction,
+                  style: AppTypography.body,
+                ),
+              ),
               PopupMenuItem(
                 value: _OverflowAction.delete,
                 child: Text(
@@ -577,11 +691,13 @@ class _DishFormState extends ConsumerState<_DishForm>
               for (var i = 0; i < _draft.lines.length; i++)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
-                  child: _LineRow(
+                  child: DishLineRow(
                     line: _draft.lines[i],
                     unit: unitsById[_draft.lines[i].unitId],
                     supplierCategory: supplierFor(_draft.lines[i]),
-                    onTap: () => _editLine(i),
+                    onTap: () => _draft.lines[i].ingredientDeleted
+                        ? _fixLine(i)
+                        : _editLine(i),
                   ),
                 ),
             const SizedBox(height: 12),
@@ -653,86 +769,6 @@ class _DishFormState extends ConsumerState<_DishForm>
             ),
           ],
         ],
-      ),
-    );
-  }
-}
-
-class _LineRow extends StatelessWidget {
-  const _LineRow({
-    required this.line,
-    required this.unit,
-    required this.supplierCategory,
-    required this.onTap,
-  });
-
-  final DishLineDraft line;
-  final Unit? unit;
-  final SupplierCategory? supplierCategory;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    final qty = formatQuantity(
-      line.quantity,
-      decimalSeparator: quantityDecimalSeparator(
-        Localizations.localeOf(context).languageCode,
-      ),
-    );
-    final measure = unit == null ? qty : '$qty ${unit!.name}';
-    final hasNote = line.prepNote != null && line.prepNote!.trim().isNotEmpty;
-    // Same layout as the event-dish ingredient card: quantity · prep · supplier.
-    final parts = <String>[
-      measure,
-      if (hasNote) line.prepNote!.trim(),
-      if (supplierCategory != null) supplierCategory!.name,
-    ];
-
-    return Material(
-      color: AppColors.surface,
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppColors.border),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      line.ingredientName,
-                      style: AppTypography.body,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      parts.join(l10n.metadataSeparator),
-                      style: AppTypography.caption,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              const Icon(
-                Icons.chevron_right,
-                color: AppColors.disabled,
-                size: 22,
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -822,4 +858,4 @@ class _Error extends StatelessWidget {
   }
 }
 
-enum _OverflowAction { delete }
+enum _OverflowAction { duplicate, delete }

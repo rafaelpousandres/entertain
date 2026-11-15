@@ -192,10 +192,16 @@ final GoRouter appRouter = GoRouter(
     ),
 
     // AI dish assistant (Spec 020) — opened from the dish catalog; creates a
-    // dish from a name and opens it.
+    // dish from a name and opens it. Spec 034 §A2: with `?return=dish` (the
+    // event menu's add flow) it pops with the created dish instead, so the
+    // caller can add it to the menu.
     GoRoute(
       path: '/ai-dish-assistant',
-      builder: (context, state) => _gated(const DishAssistantScreen()),
+      builder: (context, state) => _gated(
+        DishAssistantScreen(
+          returnCreatedDish: state.uri.queryParameters['return'] == 'dish',
+        ),
+      ),
     ),
 
     // AI menu wizard (Spec 022) — opened from an event's Menú tab; proposes or
