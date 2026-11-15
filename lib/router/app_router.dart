@@ -9,6 +9,7 @@ import '../features/catalog/screens/drink_editor_screen.dart';
 import '../features/catalog/screens/ingredient_editor_screen.dart';
 import '../features/catalog/screens/ingredient_line_editor_screen.dart';
 import '../features/catalog/data/reference_data.dart';
+import '../features/ai_consent/widgets/ai_consent_gate.dart';
 import '../features/ai_dish_assistant/screens/dish_assistant_screen.dart';
 import '../features/ai_menu_wizard/screens/menu_wizard_screen.dart';
 import '../features/events/screens/add_dish_to_menu_screen.dart';
@@ -33,6 +34,9 @@ import '../features/stock_photos/screens/stock_photo_search_screen.dart';
 import '../features/suggestions/screens/suggestions_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
+
+// Spec 035 §E: both AI screens sit behind [AiConsentGate], which asks once for
+// permission to send the request to the third-party AI provider.
 
 /// Wraps a screen in the startup bootstrap gate so every entry point —
 /// including deep links to detail / editor routes — waits for the Supabase
@@ -198,8 +202,10 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: '/ai-dish-assistant',
       builder: (context, state) => _gated(
-        DishAssistantScreen(
-          returnCreatedDish: state.uri.queryParameters['return'] == 'dish',
+        AiConsentGate(
+          child: DishAssistantScreen(
+            returnCreatedDish: state.uri.queryParameters['return'] == 'dish',
+          ),
         ),
       ),
     ),
@@ -208,8 +214,11 @@ final GoRouter appRouter = GoRouter(
     // completes the whole menu and adds the accepted items to the event.
     GoRoute(
       path: '/events/:id/ai-menu-wizard',
-      builder: (context, state) =>
-          _gated(MenuWizardScreen(eventId: state.pathParameters['id']!)),
+      builder: (context, state) => _gated(
+        AiConsentGate(
+          child: MenuWizardScreen(eventId: state.pathParameters['id']!),
+        ),
+      ),
     ),
 
     // Dishes — create / edit.

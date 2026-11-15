@@ -39,3 +39,11 @@ verify_jwt = false
 # service-role key as a shared secret in the Authorization header.
 [functions.sweep-staging]
 verify_jwt = false
+
+# Spec 035 §D — in-app account deletion. verify_jwt is on: the account deleted
+# is always the one the caller's JWT identifies (anonymous sessions included);
+# the function takes no user or group id from the client. It uses the
+# service-role client only for the SQL deletion RPCs, the Storage removal and
+# the Auth admin delete.
+[functions.delete-account]
+verify_jwt = true

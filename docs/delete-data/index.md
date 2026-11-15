@@ -1,46 +1,68 @@
 # Account and data deletion — Entertain
 
-**Last updated:** June 14, 2026
+**Last updated:** November 15, 2026
 
-Entertain ("the app") allows users to permanently delete their account and all
-associated data. This page describes the deletion process.
+Entertain ("the app") lets you permanently delete your account and all
+associated data yourself, from inside the app. This page describes the
+process.
 
 ---
 
-## How to request deletion
-
-To request the deletion of your account and all your data:
+## How to delete your account
 
 1. Open the Entertain app on your device.
 2. Go to **Settings > Privacy & data**.
-3. Tap the **Copy** button next to your account ID. This copies your unique
-   identifier (a UUID) to the clipboard.
-4. Send an email to **rafael.pous@gmail.com** with the subject
-   **"Data deletion request"** and paste your account ID in the email body.
-5. We will process your request within 30 days and reply by email confirming
-   the deletion.
+3. Tap **Delete my account and data**.
+4. Read the confirmation and tap **Delete everything**.
+
+The deletion happens immediately. The app confirms when it is done and
+then starts again empty, as on first launch.
+
+You do not need to contact us, and there is no waiting period.
 
 ---
 
 ## What is deleted
 
-All of the following data associated with your account is permanently deleted:
+All of the following data associated with your account is permanently
+deleted:
 
-- All events you created or contributed to.
-- All dishes and ingredients in your group's catalogs.
-- All photos uploaded by you (stored in Supabase Storage).
-- All supplier configuration in your group.
-- Your authentication identity in Supabase Auth.
+- All your events, with their menus, guest lists and orders.
+- All dishes, ingredients and drinks in your catalog.
+- All photos you added (stored in Supabase Storage).
+- All supplier configuration and message templates.
+- The suggestions you sent us through the app.
+- Your usage counters for stock photos and AI features.
+- Your anonymous account and its authentication identity in Supabase
+  Auth.
 
 ---
 
 ## What is retained
 
-No data is retained after a deletion request is processed, unless required by
-law (we do not currently have such legal requirements).
+No data is retained in our database or file storage after the deletion.
 
-If you need clarification before submitting a request, contact us at the email
-above.
+Supabase, our infrastructure provider, keeps operational backups for a
+short period for disaster recovery. Deleted data may remain in those
+backups until they expire; it is not restored or used for any other
+purpose.
+
+Messages you already sent to suppliers or guests through WhatsApp, SMS
+or email are outside the app and are not affected.
+
+---
+
+## If you cannot use the app
+
+If you no longer have the app installed, you can ask us to delete your
+data by email:
+
+1. Send an email to **rafael.pous@gmail.com** with the subject
+   **"Data deletion request"**.
+2. Include your account ID if you have it (shown in the app under
+   **Settings > Privacy & data**).
+3. We will process your request within 30 days and reply by email
+   confirming the deletion.
 
 ---
 

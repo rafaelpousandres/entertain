@@ -24,6 +24,10 @@ class StartupError implements Exception {
 /// once across hot restarts.
 Future<void> initSupabase() async {
   if (!Env.hasSupabase) return;
+  // The bootstrap runs again after an in-app account deletion restarts the app
+  // (Spec 035 §D). The client must be initialised exactly once per process: a
+  // release build has no assertion to stop a second `initialize`.
+  if (_supabaseInitialized) return;
 
   try {
     await Supabase.initialize(
@@ -33,7 +37,10 @@ Future<void> initSupabase() async {
   } on AssertionError {
     // Already initialised in a previous hot-restart cycle — fine.
   }
+  _supabaseInitialized = true;
 }
+
+bool _supabaseInitialized = false;
 
 /// Ensures the caller has an anonymous Supabase session. The session
 /// triggers the auto-provisioning trigger from spec 002, so by the time

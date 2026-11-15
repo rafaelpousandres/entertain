@@ -3,6 +3,7 @@ import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app.dart';
+import 'app_restart.dart';
 
 void main() {
   final binding = WidgetsFlutterBinding.ensureInitialized();
@@ -15,5 +16,12 @@ void main() {
   // Supabase init + anonymous session run inside `appBootstrapProvider`
   // so the home screen can render the loading / error states the spec
   // calls for, rather than hanging before any UI exists.
-  runApp(const ProviderScope(child: EntertainApp()));
+  // AppRestart lets the in-app account deletion (Spec 035 §D) start the whole
+  // app over — a new ProviderScope, hence a new bootstrap and a new anonymous
+  // account — without leaving the process.
+  runApp(
+    AppRestart(
+      builder: (_) => const ProviderScope(child: EntertainApp()),
+    ),
+  );
 }
