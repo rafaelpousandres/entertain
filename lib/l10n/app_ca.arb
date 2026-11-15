@@ -664,5 +664,14 @@
   "shoppingModeComandes": "Comandes",
   "shoppingModeEnPersona": "En persona",
   "settingsShoppingModeTitle": "Vista de compra per defecte",
-  "settingsShoppingModeSubtitle": "Quina vista obre la pestanya Compra."
+  "settingsShoppingModeSubtitle": "Quina vista obre la pestanya Compra.",
+  "deleteIngredientInUseBody": "Aquest ingredient es fa servir en {count, plural, =1{1 plat} other{{count} plats}}:",
+  "deleteIngredientInUseConsequence": "Si l'esborres, aquests plats el conservaran, marcat com a fora del catàleg, fins que el restauris o el canviïs.",
+  "dishLineNotInCatalogLabel": "No és al catàleg",
+  "dishLineFixTitle": "«{name}» ja no és al catàleg",
+  "dishLineFixBody": "Aquest ingredient es va esborrar del catàleg. Pots restaurar-lo o canviar-lo per un altre.",
+  "dishLineRestoreAction": "Restaura al catàleg",
+  "dishLineReplaceAction": "Canvia per un altre ingredient",
+  "dishLineRestoredMessage": "Ingredient restaurat al catàleg.",
+  "dishLineRestoreError": "No s'ha pogut restaurar l'ingredient. Comprova la connexió."
 }

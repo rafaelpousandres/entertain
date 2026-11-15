@@ -9,6 +9,28 @@ import 'drink.dart';
 import 'ingredient.dart';
 import 'reference_data.dart';
 
+/// Spec 034 §B1 — collapses `dish_ingredients` rows (each embedding its dish)
+/// into the distinct, alphabetically sorted display names of the dishes. A dish
+/// that lists the ingredient on several lines appears once; names are localized
+/// through [localNames] (dish id → translated name) with the stored name as the
+/// fallback.
+List<String> usedInDishNames(
+  List<dynamic> rows,
+  Map<String, String> localNames,
+) {
+  final byId = <String, String>{};
+  for (final raw in rows) {
+    final dish =
+        (raw as Map<String, dynamic>)['dishes'] as Map<String, dynamic>?;
+    if (dish == null || dish['deleted_at'] != null) continue;
+    final id = dish['id'] as String;
+    byId[id] = localizedName(localNames[id], dish['name'] as String);
+  }
+  final names = byId.values.toList()
+    ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+  return names;
+}
+
 /// Data-access wrapper for the menu catalog: the system reference tables
 /// (`units`, `supplier_categories`), the group's `ingredients`, and the
 /// group's `dishes` with their `dish_ingredients` lines.
@@ -325,6 +347,30 @@ class CatalogRepository {
         .from('ingredients')
         .update({'deleted_at': DateTime.now().toUtc().toIso8601String()})
         .eq('id', id);
+  }
+
+  /// Spec 034 §B2 — undo a soft delete, putting the ingredient back in the
+  /// catalog. Its name translations survive the soft delete (they are only
+  /// removed on a hard delete), so it comes back localized; its photos do not
+  /// (they are purged when the ingredient is deleted).
+  Future<void> restoreIngredient(String id) async {
+    await _client.from('ingredients').update({'deleted_at': null}).eq('id', id);
+  }
+
+  /// Spec 034 §B1 — display names of the live catalog dishes whose recipe uses
+  /// [ingredientId], for the delete confirmation. One read over the indexed
+  /// `dish_ingredients.ingredient_id`, inner-joined to non-deleted dishes.
+  Future<List<String>> dishNamesUsingIngredient(
+    String ingredientId,
+    String localeCode,
+  ) async {
+    final rows = await _client
+        .from('dish_ingredients')
+        .select('dishes!inner(id, name, deleted_at)')
+        .eq('ingredient_id', ingredientId)
+        .filter('dishes.deleted_at', 'is', null);
+    final local = await _translationNames('dish', localeCode);
+    return usedInDishNames(rows as List, local);
   }
 
   // --- Dishes ------------------------------------------------------------

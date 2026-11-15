@@ -1153,5 +1153,35 @@
   "invitationThanks": "See you soon!",
   "guestDietSectionLabel": "Dietary restrictions",
   "guestDietNone": "None",
-  "guestGlutenFreeLabel": "Gluten-free"
+  "guestGlutenFreeLabel": "Gluten-free",
+  "deleteIngredientInUseBody": "This ingredient is used in {count, plural, =1{1 dish} other{{count} dishes}}:",
+  "@deleteIngredientInUseBody": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "deleteIngredientInUseConsequence": "If you delete it, these dishes keep it, flagged as not in the catalog, until you restore or replace it.",
+  "@deleteIngredientInUseConsequence": {},
+  "dishLineNotInCatalogLabel": "Not in the catalog",
+  "@dishLineNotInCatalogLabel": {},
+  "dishLineFixTitle": "\"{name}\" is no longer in the catalog",
+  "@dishLineFixTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "dishLineFixBody": "This ingredient was deleted from the catalog. You can restore it or replace it with another one.",
+  "@dishLineFixBody": {},
+  "dishLineRestoreAction": "Restore to the catalog",
+  "@dishLineRestoreAction": {},
+  "dishLineReplaceAction": "Replace with another ingredient",
+  "@dishLineReplaceAction": {},
+  "dishLineRestoredMessage": "Ingredient restored to the catalog.",
+  "@dishLineRestoredMessage": {},
+  "dishLineRestoreError": "Couldn't restore the ingredient. Check your connection.",
+  "@dishLineRestoreError": {}
 }

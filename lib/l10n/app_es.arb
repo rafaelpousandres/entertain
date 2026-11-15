@@ -664,5 +664,14 @@
   "shoppingModeComandes": "Pedidos",
   "shoppingModeEnPersona": "En persona",
   "settingsShoppingModeTitle": "Vista de compra por defecto",
-  "settingsShoppingModeSubtitle": "Qué vista abre la pestaña Compra."
+  "settingsShoppingModeSubtitle": "Qué vista abre la pestaña Compra.",
+  "deleteIngredientInUseBody": "Este ingrediente se usa en {count, plural, =1{1 plato} other{{count} platos}}:",
+  "deleteIngredientInUseConsequence": "Si lo eliminas, estos platos lo conservarán, marcado como fuera del catálogo, hasta que lo restaures o lo cambies.",
+  "dishLineNotInCatalogLabel": "No está en el catálogo",
+  "dishLineFixTitle": "«{name}» ya no está en el catálogo",
+  "dishLineFixBody": "Este ingrediente se eliminó del catálogo. Puedes restaurarlo o cambiarlo por otro.",
+  "dishLineRestoreAction": "Restaurar en el catálogo",
+  "dishLineReplaceAction": "Cambiar por otro ingrediente",
+  "dishLineRestoredMessage": "Ingrediente restaurado en el catálogo.",
+  "dishLineRestoreError": "No se ha podido restaurar el ingrediente. Comprueba la conexión."
 }

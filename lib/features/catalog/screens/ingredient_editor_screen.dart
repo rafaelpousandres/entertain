@@ -19,6 +19,7 @@ import '../data/catalog_naming.dart';
 import '../data/catalog_providers.dart';
 import '../data/ingredient.dart';
 import '../data/reference_data.dart';
+import '../widgets/delete_ingredient_dialog.dart';
 import '../widgets/diet_choice.dart';
 import '../widgets/unit_ordering.dart';
 
@@ -306,41 +307,20 @@ class _IngredientFormState extends ConsumerState<_IngredientForm>
   }
 
   Future<void> _confirmDelete() async {
-    final l10n = AppLocalizations.of(context);
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        title: Text(
-          l10n.deleteIngredientConfirmTitle,
-          style: AppTypography.sectionTitle,
-        ),
-        content: Text(
-          l10n.deleteIngredientConfirmBody,
-          style: AppTypography.body.copyWith(color: AppColors.textSecondary),
-        ),
-        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: Text(
-              l10n.cancelAction,
-              style: AppTypography.button.copyWith(
-                color: AppColors.textSecondary,
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text(
-              l10n.deleteIngredientConfirmButton,
-              style: AppTypography.button.copyWith(color: AppColors.danger),
-            ),
-          ),
-        ],
-      ),
-    );
+    // Spec 034 §B1: look up which live dishes use the ingredient so the
+    // confirmation can name them. A failed lookup must not block the delete —
+    // it degrades to the plain confirmation.
+    var usedIn = const <String>[];
+    try {
+      usedIn = await ref
+          .read(catalogRepositoryProvider)
+          .dishNamesUsingIngredient(
+            widget.ingredientId!,
+            ref.read(localeCodeProvider),
+          );
+    } catch (_) {}
+    if (!mounted) return;
+    final confirmed = await showDeleteIngredientDialog(context, usedIn: usedIn);
     if (confirmed != true) return;
     await _delete();
   }
@@ -367,6 +347,8 @@ class _IngredientFormState extends ConsumerState<_IngredientForm>
       ref.invalidate(ingredientsListProvider);
       ref.invalidate(ingredientByIdProvider(widget.ingredientId!));
       ref.invalidate(entityCoverPathsProvider(MediaEntityType.ingredient));
+      // Spec 034 §B2: dishes using it must reload so their line is flagged.
+      ref.invalidate(dishLinesProvider);
       if (!mounted) return;
       context.pop();
     } catch (_) {
