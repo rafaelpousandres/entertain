@@ -178,3 +178,37 @@ button outside the scroll area, or compute available space.
 - Log S#1 (typography) as a captured idea to revisit if more users request it.
 - Log S#7 (collaborative shopping list) as a captured idea for a future dedicated spec
   (Phase 2, multi-group).
+
+---
+
+## Block F — Duplicate a catalog dish (DIR, added 2026-11-15)
+
+### F1 — Duplicate a dish to create a variant
+Allow duplicating a dish in the catalog, producing an independent copy that can then
+be modified to record a variant of the same dish (same base, different tweaks) without
+re-creating it from scratch. Common need: "the same dish, but with X changed."
+- **Independence:** the copy is fully independent — editing it does not touch the
+  original, and vice versa (same guarantee as event duplication's per-event copies).
+- **What copies:** name (suggested as "Còpia de …" / "Copy of …", editable), ingredients
+  with their quantities and notes, dietary attributes, purchase mode / supplier if the
+  dish is a purchased one, recipe/preparation steps, **and the photos** (director
+  decision 2026-11-15). The copy must remain **independent**: deleting, adding or
+  reordering photos on one dish must not affect the other. CC decides in the plan how to
+  achieve that given the storage model — a shared-reference copy only if the `media`
+  model guarantees that per-dish photo edits never touch another dish's rows/blobs;
+  otherwise copy the blobs so the two dishes are truly independent.
+- **Entry point:** from the dish catalog (e.g. an action on the dish card or inside the
+  dish editor), consistent with how other duplicate/overflow actions are surfaced.
+- **Where:** client, catalog (dish card / dish editor) + `catalog_repository` (duplicate
+  logic); confirm against the dish model what a faithful independent copy requires.
+- **BD:** likely none (reuses existing dish/ingredient relations); CC confirms in the
+  plan, and flags before any `db push` if a schema change turns out necessary.
+
+### Acceptance criteria — F1
+- Duplicating a catalog dish produces an independent copy with the same ingredients,
+  quantities, attributes and (if purchased) supplier data; editing either dish leaves
+  the other unchanged; the copy's name is pre-filled as a "copy of" and is editable.
+
+### Backlog update
+- Log the dish-duplication capability as incorporated into Spec 034 (director item,
+  2026-11-15).
