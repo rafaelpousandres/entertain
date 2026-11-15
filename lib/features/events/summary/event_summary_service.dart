@@ -43,6 +43,7 @@ import '../widgets/event_formatters.dart';
 import 'event_summary_data.dart';
 import 'event_summary_pdf_builder.dart';
 import 'image_downscale.dart';
+import 'summary_photos.dart';
 
 /// Builds the summary PDF for [eventId] and presents the share/save sheet.
 /// Throws on failure so the caller can surface [AppLocalizations.summaryError];
@@ -75,6 +76,19 @@ Future<void> generateAndShareEventSummary(
   final ingredientCovers =
       await ref.read(entityCoverPathsProvider(MediaEntityType.ingredient).future);
 
+  // Spec 034 §C3: every photo path (not just the cover) of events and dishes,
+  // one read per type. A failure here must not cost the user the summary — it
+  // degrades to covers only, as before.
+  var eventPhotoPaths = const <String, List<String>>{};
+  var dishPhotoPaths = const <String, List<String>>{};
+  try {
+    final media = ref.read(mediaRepositoryProvider);
+    eventPhotoPaths = await media.pathsByEntity(MediaEntityType.event);
+    dishPhotoPaths = await media.pathsByEntity(MediaEntityType.dish);
+  } catch (e) {
+    debugPrint('summary: extra photos unavailable — $e');
+  }
+
   final unitsById = {for (final u in units) u.id: u};
   final categoriesById = {for (final c in categories) c.id: c};
   final ingredientsById = {for (final i in catalogIngredients) i.id: i};
@@ -83,22 +97,19 @@ Future<void> generateAndShareEventSummary(
   // Fetch-once + downscale-once cache, keyed by bucket|path: an ingredient photo
   // reused across dishes is compressed a single time (Spec 027 §C).
   final photoCache = <String, Uint8List?>{};
-  Future<Uint8List?> resolvePhoto(
+  Future<Uint8List?> resolvePath(
     MediaEntityType type,
-    String? entityId,
-    Map<String, String> covers,
+    String path,
+    int maxEdge,
   ) async {
-    if (entityId == null) return null;
-    final path = covers[entityId];
-    if (path == null) return null;
-    final key = '${type.bucket}|$path';
+    final key = '${type.bucket}|$path|$maxEdge';
     if (photoCache.containsKey(key)) return photoCache[key];
     Uint8List? result;
     try {
       final bytes = await ref.read(
         photoBytesProvider((bucket: type.bucket, path: path)).future,
       );
-      result = await downscaleForSummaryPdf(bytes);
+      result = await downscaleForSummaryPdf(bytes, maxEdge: maxEdge);
     } catch (e) {
       // §E: a photo that fails to load is omitted, not fatal. Log loudly so a
       // systemic failure (e.g. a missing grant) surfaces rather than hides.
@@ -107,6 +118,36 @@ Future<void> generateAndShareEventSummary(
     }
     photoCache[key] = result;
     return result;
+  }
+
+  /// Spec 034 §C3: the entity's photos beyond the cover, as small thumbnails
+  /// (capped). Loaded concurrently; one that fails is simply left out.
+  Future<({List<Uint8List> photos, int overflow})> resolveExtras(
+    MediaEntityType type,
+    String? entityId,
+    Map<String, List<String>> pathsByEntity,
+    int max,
+  ) async {
+    final pick = secondaryPhotoPaths(
+      entityId == null ? null : pathsByEntity[entityId],
+      max: max,
+    );
+    final loaded = await Future.wait([
+      for (final path in pick.paths)
+        resolvePath(type, path, kSummaryThumbMaxEdge),
+    ]);
+    return (photos: loaded.nonNulls.toList(), overflow: pick.overflow);
+  }
+
+  Future<Uint8List?> resolvePhoto(
+    MediaEntityType type,
+    String? entityId,
+    Map<String, String> covers,
+  ) async {
+    if (entityId == null) return null;
+    final path = covers[entityId];
+    if (path == null) return null;
+    return resolvePath(type, path, kSummaryImageMaxEdge);
   }
 
   // ── Cover header fields (only present values — §E) ────────────────────────
@@ -208,6 +249,12 @@ Future<void> generateAndShareEventSummary(
         ? null
         : catalogDishesById[d.sourceDishId]?.preparation;
 
+    final dishExtras = await resolveExtras(
+      MediaEntityType.dish,
+      d.sourceDishId,
+      dishPhotoPaths,
+      kSummaryDishExtraPhotos,
+    );
     summaryDishes.add(
       SummaryDish(
         name: d.name,
@@ -216,6 +263,8 @@ Future<void> generateAndShareEventSummary(
         badges: dietaryBadgesFor(diet, gf),
         ingredients: ingredients,
         photo: await resolvePhoto(MediaEntityType.dish, d.sourceDishId, dishCovers),
+        extraPhotos: dishExtras.photos,
+        extraPhotosOverflow: dishExtras.overflow,
         supplierLine: supplierLine,
         preparation: prep,
       ),
@@ -308,9 +357,17 @@ Future<void> generateAndShareEventSummary(
   }
 
   // ── Assemble + build + share ──────────────────────────────────────────────
+  final eventExtras = await resolveExtras(
+    MediaEntityType.event,
+    event.id,
+    eventPhotoPaths,
+    kSummaryEventExtraPhotos,
+  );
   final data = EventSummaryData(
     eventTitle: event.title,
     eventPhoto: await resolvePhoto(MediaEntityType.event, event.id, eventCovers),
+    eventExtraPhotos: eventExtras.photos,
+    eventExtraPhotosOverflow: eventExtras.overflow,
     headerFields: fields,
     guestGroups: guestGroups,
     guestsTotal: guests.length,

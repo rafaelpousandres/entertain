@@ -133,6 +133,17 @@ Future<Uint8List> buildEventSummaryPdf({
               fit: pw.BoxFit.cover,
             ),
           ),
+          // Spec 034 §C3: the rest of the event's photos, small, under the
+          // cover.
+          if (data.eventExtraPhotos.isNotEmpty) ...[
+            pw.SizedBox(height: 6),
+            _photoStrip(
+              data.eventExtraPhotos,
+              overflow: data.eventExtraPhotosOverflow,
+              size: kSummaryEventThumbSize,
+              body: body,
+            ),
+          ],
           pw.SizedBox(height: 12),
         ],
         // Spec 030 §D.4: a clean two-column data block — a fixed label gutter,
@@ -529,29 +540,94 @@ pw.Widget _dishBlock(
     ],
   );
 
+  final row = pw.Row(
+    crossAxisAlignment: pw.CrossAxisAlignment.start,
+    children: [
+      if (dish.photo != null) ...[
+        pw.ClipRRect(
+          horizontalRadius: 6,
+          verticalRadius: 6,
+          child: pw.Image(
+            pw.MemoryImage(dish.photo!),
+            width: 70,
+            height: 70,
+            fit: pw.BoxFit.cover,
+          ),
+        ),
+        pw.SizedBox(width: 10),
+      ],
+      pw.Expanded(child: left),
+    ],
+  );
+
   return pw.Padding(
     // Spec 032 §D2: a thin rule (added by the caller) now separates dishes, so
     // the block needs only a little air below its content.
     padding: const pw.EdgeInsets.only(bottom: 6),
-    child: pw.Row(
-      crossAxisAlignment: pw.CrossAxisAlignment.start,
-      children: [
-        if (dish.photo != null) ...[
-          pw.ClipRRect(
-            horizontalRadius: 6,
-            verticalRadius: 6,
-            child: pw.Image(
-              pw.MemoryImage(dish.photo!),
-              width: 70,
-              height: 70,
-              fit: pw.BoxFit.cover,
-            ),
+    child: dish.extraPhotos.isEmpty
+        ? row
+        // Spec 034 §C3: the dish's other photos, small, under its block.
+        : pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              row,
+              pw.SizedBox(height: 5),
+              _photoStrip(
+                dish.extraPhotos,
+                overflow: dish.extraPhotosOverflow,
+                size: kSummaryDishThumbSize,
+                body: body,
+              ),
+            ],
           ),
-          pw.SizedBox(width: 10),
-        ],
-        pw.Expanded(child: left),
-      ],
-    ),
+  );
+}
+
+/// Spec 034 §C3 — printed size (pt) of the secondary thumbnails: clearly
+/// visible, clearly subordinate to the 150 pt event cover / 70 pt dish photo.
+const double kSummaryEventThumbSize = 56;
+const double kSummaryDishThumbSize = 34;
+
+/// A wrapping row of square thumbnails, closed by a "+N" tile when [overflow]
+/// photos were left out of the summary.
+pw.Widget _photoStrip(
+  List<Uint8List> photos, {
+  required int overflow,
+  required double size,
+  required pw.TextStyle Function({double size, PdfColor? color, bool bold})
+  body,
+}) {
+  final radius = size >= 50 ? 6.0 : 4.0;
+  return pw.Wrap(
+    spacing: 5,
+    runSpacing: 5,
+    children: [
+      for (final photo in photos)
+        pw.ClipRRect(
+          horizontalRadius: radius,
+          verticalRadius: radius,
+          child: pw.Image(
+            pw.MemoryImage(photo),
+            width: size,
+            height: size,
+            fit: pw.BoxFit.cover,
+          ),
+        ),
+      if (overflow > 0)
+        pw.Container(
+          width: size,
+          height: size,
+          alignment: pw.Alignment.center,
+          decoration: pw.BoxDecoration(
+            color: _Palette.border,
+            borderRadius: pw.BorderRadius.circular(radius),
+          ),
+          child: pw.Text(
+            '+$overflow',
+            style: body(size: size >= 50 ? 12 : 9, color: _Palette.inkSoft),
+          ),
+        ),
+    ],
   );
 }
 
