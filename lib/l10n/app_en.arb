@@ -1191,5 +1191,13 @@
   "dishAssistantSaveAndAddAction": "Save and add",
   "@dishAssistantSaveAndAddAction": {},
   "dishAssistantFromMenuNote": "The dish is saved to your catalog and added to this menu. You can edit it afterwards.",
-  "@dishAssistantFromMenuNote": {}
+  "@dishAssistantFromMenuNote": {},
+  "photosSomeFailedMessage": "{count, plural, =1{1 photo couldn't be added.} other{{count} photos couldn't be added.}}",
+  "@photosSomeFailedMessage": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }

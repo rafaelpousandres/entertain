@@ -91,6 +91,7 @@ Future<String?> _captureCompressAndUpload({
 /// Adds a photo to an entity's carousel (Spec 010 §2.3/§2.4): source sheet →
 /// capture → upload to `{entityId}/{uuid}.jpg` in the entity's bucket → append
 /// a `media` row at the end (position = current count). Returns true on success.
+/// Spec 034 §C1: the gallery choice may add several photos at once.
 Future<bool> addEntityPhoto({
   required WidgetRef ref,
   required BuildContext context,
@@ -129,9 +130,18 @@ Future<bool> addEntityPhoto({
     );
     return false;
   }
-  final source = choice == PhotoSheetChoice.camera
-      ? PhotoSource.camera
-      : PhotoSource.gallery;
+  // Spec 034 §C1: the gallery adds several photos in one action; the camera
+  // still takes one at a time (below).
+  if (choice == PhotoSheetChoice.gallery) {
+    return _addGalleryPhotos(
+      ref: ref,
+      context: context,
+      type: type,
+      entityId: entityId,
+      session: session,
+    );
+  }
+  const source = PhotoSource.camera;
 
   if (creating) {
     final groupId = await ref.read(currentGroupIdProvider.future);
@@ -175,6 +185,80 @@ Future<bool> addEntityPhoto({
   // §2.6: a new photo is an unsaved change the editor can roll back on Discard.
   session?.markDirty();
   return true;
+}
+
+/// Spec 034 §C1 — multi-select from the gallery. Each picked photo runs the
+/// same compress → upload → register pipeline as a single add, in selection
+/// order; one failing does not abort the rest ([addPickedPhotos]) and a single
+/// message at the end reports how many could not be added. Returns true when
+/// at least one photo was added.
+Future<bool> _addGalleryPhotos({
+  required WidgetRef ref,
+  required BuildContext context,
+  required MediaEntityType type,
+  required String entityId,
+  required PhotoEditSession? session,
+}) async {
+  final l10n = AppLocalizations.of(context);
+  final messenger = ScaffoldMessenger.of(context);
+  final picked = await pickGalleryPhotos();
+  if (picked == null) {
+    messenger.showSnackBar(SnackBar(content: Text(l10n.photoSaveError)));
+    return false;
+  }
+  if (picked.isEmpty) return false; // cancelled
+
+  final storage = ref.read(photoStorageProvider);
+  final creating = session?.creating ?? false;
+  final ({int added, int failed}) result;
+
+  if (creating) {
+    // Spec 030 §B: staged by group, promoted to the entity on save.
+    final groupId = await ref.read(currentGroupIdProvider.future);
+    result = await addPickedPhotos(
+      filePaths: picked,
+      addOne: (filePath, _) async {
+        final stagedPath = '$groupId/${_uuid.v4()}.jpg';
+        final bytes = await storage.compressToJpeg(filePath);
+        await storage.upload(PhotoStorage.stagingBucket, stagedPath, bytes);
+        session!.addStaged(stagedPath);
+      },
+    );
+  } else {
+    final existing = await ref.read(
+      entityMediaProvider((type: type, entityId: entityId)).future,
+    );
+    final repo = ref.read(mediaRepositoryProvider);
+    result = await addPickedPhotos(
+      filePaths: picked,
+      addOne: (filePath, addedSoFar) async {
+        final path = '$entityId/${_uuid.v4()}.jpg';
+        final bytes = await storage.compressToJpeg(filePath);
+        await storage.upload(type.bucket, path, bytes);
+        // Upload first, row second: a failure never leaves a row with no blob.
+        await repo.insert(
+          type: type,
+          entityId: entityId,
+          path: path,
+          position: existing.length + addedSoFar,
+        );
+      },
+    );
+    if (result.added > 0) {
+      ref.invalidate(entityMediaProvider((type: type, entityId: entityId)));
+      // A first-ever add changes the cover shown on the list / menu thumbnails.
+      ref.invalidate(entityCoverPathsProvider(type));
+      // §2.6: new photos are an unsaved change the editor can roll back.
+      session?.markDirty();
+    }
+  }
+
+  if (result.failed > 0) {
+    messenger.showSnackBar(
+      SnackBar(content: Text(l10n.photosSomeFailedMessage(result.failed))),
+    );
+  }
+  return result.added > 0;
 }
 
 /// Persists a drag-reordered carousel (Spec 009 §6.1, generalised): writes each

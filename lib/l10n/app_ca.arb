@@ -677,5 +677,6 @@
   "addDishServingsHint": "Les racions es poden canviar més endavant des del menú.",
   "addDishServingsConfirm": "Afegeix al menú",
   "dishAssistantSaveAndAddAction": "Desa i afegeix",
-  "dishAssistantFromMenuNote": "El plat es desa al catàleg i s'afegeix a aquest menú. Després el podràs editar."
+  "dishAssistantFromMenuNote": "El plat es desa al catàleg i s'afegeix a aquest menú. Després el podràs editar.",
+  "photosSomeFailedMessage": "{count, plural, =1{No s'ha pogut afegir 1 foto.} other{No s'han pogut afegir {count} fotos.}}"
 }

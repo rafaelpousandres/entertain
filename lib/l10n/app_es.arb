@@ -677,5 +677,6 @@
   "addDishServingsHint": "Las raciones se pueden cambiar más adelante desde el menú.",
   "addDishServingsConfirm": "Añadir al menú",
   "dishAssistantSaveAndAddAction": "Guardar y añadir",
-  "dishAssistantFromMenuNote": "El plato se guarda en el catálogo y se añade a este menú. Después podrás editarlo."
+  "dishAssistantFromMenuNote": "El plato se guarda en el catálogo y se añade a este menú. Después podrás editarlo.",
+  "photosSomeFailedMessage": "{count, plural, =1{No se ha podido añadir 1 foto.} other{No se han podido añadir {count} fotos.}}"
 }
