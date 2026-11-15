@@ -452,6 +452,30 @@ class CatalogRepository {
     return dish;
   }
 
+  /// Spec 034 §F1 — inserts a duplicated dish. Unlike [createDish] it always
+  /// writes the recipe lines: a bought dish keeps its (hidden) ingredient lines
+  /// in the catalog, and a faithful copy must keep them too so switching the
+  /// copy back to cooked restores the recipe exactly as on the original.
+  Future<Dish> createDishCopy(
+    DishDraft draft, {
+    required String groupId,
+    required String localeCode,
+  }) async {
+    final row = await _client
+        .from('dishes')
+        .insert({
+          ...draft.toRow(),
+          'group_id': groupId,
+          'original_locale': localeCode,
+        })
+        .select(Dish.selectColumns)
+        .single();
+    final dish = Dish.fromRow(row);
+    await _replaceLines(dish.id, draft.lines);
+    await _ensureNameI18n('dish', dish.id, dish.name, localeCode);
+    return dish;
+  }
+
   Future<Dish> updateDish(
     String id,
     DishDraft draft, {

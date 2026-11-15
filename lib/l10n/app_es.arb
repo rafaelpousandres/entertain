@@ -678,5 +678,9 @@
   "addDishServingsConfirm": "Añadir al menú",
   "dishAssistantSaveAndAddAction": "Guardar y añadir",
   "dishAssistantFromMenuNote": "El plato se guarda en el catálogo y se añade a este menú. Después podrás editarlo.",
-  "photosSomeFailedMessage": "{count, plural, =1{No se ha podido añadir 1 foto.} other{No se han podido añadir {count} fotos.}}"
+  "photosSomeFailedMessage": "{count, plural, =1{No se ha podido añadir 1 foto.} other{No se han podido añadir {count} fotos.}}",
+  "dishDuplicateNameTemplate": "Copia de {name}",
+  "dishDuplicateSaveFirst": "Guarda los cambios antes de duplicar el plato.",
+  "dishDuplicateError": "No se ha podido duplicar el plato. Comprueba la conexión.",
+  "dishDuplicatePhotosFailed": "{count, plural, =1{No se ha podido copiar 1 foto.} other{No se han podido copiar {count} fotos.}}"
 }

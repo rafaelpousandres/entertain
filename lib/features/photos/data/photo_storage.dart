@@ -75,6 +75,13 @@ class PhotoStorage {
         .move(stagedPath, destPath, destinationBucket: destBucket);
   }
 
+  /// Server-side copy of an object within [bucket] (Spec 034 §F1 — duplicating
+  /// a dish gives the copy its own blobs). The source stays in place; the
+  /// destination is a brand-new, independent object. Throws on failure.
+  Future<void> copy(String bucket, String fromPath, String toPath) async {
+    await _client.storage.from(bucket).copy(fromPath, toPath);
+  }
+
   /// Downloads the raw bytes of a stored object (RLS-checked).
   Future<Uint8List> download(String bucket, String path) {
     return _client.storage.from(bucket).download(path);

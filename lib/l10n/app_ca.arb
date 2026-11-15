@@ -678,5 +678,9 @@
   "addDishServingsConfirm": "Afegeix al menú",
   "dishAssistantSaveAndAddAction": "Desa i afegeix",
   "dishAssistantFromMenuNote": "El plat es desa al catàleg i s'afegeix a aquest menú. Després el podràs editar.",
-  "photosSomeFailedMessage": "{count, plural, =1{No s'ha pogut afegir 1 foto.} other{No s'han pogut afegir {count} fotos.}}"
+  "photosSomeFailedMessage": "{count, plural, =1{No s'ha pogut afegir 1 foto.} other{No s'han pogut afegir {count} fotos.}}",
+  "dishDuplicateNameTemplate": "Còpia de {name}",
+  "dishDuplicateSaveFirst": "Desa els canvis abans de duplicar el plat.",
+  "dishDuplicateError": "No s'ha pogut duplicar el plat. Comprova la connexió.",
+  "dishDuplicatePhotosFailed": "{count, plural, =1{No s'ha pogut copiar 1 foto.} other{No s'han pogut copiar {count} fotos.}}"
 }

@@ -25,6 +25,7 @@ import '../data/catalog_providers.dart';
 import '../data/diet.dart';
 import '../data/dish.dart';
 import '../data/dish_category.dart';
+import '../data/dish_duplicator.dart';
 import '../data/ingredient.dart';
 import '../data/reference_data.dart';
 import '../widgets/diet_choice.dart';
@@ -118,12 +119,13 @@ class _DishFormState extends ConsumerState<_DishForm>
 
   bool _saving = false;
   bool _deleting = false;
+  bool _duplicating = false;
   bool _submitted = false;
   String? _nameError;
   // §2.3: tracks user edits so the unsaved-changes guard knows when to prompt.
   bool _dirty = false;
 
-  bool get _busy => _saving || _deleting;
+  bool get _busy => _saving || _deleting || _duplicating;
 
   // §2.3: mark the form dirty (and rebuild so EditScaffold's exit guard sees
   // it) the first time a free-text field changes. The pickers setState when
@@ -394,6 +396,54 @@ class _DishFormState extends ConsumerState<_DishForm>
     await _delete();
   }
 
+  /// Spec 034 §F1 — duplicates the SAVED dish into an independent copy (fields,
+  /// recipe lines and photos) and opens the copy, ready to be turned into a
+  /// variant. Unsaved edits are not part of the saved dish, so the user is
+  /// asked to save first rather than getting a copy that silently differs
+  /// from what is on screen.
+  Future<void> _duplicate() async {
+    if (_busy) return;
+    final l10n = AppLocalizations.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    if (_dirty || photosDirty) {
+      messenger.showSnackBar(
+        SnackBar(content: Text(l10n.dishDuplicateSaveFirst)),
+      );
+      return;
+    }
+    setState(() => _duplicating = true);
+    try {
+      final groupId = await ref.read(currentGroupIdProvider.future);
+      final result = await duplicateDish(
+        catalog: ref.read(catalogRepositoryProvider),
+        media: ref.read(mediaRepositoryProvider),
+        storage: ref.read(photoStorageProvider),
+        sourceDishId: widget.dishId!,
+        newName: l10n.dishDuplicateNameTemplate(_draft.name.trim()),
+        groupId: groupId,
+        localeCode: ref.read(localeCodeProvider),
+      );
+      ref.invalidate(dishesListProvider);
+      ref.invalidate(dishDietMapProvider);
+      ref.invalidate(entityCoverPathsProvider(MediaEntityType.dish));
+      if (!mounted) return;
+      if (result.photosFailed > 0) {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(l10n.dishDuplicatePhotosFailed(result.photosFailed)),
+          ),
+        );
+      }
+      // Replace the source editor so "back" returns to the catalog, where both
+      // dishes are listed.
+      context.pushReplacement('/dishes/${result.dish.id}');
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _duplicating = false);
+      messenger.showSnackBar(SnackBar(content: Text(l10n.dishDuplicateError)));
+    }
+  }
+
   Future<void> _delete() async {
     final l10n = AppLocalizations.of(context);
     final messenger = ScaffoldMessenger.of(context);
@@ -476,11 +526,21 @@ class _DishFormState extends ConsumerState<_DishForm>
             ),
             onSelected: (action) {
               switch (action) {
+                case _OverflowAction.duplicate:
+                  _duplicate();
                 case _OverflowAction.delete:
                   _confirmDelete();
               }
             },
             itemBuilder: (context) => [
+              // Spec 034 §F1: duplicate the dish to record a variant.
+              PopupMenuItem(
+                value: _OverflowAction.duplicate,
+                child: Text(
+                  l10n.duplicateEventAction,
+                  style: AppTypography.body,
+                ),
+              ),
               PopupMenuItem(
                 value: _OverflowAction.delete,
                 child: Text(
@@ -798,4 +858,4 @@ class _Error extends StatelessWidget {
   }
 }
 
-enum _OverflowAction { delete }
+enum _OverflowAction { duplicate, delete }

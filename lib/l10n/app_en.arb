@@ -1199,5 +1199,25 @@
         "type": "int"
       }
     }
+  },
+  "dishDuplicateNameTemplate": "Copy of {name}",
+  "@dishDuplicateNameTemplate": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "dishDuplicateSaveFirst": "Save your changes before duplicating the dish.",
+  "@dishDuplicateSaveFirst": {},
+  "dishDuplicateError": "Couldn't duplicate the dish. Check your connection.",
+  "@dishDuplicateError": {},
+  "dishDuplicatePhotosFailed": "{count, plural, =1{1 photo couldn't be copied.} other{{count} photos couldn't be copied.}}",
+  "@dishDuplicatePhotosFailed": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }
