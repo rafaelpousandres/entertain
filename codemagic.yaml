@@ -94,6 +94,21 @@ workflows:
             --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY" \
             --export-options-plist=/Users/builder/export_options.plist
 
+      - name: Verify the version written into the built app
+        script: |
+          # Fail closed BEFORE the upload: App Store Connect rejects a binary
+          # whose Info.plist has no CFBundleVersion. Both values reach the
+          # Info.plist through ios/Flutter/*.xcconfig -> Generated.xcconfig
+          # (FLUTTER_BUILD_NAME / FLUTTER_BUILD_NUMBER).
+          PLIST="build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app/Info.plist"
+          VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$PLIST" 2>/dev/null || true)
+          BUILD=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$PLIST" 2>/dev/null || true)
+          echo "CFBundleShortVersionString = '$VERSION'"
+          echo "CFBundleVersion            = '$BUILD' (expected '$PROJECT_BUILD_NUMBER')"
+          if [ -z "$VERSION" ] || [ "$BUILD" != "$PROJECT_BUILD_NUMBER" ]; then
+            echo "ERROR: the built app does not carry the expected version"; exit 1
+          fi
+
     artifacts:
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
