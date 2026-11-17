@@ -147,9 +147,49 @@ async function loadCurrentMenu(
 
 // ---- catalogs ------------------------------------------------------------
 
+// Catalog rows carry their name in the language it was first typed in
+// (`original_locale`); the other languages live in `translations`. Swap each
+// row's name for its `locale` translation when one exists, so the model and
+// the review screen see the catalog in the user's language (the demo dataset,
+// for one, is stored in English). The service-role client bypasses RLS, so the
+// lookup is scoped to the given ids; chunked to keep the request URL short.
+async function localizeNames<T extends { id: string; name: string }>(
+  client: ReturnType<typeof createClient>,
+  entityType: string,
+  rows: T[],
+  locale: string,
+): Promise<T[]> {
+  const textById = new Map<string, string>();
+  const CHUNK = 100;
+  for (let i = 0; i < rows.length; i += CHUNK) {
+    const ids = rows.slice(i, i + CHUNK).map((r) => r.id);
+    const { data, error } = await client
+      .from("translations")
+      .select("entity_id, text")
+      .eq("entity_type", entityType)
+      .eq("field", "name")
+      .eq("locale", locale)
+      .in("entity_id", ids);
+    if (error) {
+      console.error(
+        `[catalog] ${entityType} translations read failed:`,
+        error.message,
+      );
+    }
+    for (
+      const t of (data as Array<{ entity_id: string; text: string }> | null) ??
+        []
+    ) {
+      if (t.text?.trim()) textById.set(t.entity_id, t.text);
+    }
+  }
+  return rows.map((r) => ({ ...r, name: textById.get(r.id) ?? r.name }));
+}
+
 async function loadDishes(
   client: ReturnType<typeof createClient>,
   groupId: string,
+  locale: string,
 ): Promise<Array<{ id: string; name: string; category: string }>> {
   const { data, error } = await client
     .from("dishes")
@@ -157,12 +197,14 @@ async function loadDishes(
     .eq("group_id", groupId)
     .is("deleted_at", null);
   if (error) console.error("[catalog] dishes read failed:", error.message);
-  return (data as Array<{ id: string; name: string; category: string }> | null) ?? [];
+  const rows = (data as Array<{ id: string; name: string; category: string }> | null) ?? [];
+  return localizeNames(client, "dish", rows, locale);
 }
 
 async function loadDrinks(
   client: ReturnType<typeof createClient>,
   groupId: string,
+  locale: string,
 ): Promise<Array<{ id: string; name: string }>> {
   const { data, error } = await client
     .from("drinks")
@@ -170,12 +212,14 @@ async function loadDrinks(
     .eq("group_id", groupId)
     .is("deleted_at", null);
   if (error) console.error("[catalog] drinks read failed:", error.message);
-  return (data as Array<{ id: string; name: string }> | null) ?? [];
+  const rows = (data as Array<{ id: string; name: string }> | null) ?? [];
+  return localizeNames(client, "drink", rows, locale);
 }
 
 async function loadIngredients(
   client: ReturnType<typeof createClient>,
   groupId: string,
+  locale: string,
 ): Promise<Array<{ id: string; name: string }>> {
   const { data, error } = await client
     .from("ingredients")
@@ -183,7 +227,8 @@ async function loadIngredients(
     .or(`group_id.eq.${groupId},group_id.is.null`)
     .is("deleted_at", null);
   if (error) console.error("[catalog] ingredients read failed:", error.message);
-  return (data as Array<{ id: string; name: string }> | null) ?? [];
+  const rows = (data as Array<{ id: string; name: string }> | null) ?? [];
+  return localizeNames(client, "ingredient", rows, locale);
 }
 
 async function loadUnits(
@@ -509,9 +554,9 @@ async function handlePropose(
     const [current, dishes, drinks, ingredients, units, categories] =
       await Promise.all([
         loadCurrentMenu(serviceClient, eventId),
-        loadDishes(serviceClient, groupId),
-        loadDrinks(serviceClient, groupId),
-        loadIngredients(serviceClient, groupId),
+        loadDishes(serviceClient, groupId, locale),
+        loadDrinks(serviceClient, groupId, locale),
+        loadIngredients(serviceClient, groupId, locale),
         loadUnits(serviceClient, locale),
         loadSupplierCategories(serviceClient, groupId, locale),
       ]);
