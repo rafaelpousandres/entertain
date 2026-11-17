@@ -1,5 +1,9 @@
 -- ============================================================================
 -- Demo dataset seed — group 1f09045b-cacd-449a-a8a1-c7bdfb5bdc52 (English)
+-- NOTE (Nov 2026): ingredient names here start with a capital, matching the
+--   template after migration 20261118000100_demo_names_capitalize.sql. Do not
+--   run this file against a database where that migration is not applied (the
+--   ingredient matches are by exact name).
 -- Phase 2 content plan: "Fase 2 - Pla de contingut del dataset de demostració.md"
 -- (versioned next to this file).
 --
@@ -55,66 +59,66 @@ set diet = v.diet::diet_level,
     gluten_free = v.gf::tri_state
 from (values
   ('00 flour','vegan','no'),
-  ('apples','vegan','yes'),
-  ('arborio rice','vegan','yes'),
-  ('avocado','vegan','yes'),
-  ('baguette','vegan','no'),
-  ('basil','vegan','yes'),
-  ('bean sprouts','vegan','yes'),
-  ('beef stock','none','yes'),
-  ('beef tenderloin','none','yes'),
-  ('blueberries','vegan','yes'),
-  ('butter','vegetarian','yes'),
-  ('capers','vegan','yes'),
-  ('carrots','vegan','yes'),
-  ('celery stalks','vegan','yes'),
-  ('chestnuts','vegan','yes'),
-  ('cocoa powder','vegan','yes'),
-  ('cream cheese','vegetarian','yes'),
-  ('cucumber','vegan','yes'),
-  ('dark chocolate','unknown','unknown'),   -- deliberate "?"
-  ('dry white wine','vegan','yes'),
-  ('espresso coffee','unknown','unknown'),  -- deliberate "?"
-  ('feta cheese','vegetarian','yes'),
-  ('firm tofu','vegan','yes'),
-  ('fresh mint','vegan','yes'),
-  ('fresh orange juice','vegan','yes'),
-  ('fresh thyme','vegan','yes'),
-  ('garlic cloves','vegan','yes'),
-  ('heavy cream','vegetarian','yes'),
-  ('kalamata olives','vegan','yes'),
-  ('ladyfingers','vegetarian','no'),
-  ('large eggs','vegetarian','yes'),
-  ('lemons','vegan','yes'),
-  ('limes','vegan','yes'),
-  ('marsala wine','vegan','yes'),
-  ('mascarpone','vegetarian','yes'),
-  ('mushrooms','vegan','yes'),
-  ('olive oil','vegan','yes'),
-  ('oysters','none','yes'),
-  ('parmesan','vegetarian','yes'),
-  ('parsley','vegan','yes'),
-  ('pastry flour','vegan','no'),
-  ('peanuts','vegan','yes'),
-  ('pineapple','vegan','yes'),
-  ('potatoes','vegan','yes'),
-  ('prosecco','vegan','yes'),
-  ('puff pastry','vegetarian','no'),
-  ('rice noodles','vegan','yes'),
-  ('ricotta','vegetarian','yes'),
-  ('saffron threads','vegan','yes'),
-  ('sage leaves','vegan','yes'),
-  ('smoked salmon','none','yes'),
-  ('sourdough bread','vegan','no'),
-  ('soy sauce','vegan','no'),
-  ('spinach','vegan','yes'),
-  ('strawberries','vegan','yes'),
-  ('sugar','vegan','yes'),
-  ('tomato','vegan','yes'),
-  ('truffle oil','vegan','yes'),
-  ('veal shanks','none','yes'),
-  ('whole goose','none','yes'),
-  ('yellow onion','vegan','yes')
+  ('Apples','vegan','yes'),
+  ('Arborio rice','vegan','yes'),
+  ('Avocado','vegan','yes'),
+  ('Baguette','vegan','no'),
+  ('Basil','vegan','yes'),
+  ('Bean sprouts','vegan','yes'),
+  ('Beef stock','none','yes'),
+  ('Beef tenderloin','none','yes'),
+  ('Blueberries','vegan','yes'),
+  ('Butter','vegetarian','yes'),
+  ('Capers','vegan','yes'),
+  ('Carrots','vegan','yes'),
+  ('Celery stalks','vegan','yes'),
+  ('Chestnuts','vegan','yes'),
+  ('Cocoa powder','vegan','yes'),
+  ('Cream cheese','vegetarian','yes'),
+  ('Cucumber','vegan','yes'),
+  ('Dark chocolate','unknown','unknown'),   -- deliberate "?"
+  ('Dry white wine','vegan','yes'),
+  ('Espresso coffee','unknown','unknown'),  -- deliberate "?"
+  ('Feta cheese','vegetarian','yes'),
+  ('Firm tofu','vegan','yes'),
+  ('Fresh mint','vegan','yes'),
+  ('Fresh orange juice','vegan','yes'),
+  ('Fresh thyme','vegan','yes'),
+  ('Garlic cloves','vegan','yes'),
+  ('Heavy cream','vegetarian','yes'),
+  ('Kalamata olives','vegan','yes'),
+  ('Ladyfingers','vegetarian','no'),
+  ('Large eggs','vegetarian','yes'),
+  ('Lemons','vegan','yes'),
+  ('Limes','vegan','yes'),
+  ('Marsala wine','vegan','yes'),
+  ('Mascarpone','vegetarian','yes'),
+  ('Mushrooms','vegan','yes'),
+  ('Olive oil','vegan','yes'),
+  ('Oysters','none','yes'),
+  ('Parmesan','vegetarian','yes'),
+  ('Parsley','vegan','yes'),
+  ('Pastry flour','vegan','no'),
+  ('Peanuts','vegan','yes'),
+  ('Pineapple','vegan','yes'),
+  ('Potatoes','vegan','yes'),
+  ('Prosecco','vegan','yes'),
+  ('Puff pastry','vegetarian','no'),
+  ('Rice noodles','vegan','yes'),
+  ('Ricotta','vegetarian','yes'),
+  ('Saffron threads','vegan','yes'),
+  ('Sage leaves','vegan','yes'),
+  ('Smoked salmon','none','yes'),
+  ('Sourdough bread','vegan','no'),
+  ('Soy sauce','vegan','no'),
+  ('Spinach','vegan','yes'),
+  ('Strawberries','vegan','yes'),
+  ('Sugar','vegan','yes'),
+  ('Tomato','vegan','yes'),
+  ('Truffle oil','vegan','yes'),
+  ('Veal shanks','none','yes'),
+  ('Whole goose','none','yes'),
+  ('Yellow onion','vegan','yes')
 ) as v(name, diet, gf)
 where i.group_id = '1f09045b-cacd-449a-a8a1-c7bdfb5bdc52' and i.name = v.name;
 
@@ -156,10 +160,10 @@ values
 
 insert into public.dish_ingredients (dish_id, ingredient_id, quantity, unit_id, sort_order)
 select d.id, i.id, v.qty, i.default_unit_id, v.so
-from (values ('kalamata olives', 300, 0),
-             ('olive oil', 50, 1),
-             ('lemons', 1, 2),
-             ('fresh thyme', 5, 3)) as v(name, qty, so)
+from (values ('Kalamata olives', 300, 0),
+             ('Olive oil', 50, 1),
+             ('Lemons', 1, 2),
+             ('Fresh thyme', 5, 3)) as v(name, qty, so)
 join public.dishes d
   on d.group_id = '1f09045b-cacd-449a-a8a1-c7bdfb5bdc52' and d.name = 'Marinated olives'
 join public.ingredients i
@@ -312,7 +316,7 @@ update public.event_dish_ingredients set
   supplier_category_id = (select id from public.supplier_categories where group_id is null and code = 'pantry')
 where event_dish_id in (select ed.id from public.event_dishes ed join public.events e on e.id = ed.event_id
                         where e.group_id = '1f09045b-cacd-449a-a8a1-c7bdfb5bdc52' and e.title = 'Summer Garden Party')
-  and ingredient_name in ('olive oil','sugar','garlic cloves','butter','fresh thyme','sage leaves','truffle oil');
+  and ingredient_name in ('Olive oil','Sugar','Garlic cloves','Butter','Fresh thyme','Sage leaves','Truffle oil');
 
 -- received → Greengrocer (system)
 update public.event_dish_ingredients set
@@ -320,8 +324,8 @@ update public.event_dish_ingredients set
   supplier_category_id = (select id from public.supplier_categories where group_id is null and code = 'greengrocer')
 where event_dish_id in (select ed.id from public.event_dishes ed join public.events e on e.id = ed.event_id
                         where e.group_id = '1f09045b-cacd-449a-a8a1-c7bdfb5bdc52' and e.title = 'Summer Garden Party')
-  and ingredient_name in ('tomato','basil','cucumber','lemons','parsley','kalamata olives','strawberries',
-                          'blueberries','pineapple','fresh mint','spinach','carrots','celery stalks','yellow onion');
+  and ingredient_name in ('Tomato','Basil','Cucumber','Lemons','Parsley','Kalamata olives','Strawberries',
+                          'Blueberries','Pineapple','Fresh mint','Spinach','Carrots','Celery stalks','Yellow onion');
 
 -- ordered → Sunrise Market (custom)
 update public.event_dish_ingredients set
@@ -329,8 +333,8 @@ update public.event_dish_ingredients set
   supplier_category_id = (select id from public.supplier_categories where group_id = '1f09045b-cacd-449a-a8a1-c7bdfb5bdc52' and code = 'sunrise_market')
 where event_dish_id in (select ed.id from public.event_dishes ed join public.events e on e.id = ed.event_id
                         where e.group_id = '1f09045b-cacd-449a-a8a1-c7bdfb5bdc52' and e.title = 'Summer Garden Party')
-  and ingredient_name in ('arborio rice','saffron threads','mascarpone','ladyfingers','cocoa powder',
-                          'heavy cream','parmesan','ricotta','large eggs','feta cheese','00 flour','pastry flour');
+  and ingredient_name in ('Arborio rice','Saffron threads','Mascarpone','Ladyfingers','Cocoa powder',
+                          'Heavy cream','Parmesan','Ricotta','Large eggs','Feta cheese','00 flour','Pastry flour');
 
 -- missing → Blue Fin Fishmonger (custom)
 update public.event_dish_ingredients set
@@ -338,7 +342,7 @@ update public.event_dish_ingredients set
   supplier_category_id = (select id from public.supplier_categories where group_id = '1f09045b-cacd-449a-a8a1-c7bdfb5bdc52' and code = 'blue_fin')
 where event_dish_id in (select ed.id from public.event_dishes ed join public.events e on e.id = ed.event_id
                         where e.group_id = '1f09045b-cacd-449a-a8a1-c7bdfb5bdc52' and e.title = 'Summer Garden Party')
-  and ingredient_name in ('smoked salmon','oysters');
+  and ingredient_name in ('Smoked salmon','Oysters');
 
 -- to_order → Vineyard Wines (custom) for wines/coffee
 update public.event_dish_ingredients set
@@ -346,7 +350,7 @@ update public.event_dish_ingredients set
   supplier_category_id = (select id from public.supplier_categories where group_id = '1f09045b-cacd-449a-a8a1-c7bdfb5bdc52' and code = 'vineyard_wines')
 where event_dish_id in (select ed.id from public.event_dishes ed join public.events e on e.id = ed.event_id
                         where e.group_id = '1f09045b-cacd-449a-a8a1-c7bdfb5bdc52' and e.title = 'Summer Garden Party')
-  and ingredient_name in ('dry white wine','marsala wine','prosecco','espresso coffee');
+  and ingredient_name in ('Dry white wine','Marsala wine','Prosecco','Espresso coffee');
 
 -- to_order → Butcher (system) for meats
 update public.event_dish_ingredients set
@@ -354,7 +358,7 @@ update public.event_dish_ingredients set
   supplier_category_id = (select id from public.supplier_categories where group_id is null and code = 'butcher')
 where event_dish_id in (select ed.id from public.event_dishes ed join public.events e on e.id = ed.event_id
                         where e.group_id = '1f09045b-cacd-449a-a8a1-c7bdfb5bdc52' and e.title = 'Summer Garden Party')
-  and ingredient_name in ('veal shanks','beef stock','beef tenderloin','whole goose');
+  and ingredient_name in ('Veal shanks','Beef stock','Beef tenderloin','Whole goose');
 
 -- catch-all: anything still unassigned → to_order at the Supermarket (system)
 update public.event_dish_ingredients set
