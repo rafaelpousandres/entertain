@@ -52,7 +52,9 @@ dependencies:
   flutter_image_compress: ^2.3.0
   photo_view: ^0.15.0
   # Spec 009 §2.3 — contact picker (Android READ_CONTACTS).
-  flutter_contacts: ^1.1.9
+  # 2.x is required on iOS: 1.x force-unwraps the app delegate window while
+  # registering, which is nil under the UIScene lifecycle (launch crash).
+  flutter_contacts: ^2.6.0
   # Spec 009 §2.2/§2.3 — runtime permissions; its openAppSettings() also
   # provides the deep link to the app's system settings page for the
   # "denied permanently" recovery path.
@@ -105,8 +107,12 @@ flutter:
           weight: 500
 flutter_launcher_icons:
   android: "ic_launcher"
-  ios: false
+  # Spec 035 A3 — iOS icon. iOS forbids transparency, and the legacy icon has
+  # transparent rounded corners: they are flattened onto the brand cream so the
+  # result is a full-bleed square (iOS applies its own corner mask).
+  ios: true
   remove_alpha_ios: true
+  background_color_ios: "#FBF5EA"
   image_path: "assets/icon/entertain - icon legacy.png"
   adaptive_icon_background: "assets/icon/entertain - icon background.png"
   adaptive_icon_foreground: "assets/icon/entertain - icon foreground.png"
@@ -126,6 +132,13 @@ flutter_launcher_icons:
 # launcher icon reappears and the double-logo flash returns.
 # Regenerate native assets with `dart run flutter_native_splash:create` after
 # changing this block.
+#
+# Spec 035 A3 — iOS uses the same plain cream launch screen (no logo; iOS has
+# no circular mask, but a native logo would jump against the in-app overlay).
+# NOTE: for a colour-only config the tool writes an OPAQUE BLACK 1x1
+# ios/Runner/Assets.xcassets/LaunchImage.imageset/LaunchImage.png, which shows
+# as a dark dot in the middle of the launch screen. After regenerating, restore
+# that file to a fully transparent 1x1 PNG (as committed).
 flutter_native_splash:
   color: "#FBF5EA"
   android_12:

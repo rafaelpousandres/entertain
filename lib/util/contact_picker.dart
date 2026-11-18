@@ -5,9 +5,8 @@
 /// ever requested here — when the user explicitly taps "Pick from contacts" —
 /// never at app launch (§2.3).
 ///
-/// iOS is out of scope this round (§2.3); the flow is Android-shaped but the
-/// packages are cross-platform, so an iOS pass later only needs the Info.plist
-/// usage string.
+/// The same flow runs on Android and iOS (Spec 035); iOS additionally needs
+/// the `NSContactsUsageDescription` string in Info.plist.
 library;
 
 import 'package:flutter_contacts/flutter_contacts.dart';
@@ -63,23 +62,23 @@ Future<ContactPickResult> pickContact() async {
     return const ContactPickResult(ContactPickStatus.denied);
   }
 
-  // ACTION_PICK returns the chosen contact; refetch with properties so phones
-  // and emails are fully populated regardless of what the picker inlined.
-  final picked = await FlutterContacts.openExternalPick();
+  // The native picker returns the chosen contact already populated with the
+  // requested properties (flutter_contacts 2.x), so no refetch is needed. On
+  // Android, asking for properties requires READ_CONTACTS — granted above.
+  final picked = await FlutterContacts.native.showPicker(
+    properties: const {ContactProperty.phone, ContactProperty.email},
+  );
   if (picked == null) {
     return const ContactPickResult(ContactPickStatus.cancelled);
   }
-  final full =
-      await FlutterContacts.getContact(picked.id, withProperties: true) ??
-      picked;
 
-  final name = full.displayName.trim();
+  final name = (picked.displayName ?? '').trim();
   return ContactPickResult(
     ContactPickStatus.picked,
     PickedContact(
       name: name.isEmpty ? null : name,
-      phones: _dedup(full.phones.map((p) => p.number)),
-      emails: _dedup(full.emails.map((e) => e.address)),
+      phones: _dedup(picked.phones.map((p) => p.number)),
+      emails: _dedup(picked.emails.map((e) => e.address)),
     ),
   );
 }

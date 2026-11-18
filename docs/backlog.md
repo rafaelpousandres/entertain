@@ -889,6 +889,24 @@ d'ingredient. Per això passa amb TOTS els ingredients.
 
 ## 9. Higiene de dades i pendents tècnics
 
+### ⚠️ PORTA PRÈVIA — selector de contactes a Android (flutter_contacts 2.x) — OBLIGATÒRIA abans del pròxim build/release d'Android
+**Oberta el 18/11/2026, en mergejar `spec/035-ios` a `main`.** El port a iOS
+va obligar a passar `flutter_contacts` de 1.x a **2.6.0** (la 1.x peta a
+l'arrencada amb el cicle de vida UIScene) i a reescriure
+`lib/util/contact_picker.dart` amb l'API nova (`FlutterContacts.native.showPicker`,
+sense el refetch posterior). El canvi és compartit per Android i iOS, però
+**a Android encara NO s'ha validat en dispositiu**: producció d'Android segueix
+servint un build anterior amb la 1.x.
+
+- **Requisit (bloqueja el release, no el merge):** abans del pròxim
+  build/release d'Android, validar a **Closed Testing**, en un dispositiu real,
+  "triar un contacte" a **proveïdor** i a **convidat**: permís concedit (nom,
+  telèfons i correus omplerts), cancel·lació del selector i permís denegat.
+- **Si falla:** es corregeix a la branca del release i es reconstrueix; no es
+  publica cap versió d'Android sense aquesta validació.
+- **Tancament:** quan passi, esborrar aquesta entrada i l'avís de
+  `docs/build-and-release.md` §6.
+
 ### 🔍 Cobertura de maquetació de la passada de densitat (1.0.30)
 La passada de densitat de la 1.0.30 (etiqueta→camp 6→4, padding vertical dels
 camps 12→10, seccions 16→12) es va fer als **widgets compartits** del sistema

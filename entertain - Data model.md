@@ -1,7 +1,7 @@
 # entertain — Detailed data model
 
-> Draft for review and approval. Version 0.3 (quota infrastructure — Spec 019
-> family + server-resolved limits, August 2026).
+> Draft for review and approval. Version 0.4 (`translations` read policy scoped
+> to the translated entity, November 2026).
 > Model of the **complete vision**. The lean MVP implements a subset of it; the
 > phases activate the rest without redesigning anything. Each entity indicates
 > the phase in which it is activated.
@@ -512,16 +512,32 @@ The per-event photo album table (Spec 009 §2.2), superseded by `media` (Spec
 §2.2). Photos for every entity now live in `media`.
 
 #### `translations` — Translation · Phase 0
-Translations of app-provided content (§5).
+Translations of app-provided content (§5) and, since Spec 025, of the names of
+each group's own ingredients, dishes and drinks.
 
 | Field | Type | Notes |
 |---|---|---|
-| entity_type | enum(unit,supplier_category,ingredient,message_template) | |
+| entity_type | enum(unit,supplier_category,ingredient,message_template,dish,drink,hint) | |
 | entity_id | uuid | Translated entity. |
 | locale | enum(ca,es,en) | |
 | field | text | Translated field (e.g. `name`). |
 | text | text | Translated text. |
 | | | Unique (`entity_type`, `entity_id`, `locale`, `field`). |
+
+> **RLS (November 2026, migration `20261118000000`).** `translations` has no
+> `group_id`: a row is readable **when the entity it translates is readable**.
+> `unit` and `hint` rows are system content, readable by every authenticated
+> user; `supplier_category`, `ingredient` and `message_template` rows are
+> readable when the parent row is a system row (null `group_id`) or belongs to
+> one of the caller's groups; `dish` and `drink` rows only when the parent
+> belongs to one of the caller's groups. This replaces the original open
+> `using (true)` policy, which had become a cross-group leak (and, through the
+> API's 1000-row response cap, left recent accounts with untranslated catalogs)
+> once the table started holding group-owned names. Clients never write the
+> table; only the service role and `SECURITY DEFINER` functions do. Two
+> executable guards keep it so: `test/rls_open_policy_guard_test.dart` (no
+> table outside an explicit system-content allowlist may end with an open
+> SELECT policy) and `supabase/checks/translations_rls_check.sql`.
 
 #### `message_templates` — Message template · Phase 0
 Default (system) template and per-group customization; orders snapshot it
@@ -641,8 +657,12 @@ Single principle: **a row is accessible if the user is a member of its group.**
 - **Phase 2:** adding more `memberships` does not alter the policy; optionally,
   some operations are restricted by `role`.
 - **System content** (`units`, `supplier_categories` and `ingredients` with null
-  `group_id`, `translations`, system template): readable by any authenticated
-  user; writable only by the service role.
+  `group_id`, system template): readable by any authenticated user; writable
+  only by the service role.
+- **`translations`** carries no `group_id` and follows its parent: a translation
+  is readable exactly when the entity it translates is readable (system rows by
+  everyone, group-owned rows by the group's members — see §3.9). Writable only
+  by the service role.
 - **Storage:** the media bucket applies analogous RLS by `group_id`.
 
 ---
@@ -653,8 +673,10 @@ Single principle: **a row is accessible if the user is a member of its group.**
   MVP's predefined suppliers, an initial catalog of common ingredients, and the
   message templates — is marked with `is_system = true` (or null `group_id`) and
   translated to ca/es/en via `translations`.
-- **User-created content** is monolingual, in the language it is written in; it
-  does not go through `translations`.
+- **User-created content** is written in one language. Since Spec 025 the names
+  of a group's own ingredients, dishes and drinks are also stored in
+  `translations` (AI-translated to the other base languages); those rows are
+  private to the group (§4).
 - The interface (labels, buttons) is translated with Flutter's i18n mechanism
   (ARB), independent of this table.
 
@@ -705,6 +727,17 @@ is planned:
 
 ## 9. Change log
 
+- **0.4** — `translations` read policy (November 2026):
+  - The SELECT policy of `translations` is no longer open to every
+    authenticated user: it now mirrors the read rule of the translated entity
+    (migration `20261118000000_translations_select_scoped`, structure only, in
+    production since 18 November 2026). §3.9 and §4 updated.
+  - Retro-documented what the table already held: `entity_type` values `dish`,
+    `drink` and `hint`, and the group-owned name translations introduced by
+    Spec 025 (§5).
+  - No table or column changes in this pass. The companion data migration
+    `20261118000100_demo_names_capitalize` only capitalises the first letter of
+    demo-dataset names and their translations (no schema impact).
 - **0.3** — Quota infrastructure (August 2026):
   - Retro-documented the **Spec 019 family**, live in production since June
     2026 but missing from this model: `quota_usage` (atomic counter +

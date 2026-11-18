@@ -1,0 +1,4 @@
+/* Permission prompts shown by iOS (Spec 035 A2). Keep in sync with Info.plist. */
+"NSCameraUsageDescription" = "Entertain uses the camera so you can take photos of your dishes, ingredients, drinks and events.";
+"NSContactsUsageDescription" = "Entertain reads only the contact you pick, to fill in the name, phone and email of a supplier or a guest.";
+"NSPhotoLibraryUsageDescription" = "Entertain lets you choose photos from your library to add them to your dishes, ingredients, drinks and events.";
