@@ -118,6 +118,19 @@ Tracks de Play (recordatori): Internal testing → Closed testing → Production
 
 ## 6. Checklist ràpid
 
+> **⚠️ PORTA PRÈVIA OBLIGATÒRIA abans del pròxim build/release d'Android
+> (oberta el 18/11/2026).** El selector de contactes ha passat a
+> `flutter_contacts` 2.x (`lib/util/contact_picker.dart`, canvi imposat pel
+> port a iOS) i **encara NO s'ha validat en cap dispositiu Android**. Abans de
+> publicar cap versió d'Android cal validar a **Closed Testing**, en un
+> dispositiu real, "triar un contacte" als dos punts d'entrada:
+> **(1) proveïdor** i **(2) convidat** — permís concedit (nom, telèfons i
+> correus omplerts), cancel·lació del selector i permís denegat. Si falla, es
+> corregeix a la branca del release i es reconstrueix. Aquesta nota s'esborra
+> quan la validació hagi passat (vegeu també `docs/backlog.md` §9).
+
+- [ ] **Porta prèvia del selector de contactes (flutter_contacts 2.x) validada
+      a Closed Testing: proveïdor i convidat.**
 - [ ] Branca correcta, canvis validats.
 - [ ] `~/.config/entertain/local.json` existeix i té les dues claus.
 - [ ] `versionCode` pujat respecte a l'últim AAB pujat a Play.
