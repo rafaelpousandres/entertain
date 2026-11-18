@@ -2,6 +2,8 @@
 
 *La vida és reunir-se al voltant d'una taula*
 
+**Ajuda i contacte · Support · Soporte:** [rafael.pous@gmail.com](mailto:rafael.pous@gmail.com)
+
 Entertain t'ajuda a organitzar àpats i reunions a casa, de la idea a la taula. Prepares un catàleg reutilitzable de plats, begudes i ingredients; muntes el menú de cada esdeveniment; hi convides la gent; i obtens la llista de la compra ja calculada i agrupada per proveïdor. Aquest manual recull totes les funcionalitats de l'app, àrea per àrea. Per començar de pressa, consulta la *Guia de primers passos*; aquí hi trobaràs la referència completa.
 
 ---
@@ -175,6 +177,14 @@ Des de la pantalla d'un esdeveniment pots generar un **document resum** en PDF q
 ## 12. Trucs i detalls útils
 
 Arreu de l'app, els acordions mantenen **una sola secció oberta alhora**, perquè et concentris en una cosa cada vegada. Desar és sempre una acció explícita (el ✓ de la barra superior); si surts d'una pantalla amb canvis sense desar, l'app t'avisa abans de descartar-los, també quan canvies de secció a Configuració. I a cada pantalla principal, la icona ? t'ofereix una explicació curta i traduïda del que pots fer-hi.
+
+---
+
+## 13. Ajuda i contacte
+
+Tens algun dubte, has trobat un problema o vols fer-nos arribar un comentari? Escriu-nos a **[rafael.pous@gmail.com](mailto:rafael.pous@gmail.com)** i et respondrem per correu. També pots enviar-nos idees des de la caixa de suggeriments de Configuració.
+
+*Need help? Contact us at [rafael.pous@gmail.com](mailto:rafael.pous@gmail.com). · ¿Necesitas ayuda? Escríbenos a [rafael.pous@gmail.com](mailto:rafael.pous@gmail.com).*
 
 ---
 
