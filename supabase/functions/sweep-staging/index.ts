@@ -6,7 +6,11 @@
 // happy path leaves nothing (a successful save MOVES the blob out of staging),
 // so this only collects leftovers.
 //
-// Invoked on a schedule by pg_cron (see the cron migration) — there is no user
+// NOT SCHEDULED: the pg_cron migration that would invoke it was dropped
+// unapplied (decision of 18 November 2026 — orphan staging photos are accepted
+// and accumulate). The function stays deployable but nothing calls it.
+//
+// Designed to be invoked on a schedule by pg_cron — there is no user
 // JWT, so verify_jwt is OFF (config.toml) and the function instead requires the
 // service-role key in the Authorization header as a shared secret, so it cannot
 // be triggered by arbitrary callers.
