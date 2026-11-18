@@ -890,16 +890,17 @@ d'ingredient. Per això passa amb TOTS els ingredients.
   de `main` coincideix exactament amb el de producció i cap `db push` la pot
   arrossegar. **Conseqüència acceptada:** les fotos òrfenes del bucket
   `photo-staging` (creacions cancel·lades abans de desar) **s'acumulen** i no
-  es netegen soles. La funció `sweep-staging` es queda al repositori i
-  desplegada, però res no la invoca. Si mai es vol recuperar, cal una migració
-  nova amb data nova (no ressuscitar l'antiga).
+  es netegen soles. La funció `sweep-staging` també s'ha retirat de producció
+  i del repositori (19/11/2026); res no la invocava. Si mai es vol recuperar,
+  cal una migració nova amb data nova i tornar a desplegar la funció des de
+  l'historial de git.
 
 ---
 
 ## 9. Higiene de dades i pendents tècnics
 
 ### 🔄 Accions en curs (tancament de la ronda del 18/11/2026)
-Les tres úniques coses obertes d'aquesta ronda. Cada una s'esborra d'aquí quan
+Les úniques coses obertes d'aquesta ronda. Cada una s'esborra d'aquí quan
 es tanca.
 
 1. **Validació de la 1.0.34+50 a Closed Testing** (PR #122, sense mergejar fins
@@ -908,10 +909,7 @@ es tanca.
    **proveïdor** i a **convidat** — permís concedit, cancel·lació i permís
    denegat. I el catàleg, les unitats, les categories i els consells en
    l'idioma del telèfon (consulta de traduccions filtrada al client).
-2. **Aplicar la migració dels esdeveniments demo** (PR #121,
-   `20261118000200_demo_event_names_localize`): preparada i **no aplicada**;
-   necessita l'OK explícit del director. No es mergeja abans d'aplicar-la.
-3. **Resposta de la revisió d'Apple** (versió iOS).
+2. **Resposta de la revisió d'Apple** (versió iOS).
 
 ### 🔍 Cobertura de maquetació de la passada de densitat (1.0.30)
 La passada de densitat de la 1.0.30 (etiqueta→camp 6→4, padding vertical dels
