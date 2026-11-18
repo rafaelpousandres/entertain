@@ -34,7 +34,8 @@ verify_jwt = true
 [functions.rsvp]
 verify_jwt = false
 
-# Spec 030 §B — sweep abandoned photo-staging blobs. verify_jwt is OFF: it is
+# Spec 030 §B — sweep abandoned photo-staging blobs. Not scheduled (the cron
+# was dropped, November 2026). verify_jwt is OFF: it was designed to be
 # invoked by pg_cron (no user JWT), and the function gates itself on the
 # service-role key as a shared secret in the Authorization header.
 [functions.sweep-staging]
