@@ -127,7 +127,8 @@ Tracks de Play (recordatori): Internal testing → Closed testing → Production
 > **(1) proveïdor** i **(2) convidat** — permís concedit (nom, telèfons i
 > correus omplerts), cancel·lació del selector i permís denegat. Si falla, es
 > corregeix a la branca del release i es reconstrueix. Aquesta nota s'esborra
-> quan la validació hagi passat (vegeu també `docs/backlog.md` §9).
+> quan la validació hagi passat. El build que la porta és la **1.0.34+50**
+> (vegeu «Accions en curs» a `docs/backlog.md` §9).
 
 - [ ] **Porta prèvia del selector de contactes (flutter_contacts 2.x) validada
       a Closed Testing: proveïdor i convidat.**
