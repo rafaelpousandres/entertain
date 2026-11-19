@@ -884,28 +884,32 @@ d'ingredient. Per això passa amb TOTS els ingredients.
   sense backup, i no arreglaria el símptoma (que era a la UI). El valor es manté
   **inert** (documentat amb `comment on type`) per compatibilitat històrica i es
   treu dels camins actius (UI/IA/menú) via `dishCategoryActive`.
+- **Cron de neteja de `photo-staging` (sweeper):** descartat (18/11/2026). La
+  migració `20260703000100_sweep_staging_cron` **no s'havia aplicat mai** a
+  producció i s'ha **esborrat del repositori**; així l'historial de migracions
+  de `main` coincideix exactament amb el de producció i cap `db push` la pot
+  arrossegar. **Conseqüència acceptada:** les fotos òrfenes del bucket
+  `photo-staging` (creacions cancel·lades abans de desar) **s'acumulen** i no
+  es netegen soles. La funció `sweep-staging` també s'ha retirat de producció
+  i del repositori (19/11/2026); res no la invocava. Si mai es vol recuperar,
+  cal una migració nova amb data nova i tornar a desplegar la funció des de
+  l'historial de git.
 
 ---
 
 ## 9. Higiene de dades i pendents tècnics
 
-### ⚠️ PORTA PRÈVIA — selector de contactes a Android (flutter_contacts 2.x) — OBLIGATÒRIA abans del pròxim build/release d'Android
-**Oberta el 18/11/2026, en mergejar `spec/035-ios` a `main`.** El port a iOS
-va obligar a passar `flutter_contacts` de 1.x a **2.6.0** (la 1.x peta a
-l'arrencada amb el cicle de vida UIScene) i a reescriure
-`lib/util/contact_picker.dart` amb l'API nova (`FlutterContacts.native.showPicker`,
-sense el refetch posterior). El canvi és compartit per Android i iOS, però
-**a Android encara NO s'ha validat en dispositiu**: producció d'Android segueix
-servint un build anterior amb la 1.x.
+### 🔄 Accions en curs (tancament de la ronda del 18/11/2026)
+Les úniques coses obertes d'aquesta ronda. Cada una s'esborra d'aquí quan
+es tanca.
 
-- **Requisit (bloqueja el release, no el merge):** abans del pròxim
-  build/release d'Android, validar a **Closed Testing**, en un dispositiu real,
-  "triar un contacte" a **proveïdor** i a **convidat**: permís concedit (nom,
-  telèfons i correus omplerts), cancel·lació del selector i permís denegat.
-- **Si falla:** es corregeix a la branca del release i es reconstrueix; no es
-  publica cap versió d'Android sense aquesta validació.
-- **Tancament:** quan passi, esborrar aquesta entrada i l'avís de
-  `docs/build-and-release.md` §6.
+1. **Validació de la 1.0.34+50 a Closed Testing** (PR #122, sense mergejar fins
+   que passi). Inclou la porta prèvia del selector de contactes
+   (`flutter_contacts` 2.x, mai validat a Android): "triar un contacte" a
+   **proveïdor** i a **convidat** — permís concedit, cancel·lació i permís
+   denegat. I el catàleg, les unitats, les categories i els consells en
+   l'idioma del telèfon (consulta de traduccions filtrada al client).
+2. **Resposta de la revisió d'Apple** (versió iOS).
 
 ### 🔍 Cobertura de maquetació de la passada de densitat (1.0.30)
 La passada de densitat de la 1.0.30 (etiqueta→camp 6→4, padding vertical dels
@@ -962,23 +966,6 @@ En esborrar un ingredient/plat/beguda, les seves files a `translations` (taula
 polimòrfica, sense FK) quedaven òrfenes. **Resolt a la Spec 026** amb un **trigger**
 de neteja automàtica. Cobreix les entitats de catàleg; **no** el `kind = 'hint'`
 (els hints es sincronitzen per migració — vegeu el polit pendent a §6).
-
-### 🔜 Activar cron sweeper de `photo-staging` (abans de Closed Testing)
-El fix de foto-en-creació (Spec 030 §B) puja a un bucket `photo-staging` i promou
-les fotos a l'entitat en desar; una creació cancel·lada/morta deixa blobs orfes.
-La funció `sweep-staging` (ja desplegada) els neteja després de 24 h, però **el
-cron que la dispara encara no està activat**. La migració
-`20260703000100_sweep_staging_cron.sql` ja és a `main` **sense `db push`**, a
-punt. Per activar-lo (ABANS del Closed Testing / trànsit real):
-- `db push` de `20260703000100` (mostrar el SQL abans).
-- Crear 2 secrets a **Supabase Vault**: `project_url`
-  (`https://hwpcevsheahfrrovgloi.supabase.co`) i `service_role_key` (la service
-  role key del projecte — entrar-la al dashboard, mai al codi).
-- Possible habilitació de `pg_cron`/`pg_net` al Dashboard si el `db push` peta per
-  privilegis del rol de migració.
-
-Encaixa a la **tongada d'infraestructura del llançament (pas a Pro)**. Sense ell la
-brossa de staging no es neteja sola — **irrellevant fins que hi hagi usuaris reals**.
 
 ### 💡 `currentGroupId()` selecciona el grup sense `ORDER BY` determinista
 `currentGroupId()` (`EventsRepository`) selecciona el grup amb `.limit(1)` sense
