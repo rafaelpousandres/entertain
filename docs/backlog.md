@@ -900,16 +900,9 @@ d'ingredient. Per això passa amb TOTS els ingredients.
 ## 9. Higiene de dades i pendents tècnics
 
 ### 🔄 Accions en curs (tancament de la ronda del 18/11/2026)
-Les úniques coses obertes d'aquesta ronda. Cada una s'esborra d'aquí quan
-es tanca.
+L'única cosa oberta d'aquesta ronda. S'esborra d'aquí quan es tanca.
 
-1. **Validació de la 1.0.34+50 a Closed Testing** (PR #122, sense mergejar fins
-   que passi). Inclou la porta prèvia del selector de contactes
-   (`flutter_contacts` 2.x, mai validat a Android): "triar un contacte" a
-   **proveïdor** i a **convidat** — permís concedit, cancel·lació i permís
-   denegat. I el catàleg, les unitats, les categories i els consells en
-   l'idioma del telèfon (consulta de traduccions filtrada al client).
-2. **Resposta de la revisió d'Apple** (versió iOS).
+1. **Resposta de la revisió d'Apple** (versió iOS).
 
 ### 🔍 Cobertura de maquetació de la passada de densitat (1.0.30)
 La passada de densitat de la 1.0.30 (etiqueta→camp 6→4, padding vertical dels

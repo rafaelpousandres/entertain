@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../data/translations_query.dart';
 import '../../shopping/supplier_category_format.dart'
     show compareSupplierCategoriesPantryLast;
 import 'catalog_naming.dart';
@@ -46,11 +47,16 @@ class CatalogRepository {
 
   // --- Reference catalogs (system content) -------------------------------
 
+  /// The `id` of every row of a query result.
+  static List<String> _ids(Object rows) => [
+    for (final r in rows as List) (r as Map<String, dynamic>)['id'] as String,
+  ];
+
   /// Units with their translated name in [localeCode] (e.g. "g", "unitat").
   /// Falls back to the unit code if a translation is missing.
   Future<List<Unit>> listUnits(String localeCode) async {
     final rows = await _client.from('units').select(Unit.selectColumns);
-    final names = await _translationNames('unit', localeCode);
+    final names = await _translationNames('unit', localeCode, _ids(rows));
 
     return (rows as List).map((r) {
       final row = r as Map<String, dynamic>;
@@ -76,7 +82,11 @@ class CatalogRepository {
     final rows = await _client
         .from('supplier_categories')
         .select(SupplierCategory.selectColumns);
-    final names = await _translationNames('supplier_category', localeCode);
+    final names = await _translationNames(
+      'supplier_category',
+      localeCode,
+      _ids(rows),
+    );
 
     return (rows as List).map((r) {
       final row = r as Map<String, dynamic>;
@@ -140,36 +150,39 @@ class CatalogRepository {
   }
 
   /// entity_id → translated text map for a translation entity type and
-  /// locale, restricted to the `name` field.
+  /// locale, restricted to the `name` field of the given [entityIds] (the
+  /// read is never unfiltered — see `translations_query.dart`).
   Future<Map<String, String>> _translationNames(
     String entityType,
     String localeCode,
+    Iterable<String> entityIds,
   ) async {
-    final rows = await _client
-        .from('translations')
-        .select('entity_id, text')
-        .eq('entity_type', entityType)
-        .eq('locale', localeCode)
-        .eq('field', 'name');
-    return {
-      for (final r in rows as List)
-        (r as Map<String, dynamic>)['entity_id'] as String:
-            r['text'] as String,
-    };
+    final texts = await fetchTranslationTexts(
+      _client,
+      entityType: entityType,
+      entityIds: entityIds,
+      locales: {localeCode},
+      field: 'name',
+    );
+    return texts[localeCode]!;
   }
 
-  /// Spec 025 A.4 — the app-locale and English name maps for a catalog entity
-  /// type, used to localize the display name and supply the D2 English bridge.
-  /// One extra query per list (English is skipped when the locale already is en).
+  /// Spec 025 A.4 — the app-locale and English name maps for the given
+  /// entities of a catalog type, used to localize the display name and supply
+  /// the D2 English bridge. Both locales travel in the same requests.
   Future<({Map<String, String> local, Map<String, String> en})> _nameMaps(
     String entityType,
     String localeCode,
+    Iterable<String> entityIds,
   ) async {
-    final local = await _translationNames(entityType, localeCode);
-    final en = localeCode == 'en'
-        ? local
-        : await _translationNames(entityType, 'en');
-    return (local: local, en: en);
+    final texts = await fetchTranslationTexts(
+      _client,
+      entityType: entityType,
+      entityIds: entityIds,
+      locales: {localeCode, 'en'},
+      field: 'name',
+    );
+    return (local: texts[localeCode]!, en: texts['en']!);
   }
 
   /// Spec 025 A.2/A.3 — fire the un-metered `translate-name` Edge Function so an
@@ -240,7 +253,7 @@ class CatalogRepository {
         .eq('group_id', groupId)
         .filter('deleted_at', 'is', null)
         .order('name', ascending: true);
-    final names = await _nameMaps('ingredient', localeCode);
+    final names = await _nameMaps('ingredient', localeCode, _ids(rows));
     final list = (rows as List).map((r) {
       final row = r as Map<String, dynamic>;
       final id = row['id'] as String;
@@ -265,7 +278,7 @@ class CatalogRepository {
     if (row == null) {
       throw StateError('Ingredient not found.');
     }
-    final names = await _nameMaps('ingredient', localeCode);
+    final names = await _nameMaps('ingredient', localeCode, [id]);
     return Ingredient.fromRow(
       row,
       displayName: localizedName(names.local[id], row['name'] as String),
@@ -369,7 +382,11 @@ class CatalogRepository {
         .select('dishes!inner(id, name, deleted_at)')
         .eq('ingredient_id', ingredientId)
         .filter('dishes.deleted_at', 'is', null);
-    final local = await _translationNames('dish', localeCode);
+    final local = await _translationNames('dish', localeCode, [
+      for (final r in rows as List)
+        if ((r as Map<String, dynamic>)['dishes'] case final Map dish)
+          dish['id'] as String,
+    ]);
     return usedInDishNames(rows as List, local);
   }
 
@@ -382,7 +399,7 @@ class CatalogRepository {
         .eq('group_id', groupId)
         .filter('deleted_at', 'is', null)
         .order('name', ascending: true);
-    final names = await _nameMaps('dish', localeCode);
+    final names = await _nameMaps('dish', localeCode, _ids(rows));
     final list = (rows as List).map((r) {
       final row = r as Map<String, dynamic>;
       final id = row['id'] as String;
@@ -406,7 +423,7 @@ class CatalogRepository {
     if (row == null) {
       throw StateError('Dish not found.');
     }
-    final names = await _nameMaps('dish', localeCode);
+    final names = await _nameMaps('dish', localeCode, [id]);
     return Dish.fromRow(
       row,
       displayName: localizedName(names.local[id], row['name'] as String),
@@ -567,7 +584,7 @@ class CatalogRepository {
         .eq('group_id', groupId)
         .filter('deleted_at', 'is', null)
         .order('name', ascending: true);
-    final names = await _nameMaps('drink', localeCode);
+    final names = await _nameMaps('drink', localeCode, _ids(rows));
     final list = (rows as List).map((r) {
       final row = r as Map<String, dynamic>;
       final id = row['id'] as String;
@@ -591,7 +608,7 @@ class CatalogRepository {
     if (row == null) {
       throw StateError('Drink not found.');
     }
-    final names = await _nameMaps('drink', localeCode);
+    final names = await _nameMaps('drink', localeCode, [id]);
     return Drink.fromRow(
       row,
       displayName: localizedName(names.local[id], row['name'] as String),

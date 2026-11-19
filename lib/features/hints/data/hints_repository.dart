@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../data/translations_query.dart';
 import 'hint.dart';
 import 'hint_selection.dart';
 
@@ -13,8 +14,18 @@ class HintsRepository {
 
   Future<List<Hint>> listHints(String localeCode) async {
     final rows = await _client.from('hints').select(Hint.selectColumns);
-    final local = await _hintText(localeCode);
-    final ca = localeCode == 'ca' ? local : await _hintText('ca');
+    final texts = await fetchTranslationTexts(
+      _client,
+      entityType: 'hint',
+      entityIds: [
+        for (final r in rows as List)
+          (r as Map<String, dynamic>)['id'] as String,
+      ],
+      locales: {localeCode, 'ca'},
+      field: 'text',
+    );
+    final local = texts[localeCode]!;
+    final ca = texts['ca']!;
 
     final hints = <Hint>[];
     for (final r in rows as List) {
@@ -32,20 +43,5 @@ class HintsRepository {
       );
     }
     return hints;
-  }
-
-  /// entity_id → hint text for a locale (field `text`).
-  Future<Map<String, String>> _hintText(String localeCode) async {
-    final rows = await _client
-        .from('translations')
-        .select('entity_id, text')
-        .eq('entity_type', 'hint')
-        .eq('locale', localeCode)
-        .eq('field', 'text');
-    return {
-      for (final r in rows as List)
-        (r as Map<String, dynamic>)['entity_id'] as String:
-            r['text'] as String,
-    };
   }
 }
